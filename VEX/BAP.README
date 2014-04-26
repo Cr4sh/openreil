@@ -1,0 +1,1 @@
+This is VEX version 2199 with the patch bap_patch_20110908.patch applied.  Also, Makefile is a copy of Makefil-gcc with "-fPIC" added to the CFLAGS.

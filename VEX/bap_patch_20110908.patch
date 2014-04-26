@@ -1,0 +1,56 @@
+Index: priv/main_main.c
+===================================================================
+--- priv/main_main.c	(revision 2199)
++++ priv/main_main.c	(working copy)
+@@ -648,6 +648,14 @@
+    }
+    /* end HACK */
+ 
++   /* if host_bytes is null, it means the caller didn't want it */
++   if (!vta->host_bytes) {
++       if (vta->host_bytes_used)
++           *(vta->host_bytes_used) = 0;
++       res.status = VexTransOK;
++       return res;
++   }
++
+    if (vex_traceflags & VEX_TRACE_VCODE)
+       vex_printf("\n------------------------" 
+                    " Instruction selection "
+Index: priv/main_util.c
+===================================================================
+--- priv/main_util.c	(revision 2199)
++++ priv/main_util.c	(working copy)
+@@ -32,6 +32,7 @@
+    used to endorse or promote products derived from this software
+    without prior written permission.
+ */
++#include <setjmp.h>
+ 
+ #include "libvex_basictypes.h"
+ #include "libvex.h"
+@@ -39,6 +40,9 @@
+ #include "main_globals.h"
+ #include "main_util.h"
+ 
++/* Jump buffer used to return from VEX errors */
++jmp_buf vex_error;
++char jmp_buf_set = 0;
+ 
+ /*---------------------------------------------------------*/
+ /*--- Storage                                           ---*/
+@@ -222,8 +226,12 @@
+ __attribute__ ((noreturn))
+ void vpanic ( HChar* str )
+ {
+-   vex_printf("\nvex: the `impossible' happened:\n   %s\n", str);
+-   (*vex_failure_exit)();
++    vex_printf("\nvex: the `impossible' happened:\n   %s\n", str);
++    /* Try to longjmp back to BAP */
++    if (jmp_buf_set) {
++        longjmp(vex_error, -1);
++    }
++    (*vex_failure_exit)();
+ }
+ 
+ 
