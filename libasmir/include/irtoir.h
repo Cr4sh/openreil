@@ -74,6 +74,10 @@ void translate_init();
 // \return An IRSB containing the VEX IR translation of the given instruction
 // vexir.c
 IRSB *translate_insn( VexArch guest, unsigned char *insn_start, unsigned int insn_addr );
+
+//
+// Translate an IRSB into a vector of Stmts in our IR
+vector<Stmt *> *translate_irbb( IRSB *irbb );
 }
 
 

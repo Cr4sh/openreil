@@ -1,13 +1,10 @@
 bin_PROGRAMS = \
-	print-ir
-
-# these executables should depend on libasmir, since they link it in
-# statically.
-#print-ir_DEPENDENCIES = ../src/libasmir.a
-#lifttrace_DEPENDENCIES = ../src/libasmir.a
+	print-ir \
+    translate-insn
 
 print_ir_SOURCES = print-ir.cpp ir_printer.cpp
-LDADD = @ASMIR_DIR@/src/libasmir.a @VEX_DIR@/libvex.a -lbfd -ldl -lopcodes
+translate_insn_SOURCES = translate-insn.cpp
+LDADD = @ASMIR_DIR@/src/libasmir.a @VEX_DIR@/libvex.a -lbfd -ldl -lopcodes @MINGW_LIBS@
 AM_CXXFLAGS = \
               -I../include \
               -I../src/traces \

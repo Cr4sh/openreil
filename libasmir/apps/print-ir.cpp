@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
     // we run the risk of running out of memory for subsequent blocks
     // since memory for translations is static and have a fixed limit.
     //
-//    vx_FreeAll();   // Frees mem allocated inside generate_vex_ir()
+    vx_FreeAll();   // Frees mem allocated inside generate_vex_ir()
 
 
     return 0;

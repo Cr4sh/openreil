@@ -24,25 +24,31 @@ if test "$(uname -m)" == "x86_64";
    then export CFLAGS="$CFLAGS -DAMD64";
 fi
 
+# Link with the libintl on MinGW systems
+MINGW_LIBS=""
+case "$(uname -s)" in
+  *MINGW* ) MINGW_LIBS="-lintl" ;;
+esac
+
 VEX_DIR=`pwd`/'VEX'
 VEX_VERSION=2201
 
 # Checks for libraries.
 AC_CHECK_LIB([bfd], [bfd_init], , AC_MSG_ERROR([BFD library not found]))
 AC_CHECK_LIB([iberty], [xmalloc], , AC_MSG_ERROR([Iberty library not found]))
-AC_CHECK_LIB([pcre], [pcre_config], , AC_MSG_ERROR([PCRE library not found]))
 # zlib is apparently needed by bfd
 AC_CHECK_LIB([z], [inflate], , AC_MSG_ERROR([zlib library not found]))
 
 AC_SUBST(VEX_DIR)
-
+AC_SUBST(MINGW_LIBS)
 AC_SUBST(INCDIRS)
 
 rm -f libasmir/makefile.inc
 echo "VEX_DIR=${VEX_DIR}" >> libasmir/makefile.inc
+echo "MINGW_LIBS=${MINGW_LIBS}" >> libasmir/makefile.inc
 echo "LIBASMIR_CXXFLAGS=-I${VEX_DIR}/pub -I`pwd`/src/include $CXXFLAGS" >> libasmir/makefile.inc
 echo "LIBASMIR_LDFLAGS=-L${VEX_DIR} -L`pwd`/src $LDFLAGS" >> libasmir/makefile.inc
-echo "LIBASMIR_LIBS=-lasmir -lvex -lbfd -ldl -liberty -lz" >> libasmir/makefile.inc
+echo "LIBASMIR_LIBS=-lasmir -lvex -lbfd -ldl -liberty -lz ${MINGW_LIBS}" >> libasmir/makefile.inc
 echo "CLIBS=asmir vex opcodes bfd z iberty stdc++" >> libasmir/makefile.inc
 AC_SUBST(ASMIR_DIR)
 ASMIR_DIR="`pwd`/libasmir"
@@ -56,8 +62,6 @@ AC_CHECK_HEADERS([fcntl.h stdint.h stdlib.h string.h unistd.h], ,
    AC_MSG_ERROR([Standard headers missing]))
 AC_CHECK_HEADER([bfd.h], ,
    AC_MSG_ERROR([You need BFD headers (e.g., libbfd-dev)]))
-AC_CHECK_HEADER([pcre.h], ,
-   AC_MSG_ERROR([You need libpcre headers (e.g., libpcre3-dev)]))
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
