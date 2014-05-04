@@ -2,12 +2,13 @@
 # get Python version and path
 PYTHON := python
 PYVERSION := $(shell $(PYTHON) -c "import sys; print(sys.version[ : 3])")
+PYEXT := $(shell $(PYTHON) -c "import sys; print 'pyd' if sys.platform == 'win32' else 'so'")
 
 # get python libraries and headers directories
 INCDIR := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_python_inc())")
 PLATINCDIR := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_python_inc(plat_specific = True))")
 
-../translator.so: translator.o ../../libopenreil/src/libopenreil.a ../../libasmir/src/libasmir.a ../../VEX/libvex.a
+../translator.$(PYEXT): translator.o ../../libopenreil/src/libopenreil.a ../../libasmir/src/libasmir.a ../../VEX/libvex.a
 	$(CXX) -pthread -shared -o $@ $^ -ldl -lbfd -lopcodes -lz -liberty -lpython$(PYVERSION) $(MINGW_LIBS)
 
 translator.o: translator.cpp translator.pyx libopenreil.pxd
@@ -17,8 +18,8 @@ CYTHON := cython
 translator.cpp: translator.pyx
 	$(CYTHON) --embed --cplus translator.pyx
 
-all: ../translator.so
+all: ../translator.$(PYEXT)
 
 clean:
-	@rm *.o *.cpp ../translator.so
+	@rm *.o *.cpp ../translator.$(PYEXT)
 
