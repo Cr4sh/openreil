@@ -105,21 +105,16 @@ my_read_memory (bfd_vma memaddr,
 		unsigned int length,
 		struct disassemble_info *info)
 {
-  int ret = buffer_read_memory(memaddr,myaddr,length,info);
+  section_t *seg = get_section_of(info->application_data, memaddr);
+  if (NULL == seg)
+    return EIO;
 
-  if (EIO == ret) {
-    section_t *seg = get_section_of(info->application_data, memaddr);
-    if (NULL == seg)
-      return EIO;
+  info->buffer = seg->data;
+  info->buffer_vma = seg->start_addr;
+  info->buffer_length = seg->datasize;
+  info->section = seg->section;
 
-    info->buffer = seg->data;
-    info->buffer_vma = seg->start_addr;
-    info->buffer_length = seg->datasize;
-    info->section = seg->section;
-
-    ret = buffer_read_memory(memaddr,myaddr,length,info);
-  }
-  return ret;
+  return buffer_read_memory(memaddr,myaddr,length,info);
 }
 
 
@@ -382,6 +377,17 @@ enum bfd_architecture asmir_get_asmp_arch(asm_program_t *prog) {
   return bfd_get_arch(prog->abfd);
 }
 
+#ifdef __MINGW32__
+
+// Windows build
+#define NULL_PATH "NUL"
+
+#else
+
+// *nix build
+#define NULL_PATH "/dev/null"
+
+#endif
 
 // from old translate.cpp fake_prog_for_arch()
 // Returns a fake asm_program_t for use when disassembling bits out of memory
@@ -392,7 +398,7 @@ asm_program_t* asmir_new_asmp_for_arch(enum bfd_architecture arch)
   asm_program_t *prog = malloc(sizeof(asm_program_t));
   assert(prog);
   
-  prog->abfd = bfd_openw("/dev/null", NULL);
+  prog->abfd = bfd_openw(NULL_PATH, NULL);
   if (!prog->abfd) {
     bfd_perror("Unable to open fake bfd");
   }
@@ -418,7 +424,7 @@ asm_program_t* asmir_trace_asmp_for_arch(enum bfd_architecture arch)
   asm_program_t *prog = malloc(sizeof(asm_program_t));
   assert(prog);
   
-  prog->abfd = bfd_openw("/dev/null", NULL);
+  prog->abfd = bfd_openw(NULL_PATH, NULL);
   if (!prog->abfd) {
     bfd_perror("Unable to open fake bfd");
   }

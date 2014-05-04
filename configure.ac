@@ -19,6 +19,8 @@ AC_PROG_CC
 AC_PROG_MAKE_SET
 AC_PROG_RANLIB
 
+AM_PATH_PYTHON(, , AC_MSG_ERROR([Python not found]))
+
 # Add -DAMD64 when needed
 if test "$(uname -m)" == "x86_64";
    then export CFLAGS="$CFLAGS -DAMD64";
@@ -36,8 +38,12 @@ VEX_VERSION=2201
 # Checks for libraries.
 AC_CHECK_LIB([bfd], [bfd_init], , AC_MSG_ERROR([BFD library not found]))
 AC_CHECK_LIB([iberty], [xmalloc], , AC_MSG_ERROR([Iberty library not found]))
+
 # zlib is apparently needed by bfd
 AC_CHECK_LIB([z], [inflate], , AC_MSG_ERROR([zlib library not found]))
+
+# Python library
+AC_CHECK_LIB([python$PYTHON_VERSION], [Py_Initialize], , AC_MSG_ERROR([Python library not found]))
 
 AC_SUBST(VEX_DIR)
 AC_SUBST(MINGW_LIBS)
@@ -55,6 +61,12 @@ ASMIR_DIR="`pwd`/libasmir"
 
 AC_SUBST(BAP_DIR)
 BAP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+AC_SUBST(OPENREIL_DIR)
+OPENREIL_DIR="`pwd`/libopenreil"
+
+rm -rf pyopenreil/src/makefile.inc
+echo "MINGW_LIBS=${MINGW_LIBS}" >> pyopenreil/src/makefile.inc
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -82,5 +94,9 @@ AC_CHECK_FUNCS([bzero memset strstr strtoul])
 AC_CONFIG_FILES([Makefile
                  libasmir/Makefile
                  libasmir/apps/Makefile
-                 libasmir/src/Makefile])
+                 libasmir/src/Makefile
+                 libopenreil/Makefile
+                 libopenreil/src/Makefile
+                 libopenreil/apps/Makefile
+                 pyopenreil/Makefile])
 AC_OUTPUT

@@ -3,176 +3,23 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
-#include <set>
 #include <iostream>
 #include <string>
 
-#include "asm_program.h"
-#include "ir_printer.h"
-
 extern "C" 
-{
-#include "libvex.h"
+{ 
+#include "libvex.h" 
 }
 
+// libasmir includes
+#include "asm_program.h"
 #include "irtoir.h"
 
+// OpenREIL includes
+#include "libopenreil.h"
+#include "reil_translator.h"
+
 using namespace std;
-
-#define DBG_ASM
-//#define DBG_BAP
-#define DBG_REIL
-
-#define MAX_REG_NAME_LEN  15
-#define MAX_TEMP_NAME_LEN 15
-#define MAX_INST_LEN 30
-
-enum reil_op_t 
-{ 
-    I_NONE,
-    I_JCC,      // conditional jump 
-    I_STR,      // store value to register
-    I_STM,      // store value to memory
-    I_LDM,      // load value from memory
-    I_ADD,      // addition
-    I_SUB,      // substraction
-    I_NEG,      // negation
-    I_MUL,      // multiplication
-    I_DIV,      // division
-    I_MOD,      // modulus    
-    I_SMUL,     // signed multiplication
-    I_SDIV,     // signed division
-    I_SMOD,     // signed modulus
-    I_SHL,      // shift left
-    I_SHR,      // shift right
-    I_ROL,      // rotate left
-    I_ROR,      // rotate right
-    I_AND,      // binary and
-    I_OR,       // binary or
-    I_XOR,      // binary xor
-    I_NOT,      // binary not
-    I_BAND,     // logical and
-    I_BOR,      // logical or
-    I_BXOR,     // logical xor
-    I_BNOT,     // logical not    
-    I_EQ,       // equation
-    I_L,        // less than
-    I_LE,       // less or equal than
-    I_SL,       // signed less than
-    I_SLE,      // signed less or equal than    
-    I_LCAST,    // low half of the integer
-    I_HCAST,    // high half of the integer
-    I_UCAST,    // cast to unsigned value
-    I_SCAST     // cast with sign bit
-};
-
-enum reil_type_t
-{
-    A_NONE,
-    A_REG,      // target architecture registry operand
-    A_TEMP,     // temporary registry operand
-    A_CONSTANT  // immediate value
-};
-
-typedef uint64_t reil_const_t;
-typedef uint64_t reil_addr_t;
-typedef uint16_t reil_inum_t;
-
-enum reil_size_t { U1, U8, U16, U32, U64 };
-
-struct reil_arg_t
-{
-    reil_type_t type;
-
-    union
-    {
-        struct
-        {
-            reil_size_t size;
-            char name[MAX_REG_NAME_LEN];
-
-        } reg;
-
-        struct
-        {
-            reil_size_t size;
-            char name[MAX_TEMP_NAME_LEN];
-
-        } temp;
-
-        struct
-        {
-            reil_size_t size;
-            reil_const_t val;
-
-        } constant;
-    };
-};
-
-struct reil_inst_t
-{
-    reil_addr_t addr;   // address of the original assembly instruction
-    reil_inum_t inum;   // number of the IR subinstruction
-    reil_op_t op;       // operation code
-    reil_arg_t a, b, c; // arguments
-};
-
-typedef pair<int32_t, string> TEMPREG_BAP;
-
-class CReilFromBilTranslator
-{
-public:
-    
-    CReilFromBilTranslator(); 
-    ~CReilFromBilTranslator();
-
-    void reset_state();    
-
-    void process_bil(address_t addr, Stmt *s);
-    void process_bil(address_t addr, bap_block_t *block);
-
-private:
-
-    string to_string_constant(reil_const_t val, reil_size_t size);
-    string to_string_size(reil_size_t size);
-    string to_string_operand(reil_arg_t *a);
-
-    string tempreg_get_name(int32_t tempreg_num);
-    int32_t tempreg_bap_find(string name);
-    int32_t tempreg_alloc(void);
-    
-    reil_size_t convert_operand_size(reg_t typ);
-    void convert_operand(Exp *exp, struct reil_arg_t *reil_arg);    
-
-    void process_reil_inst(reil_inst_t *reil_inst);
-
-    void free_bil_exp(Exp *exp);
-    Exp *process_bil_exp(Exp *exp);    
-    Exp *process_bil_inst(reil_op_t inst, Exp *c, Exp *exp);
-
-    vector<TEMPREG_BAP> tempreg_bap;
-    int32_t tempreg_count;
-    reil_inum_t inst_count;
-    address_t inst_addr;
-};
-
-class CReilTranslator
-{
-public:
-
-    CReilTranslator(bfd_architecture arch);
-    ~CReilTranslator();
-
-    void process_inst(address_t addr, uint8_t *data, int size);
-
-private:
-
-    void set_inst_addr(address_t addr);
-
-    CReilFromBilTranslator *translator;
-    uint8_t inst_buffer[MAX_INST_LEN];
-    asm_program_t *prog;
-};
 
 const char *reil_inst_name[] = 
 {
@@ -264,8 +111,10 @@ void Relative::destroy(Constant *expr)
     delete expr;
 }
 
-CReilFromBilTranslator::CReilFromBilTranslator()
+CReilFromBilTranslator::CReilFromBilTranslator(reil_inst_handler_t handler, void *context)
 {
+    inst_handler = handler;
+    inst_handler_context = context;
     reset_state();
 }
 
@@ -278,58 +127,6 @@ void CReilFromBilTranslator::reset_state()
 {
     tempreg_bap.clear();
     tempreg_count = inst_count = 0;
-}
-
-string CReilFromBilTranslator::to_string_constant(reil_const_t val, reil_size_t size)
-{
-    stringstream s;
-    uint8_t u8 = 0;
-    uint16_t u16 = 0;
-    uint32_t u32 = 0;
-    uint64_t u64 = 0;
-
-    switch (size)
-    {
-    case U1: if (val == 0) s << "0"; else s << "1"; break;
-    case U8: u8 = (uint8_t)val; s << dec << (int)u8; break;
-    case U16: u16 = (uint16_t)val; s << u16; break;
-    case U32: u32 = (uint32_t)val; s << u32; break;
-    case U64: u64 = (uint64_t)val; s << u64; break;
-    default: assert(0);
-    }
-    
-    return s.str();
-}
-
-string CReilFromBilTranslator::to_string_size(reil_size_t size)
-{
-    switch (size)
-    {
-    case U1: return string("1");
-    case U8: return string("8");
-    case U16: return string("16");
-    case U32: return string("32");
-    case U64: return string("64");
-    }
-
-    assert(0);
-}
-
-#define STR_ARG_EMPTY " "
-#define STR_VAR(_name_, _t_) "(" + (_name_) + ", " + to_string_size((_t_)) + ")"
-#define STR_CONST(_val_, _t_) "(" + to_string_constant((_val_), (_t_)) + ", " + to_string_size((_t_)) + ")"
-
-string CReilFromBilTranslator::to_string_operand(reil_arg_t *a)
-{
-    switch (a->type)
-    {
-    case A_NONE: return string(STR_ARG_EMPTY);
-    case A_REG: return STR_VAR(string(a->reg.name), a->reg.size);
-    case A_TEMP: return STR_VAR(string(a->temp.name), a->temp.size);
-    case A_CONSTANT: return STR_CONST(a->constant.val, a->constant.size);
-    }    
-
-    assert(0);
 }
 
 string CReilFromBilTranslator::tempreg_get_name(int32_t tempreg_num)
@@ -385,6 +182,20 @@ int32_t CReilFromBilTranslator::tempreg_alloc(void)
     return -1;
 }
 
+uint64_t CReilFromBilTranslator::convert_special(Special *special)
+{
+    if (special->special == "call")
+    {
+        return IOPT_CALL;
+    }
+    else if (special->special == "ret")
+    {
+        return IOPT_RET;
+    }
+
+    return 0;
+}
+
 reil_size_t CReilFromBilTranslator::convert_operand_size(reg_t typ)
 {
     switch (typ)
@@ -398,7 +209,7 @@ reil_size_t CReilFromBilTranslator::convert_operand_size(reg_t typ)
     }    
 }
 
-void CReilFromBilTranslator::convert_operand(Exp *exp, struct reil_arg_t *reil_arg)
+void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
 {
     if (exp == NULL) return;
 
@@ -408,9 +219,9 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, struct reil_arg_t *reil_a
     {
         // special handling for canstants
         Constant *constant = (Constant *)exp;
-        reil_arg->type = A_CONSTANT;
-        reil_arg->constant.size = convert_operand_size(constant->typ);
-        reil_arg->constant.val = constant->val;
+        reil_arg->type = A_CONST;
+        reil_arg->size = convert_operand_size(constant->typ);
+        reil_arg->val = constant->val;
         return;
     }
 
@@ -418,7 +229,7 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, struct reil_arg_t *reil_a
     string ret = temp->name;
 
     const char *c_name = ret.c_str();
-    if (strncmp(c_name, "R_", 2) && strncmp(c_name, "V_", 2) && strncmp(c_name, "pc_", 3))
+    if (strncmp(c_name, "R_", 2) && strncmp(c_name, "V_", 2) && strncmp(c_name, "pc_0x", 5))
     {
         // this is a BAP temporary registry
         int32_t tempreg_num = tempreg_bap_find(temp->name);
@@ -449,32 +260,33 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, struct reil_arg_t *reil_a
     {
         // architecture register
         reil_arg->type = A_REG;
-        reil_arg->reg.size = convert_operand_size(temp->typ);
-        strncpy(reil_arg->reg.name, ret.c_str(), MAX_REG_NAME_LEN - 1);
+        reil_arg->size = convert_operand_size(temp->typ);
+        strncpy(reil_arg->name, ret.c_str(), REIL_MAX_NAME_LEN - 1);
+    }
+    else if (!strncmp(c_name, "pc_0x", 5))
+    {
+        // code pointer
+        reil_arg->type = A_CONST;
+        reil_arg->size = convert_operand_size(temp->typ);
+        reil_arg->val = strtoll(c_name + 5, NULL, 16);
+        assert(errno != EINVAL);
     }
     else
     {
         // temporary register
         reil_arg->type = A_TEMP;
-        reil_arg->temp.size = convert_operand_size(temp->typ);
-        strncpy(reil_arg->temp.name, ret.c_str(), MAX_TEMP_NAME_LEN - 1);
+        reil_arg->size = convert_operand_size(temp->typ);
+        strncpy(reil_arg->name, ret.c_str(), REIL_MAX_NAME_LEN - 1);
     }
 }
 
 void CReilFromBilTranslator::process_reil_inst(reil_inst_t *reil_inst)
 {
-
-#ifdef DBG_REIL
-
-    printf("%.8llx.%.2x ", reil_inst->addr, reil_inst->inum);  
-    printf("%7s ", reil_inst_name[reil_inst->op]);
-    printf("%16s, ", to_string_operand(&reil_inst->a).c_str());
-    printf("%16s, ", to_string_operand(&reil_inst->b).c_str());
-    printf("%16s  ", to_string_operand(&reil_inst->c).c_str());
-    printf("\n");    
-
-#endif
-
+    if (inst_handler)
+    {
+        // call user-specified REIL instruction handler
+        inst_handler(reil_inst, inst_handler_context);
+    }
 }
 
 void CReilFromBilTranslator::free_bil_exp(Exp *exp)
@@ -497,13 +309,13 @@ Exp *CReilFromBilTranslator::process_bil_exp(Exp *exp)
                exp->exp_type == CAST);
 
         // expand complex expression and store result to the new temporary value
-        return process_bil_inst(I_STR, NULL, exp);
+        return process_bil_inst(I_STR, 0, NULL, exp);
     }    
 
     return NULL;
 }
 
-Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, Exp *c, Exp *exp)
+Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flags, Exp *c, Exp *exp)
 {
     reil_inst_t reil_inst;
     Exp *a = NULL, *b = NULL;
@@ -514,7 +326,9 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, Exp *c, Exp *exp)
     
     memset(&reil_inst, 0, sizeof(reil_inst));
     reil_inst.op = inst;
-    reil_inst.addr = inst_addr;
+    reil_inst.raw_info.addr = current_raw_info->addr;
+    reil_inst.raw_info.size = current_raw_info->size;
+    reil_inst.flags = inst_flags;
 
     if (c && c->exp_type == MEM)
     {
@@ -699,10 +513,17 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, Exp *c, Exp *exp)
     return c;
 }
 
-void CReilFromBilTranslator::process_bil(address_t addr, Stmt *s)
+void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, Stmt *s, Special *special)
 {    
+    uint64_t inst_flags = 0;
+    if (special)
+    {
+        // translate special statement to the REIL instruction options
+        inst_flags = convert_special(special);
+    }
+
     tempreg_count = 0;
-    inst_addr = addr;
+    current_raw_info = raw_info;
 
 #ifdef DBG_BAP
         
@@ -716,7 +537,7 @@ void CReilFromBilTranslator::process_bil(address_t addr, Stmt *s)
         {
             // move statement
             Move *move = (Move *)s;
-            process_bil_inst(I_STR, move->lhs, move->rhs);
+            process_bil_inst(I_STR, inst_flags, move->lhs, move->rhs);
             break;    
         }       
     
@@ -725,7 +546,7 @@ void CReilFromBilTranslator::process_bil(address_t addr, Stmt *s)
             // jump statement
             Jmp *jmp = (Jmp *)s;
             Constant c(REG_1, 1);
-            process_bil_inst(I_JCC, jmp->target, &c);
+            process_bil_inst(I_JCC, inst_flags | IOPT_BB_END, jmp->target, &c);
             break;
         }
 
@@ -733,7 +554,7 @@ void CReilFromBilTranslator::process_bil(address_t addr, Stmt *s)
         {
             // conditional jump statement
             CJmp *cjmp = (CJmp *)s;
-            process_bil_inst(I_JCC, cjmp->t_target, cjmp->cond);
+            process_bil_inst(I_JCC, inst_flags | IOPT_BB_END, cjmp->t_target, cjmp->cond);
             break;
         }
 
@@ -761,7 +582,7 @@ void CReilFromBilTranslator::process_bil(address_t addr, Stmt *s)
 
 }
 
-void CReilFromBilTranslator::process_bil(address_t addr, bap_block_t *block)
+void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *block)
 {
     reset_state();
 
@@ -769,13 +590,24 @@ void CReilFromBilTranslator::process_bil(address_t addr, bap_block_t *block)
     {
         // enumerate BIL statements
         Stmt *s = block->bap_ir->at(i);
+        Special *special = NULL;
+
+        if (i < block->bap_ir->size() - 1)
+        {
+            // check for the special statement that following current
+            Stmt *s_next = block->bap_ir->at(i + 1);
+            if (s_next->stmt_type == SPECIAL)
+            {
+                special = (Special *)s_next;
+            }
+        }
 
         // convert statement to REIL code
-        process_bil(addr, s);
+        process_bil(raw_info, s, special);
     }
 }
 
-CReilTranslator::CReilTranslator(bfd_architecture arch)
+CReilTranslator::CReilTranslator(bfd_architecture arch, reil_inst_handler_t handler, void *context)
 {
     // initialize libasmir
     translate_init();
@@ -794,24 +626,27 @@ CReilTranslator::CReilTranslator(bfd_architecture arch)
     prog->segs->is_code = true;
     set_inst_addr(0);
 
-    translator = new CReilFromBilTranslator();
+    translator = new CReilFromBilTranslator(handler, context);
     assert(translator);
 }
 
 CReilTranslator::~CReilTranslator()
 {
+    delete translator;
     asmir_close(prog);
 }
 
 void CReilTranslator::set_inst_addr(address_t addr)
 {
     prog->segs->start_addr = addr;
-    prog->segs->end_addr = prog->segs->start_addr + MAX_INST_LEN;
+    prog->segs->end_addr = addr + MAX_INST_LEN;
 }
 
-void CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
+int CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
 {
-    if (addr) set_inst_addr(addr);
+    int ret = 0;
+
+    set_inst_addr(addr);
     memcpy(inst_buffer, data, min(size, MAX_INST_LEN));
 
     // translate to VEX
@@ -820,17 +655,22 @@ void CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
 
 #ifdef DBG_ASM
 
-    string asm_code = asmir_string_of_insn(prog, block->inst);
+    string asm_code = asmir_string_of_insn(prog, addr);
     printf("# %s\n\n", asm_code.c_str());
 
 #endif
+
+    ret = asmir_get_instr_length(prog, addr);
+    assert(ret != 0 && ret != -1);
 
     // tarnslate to BAP
     generate_bap_ir_block(prog, block);                
 
     // generate REIL
-    CReilFromBilTranslator translator;
-    translator.process_bil(addr, block);
+    reil_raw_t raw_info;
+    raw_info.addr = addr;
+    raw_info.size = ret;
+    translator->process_bil(&raw_info, block);
 
     for (int i = 0; i < block->bap_ir->size(); i++)
     {
@@ -845,51 +685,6 @@ void CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
     // free VEX memory
     // asmir_close() is also doing that
     vx_FreeAll();
+
+    return ret;
 }
-
-//======================================================================
-//
-// Main
-//
-//======================================================================
-
-int main(int argc, char *argv[])
-{
-    if (argc < 3)
-    {
-        printf("USAGE: tarnslate-insn.exe [arch] [hex_bytes]\n");
-        return 0;
-    }
-
-    enum bfd_architecture arch;
-    uint8_t inst[MAX_INST_LEN];
-    memset(inst, 0, sizeof(inst));
-
-    if (!strcmp(argv[1], "-x86"))
-    {
-        // set target architecture
-        arch = bfd_arch_i386;
-    }
-    else
-    {
-        printf("ERROR: Invalid architecture\n");
-        return -1;
-    }
-
-    for (int i = 2; i < argc; i++)
-    {
-        // get user specified bytes to dissassembly
-        inst[i - 2] = strtol(argv[i], NULL, 16);
-        if (errno == EINVAL)
-        {
-            printf("ERROR: Invalid hex byte\n");
-            return -1;
-        }
-    }
-
-    CReilTranslator translator(arch);
-    translator.process_inst(0, inst, MAX_INST_LEN);
-
-    return 0;
-}
-

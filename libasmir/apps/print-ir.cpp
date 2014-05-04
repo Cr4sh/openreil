@@ -17,8 +17,6 @@
 #include <iostream>
 
 #include "asm_program.h"
-//#include "disasm-pp.h"
-
 #include "ir_printer.h"
 
 extern "C" 
@@ -100,7 +98,6 @@ void print_prog_ir(asm_program_t *prog)
   vector<bap_block_t *> bap_blocks = generate_vex_ir(prog);    
   bap_blocks = generate_bap_ir(prog, bap_blocks);
 
-  //print_globals();
   print_bap_ir(prog, bap_blocks);
 }
 

@@ -1,10 +1,8 @@
 
 RANLIB = @RANLIB@
 lib_LIBRARIES = libasmir.a
-#lib_LTLIBRARIES = libasmir.la
 AM_CFLAGS = -I@VEX_DIR@/pub -I../include -Itraces -fPIC -DGET_OPERANDS
 AM_CXXFLAGS = $(AM_CFLAGS)
-
 
 libasmir_a_SOURCES = \
 	./old_ir/stmt.cpp \
@@ -22,4 +20,6 @@ libasmir_a_SOURCES = \
 	vexmem.c \
 	ocaml_helpers.c \
 	llvm.cpp
+
 libasmir_a_LIBADD = @VEX_DIR@/libvex.a
+
