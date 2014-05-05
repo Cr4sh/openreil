@@ -21,6 +21,11 @@ AC_PROG_RANLIB
 
 AM_PATH_PYTHON(, , AC_MSG_ERROR([Python not found]))
 
+AC_CHECK_PROG(CYTHON_FOUND, cython, yes)
+if test x"$CYTHON_FOUND" != x"yes" ; then
+    AC_MSG_ERROR([Cython not found])
+fi
+
 # Add -DAMD64 when needed
 if test "$(uname -m)" == "x86_64";
    then export CFLAGS="$CFLAGS -DAMD64";
