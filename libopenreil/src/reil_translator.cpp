@@ -26,9 +26,9 @@ const char *reil_inst_name[] =
     "NONE", "JCC", 
     "STR", "STM", "LDM", 
     "ADD", "SUB", "NEG", "MUL", "DIV", "MOD", "SMUL", "SDIV", "SMOD", 
-    "SHL", "SHR", "ROL", "ROR", 
-    "AND", "OR", "XOR", "NOT", "BAND", "BOR", "BXOR", "BNOT",
-    "EQ", "L", "LE", "SL", "SLE", "CAST_LO", "CAST_HI", "CAST_U", "CAST_S"
+    "SHL", "SHR", "ROL", "ROR", "AND", "OR", "XOR", "NOT",
+    "EQ", "NEQ", "L", "LE", "SL", "SLE", 
+    "CAST_L", "CAST_H", "CAST_U", "CAST_S"
 };
 
 reil_op_t reil_inst_map_binop[] = 
@@ -43,13 +43,13 @@ reil_op_t reil_inst_map_binop[] =
     /* ARSHIFT  */ I_NONE,
     /* LROTATE  */ I_ROL,  
     /* RROTATE  */ I_ROR,  
-    /* LOGICAND */ I_BAND, 
-    /* LOGICOR  */ I_BOR,
+    /* LOGICAND */ I_AND, 
+    /* LOGICOR  */ I_OR,
     /* BITAND   */ I_AND,  
     /* BITOR    */ I_OR,       
     /* XOR      */ I_XOR,      
     /* EQ       */ I_EQ,
-    /* NEQ      */ I_NONE,  
+    /* NEQ      */ I_NEQ,  
     /* GT       */ I_NONE,       
     /* LT       */ I_L,       
     /* GE       */ I_NONE,
@@ -61,7 +61,7 @@ reil_op_t reil_inst_map_binop[] =
 reil_op_t reil_inst_map_unop[] = 
 {
     /* NEG      */ I_NEG,
-    /* NOT      */ I_BNOT 
+    /* NOT      */ I_NOT 
 };
 
 template<class T>
@@ -70,6 +70,11 @@ string _to_string(T i)
     stringstream s;
     s << i;
     return s.str();
+}
+
+void reil_assert(bool condition, string reason)
+{
+    if (!condition) throw CReilTranslatorException(reason);
 }
 
 #define RELATIVE ((exp_type_t)((uint32_t)EXTENSION + 1))
@@ -178,7 +183,7 @@ int32_t CReilFromBilTranslator::tempreg_alloc(void)
         if (!found) return ret;
     }
 
-    assert(0);
+    reil_assert(0, "error while allocating temp registry");
     return -1;
 }
 
@@ -205,7 +210,7 @@ reil_size_t CReilFromBilTranslator::convert_operand_size(reg_t typ)
     case REG_16: return U16;
     case REG_32: return U32;
     case REG_64: return U64;
-    default: assert(0);
+    default: reil_assert(0, "invalid operand size");
     }    
 }
 
@@ -213,7 +218,9 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
 {
     if (exp == NULL) return;
 
-    assert(exp->exp_type == TEMP || exp->exp_type == CONSTANT || exp->exp_type == RELATIVE);
+    reil_assert(
+        exp->exp_type == TEMP || exp->exp_type == CONSTANT || exp->exp_type == RELATIVE,
+        "invalid expression type");
 
     if (exp->exp_type == CONSTANT)
     {
@@ -269,7 +276,7 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
         reil_arg->type = A_CONST;
         reil_arg->size = convert_operand_size(temp->typ);
         reil_arg->val = strtoll(c_name + 5, NULL, 16);
-        assert(errno != EINVAL);
+        reil_assert(errno != EINVAL, "invalid pc value");
     }
     else
     {
@@ -304,9 +311,9 @@ Exp *CReilFromBilTranslator::process_bil_exp(Exp *exp)
 
     if (exp->exp_type != TEMP && exp->exp_type != CONSTANT)
     {
-        assert(exp->exp_type == BINOP ||
-               exp->exp_type == UNOP || 
-               exp->exp_type == CAST);
+        reil_assert(
+            exp->exp_type == BINOP || exp->exp_type == UNOP || exp->exp_type == CAST,
+            "invaid expression type");
 
         // expand complex expression and store result to the new temporary value
         return process_bil_inst(I_STR, 0, NULL, exp);
@@ -321,8 +328,8 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     Exp *a = NULL, *b = NULL;
     Exp *a_temp = NULL, *b_temp = NULL, *exp_temp = NULL;
 
-    assert(exp);
-    assert(inst == I_STR || inst == I_JCC);
+    reil_assert(exp, "invalid expression");
+    reil_assert(inst == I_STR || inst == I_JCC, "invalid instruction");
     
     memset(&reil_inst, 0, sizeof(reil_inst));
     reil_inst.op = inst;
@@ -333,7 +340,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     if (c && c->exp_type == MEM)
     {
         // check for the store to memory
-        assert(reil_inst.op == I_STR);
+        reil_assert(reil_inst.op == I_STR, "invalid instruction used with memory operand");
 
         Mem *mem = (Mem *)c;    
         reil_inst.op = I_STM;
@@ -358,44 +365,60 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     else if (c && c->exp_type == NAME)
     {
         // check for the jump
-        assert(reil_inst.op == I_JCC);
+        reil_assert(reil_inst.op == I_JCC, "invalid instruction used with name operand");
 
         Name *name = (Name *)c;
         c = new Temp(REG_32, name->name);
     }
 
-    if (reil_inst.op == I_STR) assert(c == NULL || c->exp_type == TEMP);
-    if (reil_inst.op == I_STM) assert(c == NULL || (c->exp_type == TEMP || c->exp_type == CONSTANT));
+    if (reil_inst.op == I_STR) 
+    {
+        reil_assert(c == NULL || c->exp_type == TEMP, 
+            "invalid I_STR argument");
+    }
+
+    if (reil_inst.op == I_STM) 
+    {
+        reil_assert(c == NULL || (c->exp_type == TEMP || c->exp_type == CONSTANT),
+            "invalid I_STM argument");
+    }
+
+    bool binary_logic = false;
     
     // get a and b operands values from expression
     if (exp->exp_type == BINOP)
     {
-        assert(reil_inst.op == I_STR);
+        reil_assert(reil_inst.op == I_STR, "invalid instruction");
 
         // store result of binary operation
-        BinOp *binop = (BinOp *)exp;
+        BinOp *binop = (BinOp *)exp;  
         reil_inst.op = reil_inst_map_binop[binop->binop_type];
-        
-        assert(reil_inst.op != I_NONE);
+
+        if (binop->binop_type == LOGICAND || binop->binop_type == LOGICOR)
+        {
+            binary_logic = true;
+        }
+
+        reil_assert(reil_inst.op != I_NONE, "invalid binop expression");
 
         a = binop->lhs;
-        b = binop->rhs;        
+        b = binop->rhs;
     }
     else if (exp->exp_type == UNOP)
     {
-        assert(reil_inst.op == I_STR);
+        reil_assert(reil_inst.op == I_STR, "invalid instruction");
 
         // store result of unary operation
         UnOp *unop = (UnOp *)exp;   
         reil_inst.op = reil_inst_map_unop[unop->unop_type];
 
-        assert(reil_inst.op != I_NONE);
+        reil_assert(reil_inst.op != I_NONE, "invaid unop expression");
 
         a = unop->exp;
     }    
     else if (exp->exp_type == CAST)
     {
-        assert(reil_inst.op == I_STR);
+        reil_assert(reil_inst.op == I_STR, "invaid instruction");
 
         // store with type cast
         Cast *cast = (Cast *)exp;
@@ -414,16 +437,21 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
             // cast to unsigned value of bigger size
             reil_inst.op = I_UCAST;
         }
+        else if (cast->cast_type == CAST_SIGNED)
+        {
+            // cast to signed value of bigger size
+            reil_inst.op = I_SCAST;
+        }
         else
         {
-            assert(0);
+            reil_assert(0, "invalid cast");
         }
 
         a = cast->exp;
     }
     else if (exp->exp_type == MEM)
     {
-        assert(reil_inst.op == I_STR);
+        reil_assert(reil_inst.op == I_STR, "invalid instruction used with memory operand");
 
         // read from memory and store
         Mem *mem = (Mem *)exp;
@@ -445,7 +473,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     }        
     else
     {
-        assert(0);
+        reil_assert(0, "invalid expression");
     }
 
     // parse operand a expression
@@ -460,9 +488,20 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
         b = b_temp;
     }    
 
-    assert(a);
-    assert(a == NULL || a->exp_type == TEMP || a->exp_type == CONSTANT);
-    assert(b == NULL || b->exp_type == TEMP || b->exp_type == CONSTANT);    
+    reil_assert(a, "invalid instruction argument");
+    
+    reil_assert(a == NULL || a->exp_type == TEMP || a->exp_type == CONSTANT, 
+        "invalid instruction argument");
+
+    reil_assert(b == NULL || b->exp_type == TEMP || b->exp_type == CONSTANT, 
+        "invalid instruction argument");    
+
+    if (binary_logic)
+    {
+        // check for LOGICAND/LOGICOR size
+        reil_assert(a == NULL || ((Temp *)a)->typ == REG_1, "invalid logic operand");
+        reil_assert(b == NULL || ((Temp *)b)->typ == REG_1, "invalid logic operand");
+    }
 
     if (c == NULL)
     {
@@ -488,7 +527,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
         }
         else
         {
-            assert(0);
+            reil_assert(0, "invaid expression");
         }        
         
         tempreg_name = tempreg_get_name(tempreg_alloc());
@@ -562,7 +601,7 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, Stmt *s, Special 
     case RETURN:
         {            
             printf("Statement %d is not implemented\n", s->stmt_type);
-            assert(0);
+            reil_assert(0, "unimplemented statement");
         }
 
     case EXPSTMT:

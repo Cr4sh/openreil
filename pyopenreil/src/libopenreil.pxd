@@ -1,5 +1,6 @@
 
 DEF REIL_MAX_NAME_LEN = 15
+DEF REIL_ERROR = -1
 
 cdef extern from "libopenreil.h":    
 
@@ -26,12 +27,9 @@ cdef extern from "libopenreil.h":
         I_AND,      # binary and
         I_OR,       # binary or
         I_XOR,      # binary xor
-        I_NOT,      # binary not
-        I_BAND,     # logical and
-        I_BOR,      # logical or
-        I_BXOR,     # logical xor
-        I_BNOT,     # logical not    
+        I_NOT,      # binary not 
         I_EQ,       # equation
+        I_NEQ,      # negative equation
         I_L,        # less than
         I_LE,       # less or equal than
         I_SL,       # signed less than

@@ -42,9 +42,12 @@ cdef class Translator:
         ret = []
         cdef unsigned char* c_data = data
         cdef int c_size = len(data)
-        
+
         # translate specified binary code
         num = libopenreil.reil_translate_insn(self.reil, addr, c_data, c_size)
+        if num == -1: 
+
+            raise(Exception("reil_translate_insn() fails while processing instruction " + hex(addr)))
 
         # collect translated instructions
         while len(self.translated) > 0: ret.append(self.translated.pop())

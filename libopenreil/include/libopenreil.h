@@ -11,6 +11,8 @@
 
 #define MAX_INST_LEN 30
 
+#define REIL_ERROR -1
+
 typedef void * reil_t;
 typedef enum _reil_arch_t { REIL_X86 } reil_arch_t;
 typedef int (* reil_inst_handler_t)(reil_inst_t *inst, void *context);

@@ -19,9 +19,9 @@ instructions = [
     'NONE', 'JCC', 
     'STR', 'STM', 'LDM', 
     'ADD', 'SUB', 'NEG', 'MUL', 'DIV', 'MOD', 'SMUL', 'SDIV', 'SMOD', 
-    'SHL', 'SHR', 'ROL', 'ROR', 
-    'AND', 'OR', 'XOR', 'NOT', 'BAND', 'BOR', 'BXOR', 'BNOT',
-    'EQ', 'L', 'LE', 'SL', 'SLE', 'CAST_LO', 'CAST_HI', 'CAST_U', 'CAST_S' ]
+    'SHL', 'SHR', 'ROL', 'ROR', 'AND', 'OR', 'XOR', 'NOT',
+    'EQ', 'NEQ', 'L', 'LE', 'SL', 'SLE', 
+    'CAST_L', 'CAST_H', 'CAST_U', 'CAST_S' ]
 
 arguments = [ 'NONE', 'REG', 'TEMP', 'CONST' ]
 sizes = [ '1', '8', '16', '32', '64' ]
@@ -56,7 +56,7 @@ class Arg:
         if self.type == A_NONE: return ''
         elif self.type == A_REG: return mkstr(self.name)
         elif self.type == A_TEMP: return mkstr(self.name)
-        elif self.type == A_CONST: return mkstr(self.get_val())
+        elif self.type == A_CONST: return mkstr('%x' % self.get_val())
 
     def unserialize(self, data):
 

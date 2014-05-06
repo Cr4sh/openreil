@@ -2,7 +2,7 @@ import sys, os
 from pyopenreil import REIL
 
 CODE = '\x68\x00\x00\x00\x00\xE8\x00\x00\x00\x00\xC2\x04\x00'
-ADDR = 1337L
+ADDR = 0x1337L
 ENTRY = 0
 
 def main(argv):
@@ -18,6 +18,10 @@ def main(argv):
             print insn
 
 if __name__ == '__main__':  
+
+    t = REIL.Translator('x86', REIL.RawInsnReader('\x03\xc8'))
+    for insn in t.get_insn(0): print REIL.Insn(insn)
+    exit()
 
     exit(main(sys.argv))
 

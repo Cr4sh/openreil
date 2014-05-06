@@ -32,12 +32,9 @@ typedef enum _reil_op_t
     I_AND,      // binary and
     I_OR,       // binary or
     I_XOR,      // binary xor
-    I_NOT,      // binary not
-    I_BAND,     // logical and
-    I_BOR,      // logical or
-    I_BXOR,     // logical xor
-    I_BNOT,     // logical not    
+    I_NOT,      // binary not  
     I_EQ,       // equation
+    I_NEQ,      // equation
     I_L,        // less than
     I_LE,       // less or equal than
     I_SL,       // signed less than

@@ -124,11 +124,21 @@ void reil_close(reil_t reil)
 
 int reil_translate_insn(reil_t reil, reil_addr_t addr, unsigned char *buff, int len)
 {
+    int inst_len = 0;
     reil_context *c = (reil_context *)reil;
     assert(c);    
 
-    int inst_len = c->translator->process_inst(addr, buff, len);    
-    assert(inst_len != 0 && inst_len != -1);
+    try
+    {
+        inst_len = c->translator->process_inst(addr, buff, len);    
+        assert(inst_len != 0 && inst_len != -1);
+    }
+    catch (CReilTranslatorException e)
+    {
+        printf("Eror while processing instruction at address 0x%llx\n", addr);
+        printf("REIL translator exception occurs: %s\n", e.reason.c_str());
+        return REIL_ERROR;
+    }
 
     return inst_len;
 }
@@ -140,13 +150,16 @@ int reil_translate(reil_t reil, reil_addr_t addr, unsigned char *buff, int len)
     while (p < len)
     {
         uint8_t inst_buff[MAX_INST_LEN];
-        int copy_len = min(MAX_INST_LEN, len - p);
+        int copy_len = min(MAX_INST_LEN, len - p), inst_len = 0;
 
         // copy one instruction into the buffer
         memset(inst_buff, 0, sizeof(inst_buff));
         memcpy(inst_buff, buff + p, copy_len);
 
-        p += reil_translate_insn(reil, addr + p, inst_buff, sizeof(inst_buff));
+        inst_len = reil_translate_insn(reil, addr + p, inst_buff, sizeof(inst_buff));
+        if (inst_len == REIL_ERROR) return REIL_ERROR;
+
+        p += inst_len;
         translated += 1;
     }    
 

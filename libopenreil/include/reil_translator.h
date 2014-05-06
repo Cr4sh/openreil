@@ -9,6 +9,14 @@ string to_string_inst_code(reil_op_t inst_code);
 
 typedef pair<int32_t, string> TEMPREG_BAP;
 
+class CReilTranslatorException
+{
+public:
+    
+    CReilTranslatorException(string s) : reason(s) {};
+    string reason;
+};
+
 class CReilFromBilTranslator
 {
 public:
