@@ -58,6 +58,10 @@ class Arg:
         elif self.type == A_TEMP: return mkstr(self.name)
         elif self.type == A_CONST: return mkstr('%x' % self.get_val())
 
+    def __repr__(self):
+
+        return self.__str__()
+
     def unserialize(self, data):
 
         if len(data) == 3:
@@ -83,6 +87,11 @@ class Arg:
 
         else: raise(Exception('Invalid operand'))
 
+    def is_var(self):
+
+        # check for temporary or target architecture register
+        return self.type == A_REG or self.type == A_TEMP
+
 
 # raw translated REIL instruction parsing
 Insn_addr  = lambda insn: insn[0][0] # instruction virtual address
@@ -102,7 +111,7 @@ class Insn:
             serialized = op
             op = None
 
-        self.addr, self.inum = 0L, 0
+        self.addr, self.inum, self.ir_addr = 0L, 0, ()
         self.op = I_NONE if op is None else op
         self.a = Arg() if a is None else a
         self.b = Arg() if b is None else b
@@ -120,6 +129,7 @@ class Insn:
 
         self.addr, self.size = Insn_addr(data), Insn_size(data) 
         self.inum, self.flags = Insn_inum(data), Insn_flags(data)
+        self.ir_addr = (self.addr, self.inum)
 
         self.op = Insn_op(data)
         if self.op > len(instructions) - 1:
@@ -138,27 +148,26 @@ class Insn:
 
         return self.flags & val != 0
 
-    def cfg_node_out_edges(self):
+    def dst(self):
 
-        lhs = rhs = None
-        end = self.have_flag(IOPT_RET)
+        ret = []
 
-        if not self.have_flag(IOPT_CALL) and self.op == I_JCC:
-       
-            if self.c.type == A_CONST:
+        if self.op != I_JCC and self.op != I_STM and \
+           self.c.is_var(): ret.append(self.c)
 
-                # basic block at branch location
-                rhs = self.c.get_val()
+        return ret
 
-            if self.a.type == A_CONST and self.a.get_val() != 0:
+    def src(self):
 
-                # stop on unconditional branch
-                end = True
+        ret = []
+        
+        if self.a.is_var(): ret.append(self.a)
+        if self.b.is_var(): ret.append(self.b)
 
-        # address of next basic block
-        if not end: lhs = self.addr + self.size
+        if (self.op == I_JCC or self.op == I_STM) and \
+           self.c.is_var(): ret.append(self.c)
 
-        return lhs, rhs
+        return ret
 
 
 class InsnReader:
@@ -206,9 +215,64 @@ class InsnStorage:
 
 class InsnStorageMemory(InsnStorage):
 
+    class InsnIterator:
+
+        def __init__(self, storage):
+
+            self.items = storage.items            
+            self.addr, self.inum = 0, 0
+
+            self.keys = self.items.keys()
+            self.keys.sort()
+
+        def next(self):
+
+            while True:
+
+                if self.addr >= len(self.keys): 
+
+                    # last assembly instruction
+                    raise(StopIteration)
+
+                insn = self.items[self.keys[self.addr]]
+                if self.inum >= len(insn): 
+
+                    # last IR instruction
+                    self.addr, self.inum = self.addr + 1, 0
+                    continue
+
+                ret = insn[insn.keys()[self.inum]]
+                self.inum += 1
+
+                return ret
+
     def __init__(self): 
 
+        self.clear()
+
+    def __iter__(self):
+
+        return self.InsnIterator(self)
+
+    def clear(self):
+
         self.items = {}
+
+    def to_file(self, path):
+
+        with open(path, 'w') as fd:
+
+            # dump all instructions to the text file
+            for insn in self: fd.write(str(insn) + '\n')
+
+    def from_file(self, path):
+
+        with open(path) as fd:        
+        
+            for line in fd:
+
+                line = eval(line.strip())
+                if isinstance(line, tuple): self.store(line)
     
     def query(self, addr): 
 
@@ -224,9 +288,14 @@ class InsnStorageMemory(InsnStorage):
             # return specified IR instruction
             try: return insn_list[inum]
             except KeyError: return None
+        
+        else: 
 
-        # return all IR instructions
-        else: return [] + insn_list.values()
+            keys = insn_list.keys()
+            keys.sort()
+
+            # return all IR instructions
+            return map(lambda inum: insn_list[inum], keys)
 
     def store(self, insn_or_insn_list): 
 
@@ -249,6 +318,158 @@ class InsnStorageMemory(InsnStorage):
             # save instructions block for specified address
             insn_list = self.items[addr] = {}
             for insn in insn_or_insn_list: insn_list[Insn_inum(insn)] = insn
+
+
+class AsmInsn:
+
+    class Iterator:
+
+        def __init__(self, insn_list):
+
+            self.insn_list = insn_list
+            self.keys = insn_list.keys()
+            self.keys.sort()
+            self.current = 0
+
+        def next(self):
+
+            try: ret = self.insn_list[self.keys[self.current]]
+            except IndexError: raise(StopIteration)
+
+            self.current += 1
+            return ret
+
+    def __init__(self, insn_list):
+
+        self.insn_list = {}
+        self.insn_list.update( \
+            map(lambda insn: ( Insn_inum(insn), insn ), insn_list))
+
+        self.addr = Insn_addr(insn_list[0])
+        self.size = Insn_size(insn_list[0])        
+
+        test_flag = lambda v: bool(Insn_flags(self[-1]) & v)
+        
+        self.is_bb_end = test_flag(IOPT_BB_END)
+        self.is_call = test_flag(IOPT_CALL)
+        self.is_ret = test_flag(IOPT_RET)  
+
+    def __iter__(self):
+
+        return self.Iterator(self.insn_list)
+
+    def __getitem__(self, i):
+
+        keys = self.insn_list.keys()
+        keys.sort()
+        
+        return self.insn_list[keys[i]]
+
+    def __str__(self):
+
+        return '\n'.join(map(lambda insn: str(Insn(insn)), self))
+
+    def _get_reference(self, fn, t = None):
+
+        ret = {}
+        for insn in self:
+
+            insn = Insn(insn)
+            for var in fn(insn): 
+
+                if t is None or var.type == t: 
+
+                    if not ret.has_key(var.name): ret[var.name] = []
+                    ret[var.name].append(insn.inum)                    
+
+        return ret
+
+    def _get_unused(self, t = None):
+
+        ret = []
+        var_def = self.get_def(t = t)
+        var_use = self.get_use(t = t)
+        for var_name in var_def:
+
+            if not var_use.has_key(var_name): ret.append(var_name)
+
+        return ret
+
+    def _get_branch_addr(self):
+
+        for insn in self:
+            
+            if Insn_op(insn) == I_JCC:
+
+                insn = Insn(insn)
+                if insn.c.type == A_CONST:
+
+                    addr = insn.c.get_val()
+                    if addr != insn.addr + insn.size: return addr
+
+        return None
+
+    def get_def(self, t = None):
+
+        ret = self._get_reference(lambda insn: insn.dst(), t)
+        for var_name in ret:
+
+            if len(ret[var_name]) > 1:
+
+                raise(Exception('Multiple assignments of %s in instruction %x' % 
+                                (var_name, self.addr)))
+
+        return ret
+
+    def get_use(self, t = None):
+
+        return self._get_reference(lambda insn: insn.src(), t)
+
+    def get_def_reg(self): return self.get_def(t = A_REG)
+    def get_use_reg(self): return self.get_use(t = A_REG)
+
+    def get_successors(self):
+
+        insn = Insn(self[-1])
+        lhs, rhs = insn.addr + insn.size, None
+
+        # check for unconditional jump or return
+        if self.is_ret or \
+           (insn.op == I_JCC and insn.a.type == A_CONST and insn.inum == 0):
+
+           lhs = None
+           if insn.c.type == A_CONST: rhs = insn.c.get_val()
+
+        else:
+
+            # handle conditional branch
+            rhs = self._get_branch_addr()
+
+        return lhs, rhs    
+
+    def eliminate_defs(self, def_list, temp_cleanup = False):
+
+        killed = []
+        unused = def_list if temp_cleanup else self._get_unused()
+
+        if def_list:
+
+            # remove IR instructions that assigns specified variables
+            for var_name in def_list:
+
+                if var_name not in unused:
+
+                    raise(Exception('Error while eliminating defs of ' +
+                                    '%s for instruction %x: variable is in use' %
+                                    (var_name, self.addr)))
+
+                var_def = self.get_def()
+                if var_def.has_key(var_name):
+
+                    self.insn_list.pop(var_def[var_name][0])
+
+            # recursive cleanup of unused variables
+            self.eliminate_defs(self._get_unused(t = A_TEMP), temp_cleanup = True)
 
 
 class InsnTranslator(translator.Translator):
@@ -275,6 +496,10 @@ class InsnTranslator(translator.Translator):
         insn_list = self.query(addr)
         if insn_list is not None: return insn_list
 
+        if self.reader is None: 
+
+            raise(Exception('Unable to read instruction ' + hex(addr)))
+
         # read instruction bytes from memory
         data = self.reader.read_insn(addr)
         if data is None: return None
@@ -283,7 +508,38 @@ class InsnTranslator(translator.Translator):
         insn_list = self.to_reil(data, addr = addr)
         self.store(insn_list)
         
-        return insn_list
+        return AsmInsn(insn_list)
+
+
+class CfgNode():
+
+    def __init__(self, insn_list):
+
+        self.insn_list = {}
+        self.insn_list.update( \
+            map(lambda insn: ( Insn_inum(insn), insn ), insn_list))
+
+        self.start = self[0].addr
+        self.end = self[-1].addr        
+
+    def __iter__(self):
+
+        return AsmInsn.Iterator(self.insn_list)
+
+    def __getitem__(self, i):
+
+        keys = self.insn_list.keys()
+        keys.sort()
+
+        return self.insn_list[keys[i]]
+
+    def __str__(self):
+
+        return '\n'.join(map(lambda insn: str(insn), self))
+
+    def get_successors(self):
+
+        return self[-1].get_successors()
 
 
 class BasicBlockTranslator(InsnTranslator):
@@ -291,58 +547,54 @@ class BasicBlockTranslator(InsnTranslator):
     def get_bb(self, addr):
 
         # translate first instruction
-        ret = self.get_insn(addr)
+        ret = [ self.get_insn(addr) ]
         insn = ret[-1]
 
         # translate until the end of basic block
-        while not (Insn_flags(insn) & IOPT_BB_END):
+        while not insn.is_bb_end:
 
-            addr += Insn_size(insn)
-            insn_list = self.get_insn(addr)
-            if insn_list is None: return ret
+            addr += insn.size
+            insn = self.get_insn(addr)
 
-            ret += insn_list 
-            insn = ret[-1]
+            if insn is None: return CfgNode(ret)
+            else: ret.append(insn)
 
-        return ret
+        return CfgNode(ret)
 
-
-class FuncTranslator(BasicBlockTranslator):
-
-    class CfgNode(tuple): pass
+        
+class FuncTranslator(BasicBlockTranslator):    
 
     def cfg_traverse_pre_order(self, addr):
 
         stack, visited = [], []
         stack_top = addr
 
-        def stack_push(bb): 
+        def stack_push(bb_start): 
 
-            if bb is not None and not bb in visited: stack.append(bb) 
+            for node in visited:
+    
+                # skip processed basic block
+                if bb_start == node.start: return
+ 
+            stack.append(bb_start) 
 
         while True:
 
             # translate basic block at given address
-            insn_list = self.get_bb(stack_top)
-
-            first = insn_list[0]
-            last = insn_list[-1]
-
-            visited.append(self.CfgNode(( 
-                Insn_addr(first), 
-                Insn_addr(last))))
+            node = self.get_bb(stack_top)
+            visited.append(node)            
 
             # inspect child nodes
-            lhs, rhs = Insn(last).cfg_node_out_edges()
-            stack_push(rhs)
-            stack_push(lhs)
+            lhs, rhs = node.get_successors()
+            if rhs is not None: stack_push(rhs)
+            if lhs is not None: stack_push(lhs)
 
             try: stack_top = stack.pop()
             except IndexError: break       
 
         return visited
 
-    def get_func(self, addr):   
+    def get_func(self, addr):
 
         # iterative CFG traversal
         return self.cfg_traverse_pre_order(addr)

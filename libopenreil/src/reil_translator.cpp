@@ -561,7 +561,6 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, Stmt *s, Special 
         inst_flags = convert_special(special);
     }
 
-    tempreg_count = 0;
     current_raw_info = raw_info;
 
 #ifdef DBG_BAP
