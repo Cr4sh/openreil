@@ -484,132 +484,6 @@ class Insn:
         return None
 
 
-class Reader:
-
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def read(self, addr, size): pass
-
-    @abstractmethod
-    def read_insn(self, addr): pass
-
-
-class ReaderRaw(Reader):
-
-    def __init__(self, data, addr = 0L):
-
-        self.addr = addr
-        self.data = data
-        Reader.__init__(self)
-
-    def read(self, addr, size): 
-
-        if addr < self.addr or \
-           addr >= self.addr + len(self.data): return None
-
-        addr -= self.addr        
-        return self.data[addr : addr + size]
-
-    def read_insn(self, addr): 
-
-        return self.read(addr, MAX_INST_LEN)
-
-        
-class Storage:
-
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def query(self, addr): pass
-
-    @abstractmethod
-    def store(self, insn): pass
-
-
-class StorageMemory(Storage):
-
-    def __init__(self, insn_list = None): 
-
-        self.clear()
-        if insn_list is not None: self.store(insn_list)
-
-    def __iter__(self):
-
-        keys = self.items.keys()
-        keys.sort()
-
-        for k in keys: yield Insn(self.items[k])    
-
-    def _get_key(self, insn):
-
-        return Insn_addr(insn), Insn_inum(insn)
-
-    def _store(self, insn):
-
-        self.items[self._get_key(insn)] = insn
-
-    def clear(self):
-
-        self.items = {}
-
-    def to_file(self, path):
-
-        with open(path, 'w') as fd:
-
-            # dump all instructions to the text file
-            for insn in self: fd.write(str(insn.serialize()) + '\n')
-
-    def from_file(self, path):
-
-        with open(path) as fd:        
-        
-            for line in fd:
-
-                line = eval(line.strip())
-                if isinstance(line, tuple): self._store(line)
-    
-    def query(self, addr, inum = None): 
-
-        ret = []
-
-        if inum is None: 
-
-            inum = 0
-            query_single = False
-
-        else:
-
-            query_single = True
-
-        while True:
-
-            # query single IR instruction
-            insn = Insn(self.items[(addr, inum)])
-            if query_single: return insn
-
-            next = insn.next()
-            ret.append(insn)
-
-            # stop on assembly instruction end
-            if insn.have_flag(IOPT_ASM_END): break
-            inum += 1
-
-        return ret
-
-    def store(self, insn_or_insn_list): 
-
-        if isinstance(insn_or_insn_list, list):
-
-            # store instructions list
-            for insn in insn_or_insn_list: self._store(insn)
-
-        else:
-
-            # store single IR instruction
-            self._store(insn_or_insn_list)
-
-
 class BasicBlock:
     
     def __init__(self, insn_list):
@@ -632,15 +506,18 @@ class BasicBlock:
         return self.last.next(), self.last.jcc_loc()
 
 
-class Cfg:
+class CfgParser:
 
-    __metaclass__ = ABCMeta
+    def __init__(self, storage):
 
-    @abstractmethod
-    def get_insn(self, addr): pass
+        self.storage = storage
 
     def process_node(self, bb): return True
     def process_edge(self, bb_from, bb_to): return True
+
+    def get_insn(self, addr, inum = None):
+
+        return self.storage.get_insn(addr, inum)    
 
     def _get_bb(self, addr):
 
@@ -738,58 +615,157 @@ class Cfg:
             except IndexError: break
             
         return map(lambda bb: self.get_bb(*bb), nodes)
-            
-
-class CfgParser(Cfg):
-
-    def __init__(self, storage, visitor = None):
-
-        self.visitor = visitor
-        self.storage = storage
-
-    def process_node(self, bb):
-
-        if self.visitor: return self.visitor(bb)
-        return True
-
-    def get_insn(self, addr, inum = None):
-
-        return self.storage.query(addr, inum)
 
 
-class Translator(translator.Translator):
+class Reader:
 
-    class CfgTranslator(Cfg):
+    __metaclass__ = ABCMeta
 
-        def __init__(self, translator):
+    @abstractmethod
+    def read(self, addr, size): pass
 
-            self.translator = translator
+    @abstractmethod
+    def read_insn(self, addr): pass
+
+
+class ReaderRaw(Reader):
+
+    def __init__(self, data, addr = 0L):
+
+        self.addr = addr
+        self.data = data
+        Reader.__init__(self)
+
+    def read(self, addr, size): 
+
+        if addr < self.addr or \
+           addr >= self.addr + len(self.data): return None
+
+        addr -= self.addr        
+        return self.data[addr : addr + size]
+
+    def read_insn(self, addr): 
+
+        return self.read(addr, MAX_INST_LEN)
+
+
+class CodeStorage:
+
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def get_insn(self, addr, inum = None): pass
+
+    @abstractmethod
+    def put_insn(self, insn_or_insn_list): pass
+
+
+class CodeStorageMem(CodeStorage):
+
+    def __init__(self, insn_list = None): 
+
+        self.clear()
+        if insn_list is not None: self.put_insn(insn_list)
+
+    def __iter__(self):
+
+        keys = self.items.keys()
+        keys.sort()
+
+        for k in keys: yield Insn(self.items[k])    
+
+    def _get_key(self, insn):
+
+        return Insn_addr(insn), Insn_inum(insn)
+
+    def _put_insn(self, insn):
+
+        self.items[self._get_key(insn)] = insn
+
+    def clear(self):
+
+        self.items = {}
+
+    def to_file(self, path):
+
+        with open(path, 'w') as fd:
+
+            # dump all instructions to the text file
+            for insn in self: fd.write(str(insn.serialize()) + '\n')
+
+    def from_file(self, path):
+
+        with open(path) as fd:        
+        
+            for line in fd:
+
+                line = eval(line.strip())
+                if isinstance(line, tuple): self._put_insn(line)
+    
+    def get_insn(self, addr, inum = None): 
+
+        query_single, ret = True, []
+
+        if inum is None: 
+
+            inum = 0
+            query_single = False
+
+        while True:
+
+            # query single IR instruction
+            insn = Insn(self.items[(addr, inum)])
+            if query_single: return insn
+
+            next = insn.next()
+            ret.append(insn)
+
+            # stop on assembly instruction end
+            if insn.have_flag(IOPT_ASM_END): break
+            inum += 1
+
+        return ret
+
+    def put_insn(self, insn_or_insn_list): 
+
+        if isinstance(insn_or_insn_list, list):
+
+            # store instructions list
+            for insn in insn_or_insn_list: self._put_insn(insn)
+
+        else:
+
+            # store single IR instruction
+            self._put_insn(insn_or_insn_list)
+
+
+class CodeStorageTranslator(CodeStorage):
+
+    class _CfgParser(CfgParser):
+
+        def __init__(self, storage):
+
+            self.storage = storage
             self.insn_list = []
 
-        def get_insn(self, addr):
+        def process_node(bb):
 
-            return self.translator.process_insn(addr)
-
-        def process_node(self, bb):
-
-            for insn in bb.insn_list: self.insn_list.append(insn)
-            return True
+            self.insn_list += bb.insn_list
 
     def __init__(self, arch, reader = None, storage = None):
 
-        self.reader = reader
-        self.storage = storage
+        self.translator = translator.Translator(arch)
+        self.storage = CodeStorageMem() if storage is None else storage
+        self.reader = reader        
 
-        translator.Translator.__init__(self, arch)
-
-    def process_insn(self, addr):
+    def get_insn(self, addr, inum = None):
 
         ret = []
 
         try: 
 
             # query already translated IR instructions for this address
-            return self.storage.query(addr)
+            return self.storage.get_insn(addr, inum = inum)
 
         except KeyError:
 
@@ -800,23 +776,25 @@ class Translator(translator.Translator):
             if data is None: raise(ReadError(addr))
 
             # translate to REIL
-            ret = self.to_reil(data, addr = addr)
+            ret = self.translator.to_reil(data, addr = addr)
 
         # save to storage
-        for insn in ret: self.storage.store(insn)
+        for insn in ret: self.storage.put_insn(insn)
+        return self.storage.get_insn(addr, inum = inum)
 
-        return map(lambda insn: Insn(insn), ret)
+    def put_insn(self, insn_or_insn_list):
 
-    def process_bb(self, addr):
+        self.storage.put_insn(insn_or_insn_list)
 
-        cfg = self.CfgTranslator(self)
-        bb = cfg.get_bb(addr)
+    def get_bb(self, addr):
 
-        return bb.insn_list
+        cfg = CfgParser(self)
+        
+        return cfg.get_bb(addr)
 
-    def process_func(self, addr):
+    def get_func(self, addr):
 
-        cfg = self.CfgTranslator(self)
+        cfg = self._CfgParser(self)
         cfg.traverse(addr)
 
         return cfg.insn_list
