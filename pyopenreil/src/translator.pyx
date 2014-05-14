@@ -18,6 +18,28 @@ cdef int inst_handler(libopenreil.reil_inst_t* inst, object context):
     return 1
     
 
+class BaseError(Exception):
+
+    def __init__(self, msg):
+
+        self.msg = msg        
+
+    def __str__(self):
+
+        return self.msg
+
+
+class TranslationError(BaseError):
+
+    def __init__(self, addr):
+
+        self.addr = addr
+
+    def __str__(self):
+
+        return 'Error while translating instruction %s to REIL' % hex(self.addr)
+
+
 cdef class Translator:
 
     cdef libopenreil.reil_t reil
@@ -47,7 +69,7 @@ cdef class Translator:
         num = libopenreil.reil_translate_insn(self.reil, addr, c_data, c_size)
         if num == -1: 
 
-            raise(Exception("reil_translate_insn() fails while processing instruction " + hex(addr)))
+            raise(TranslationError(addr))
 
         # collect translated instructions
         while len(self.translated) > 0: ret.append(self.translated.pop())

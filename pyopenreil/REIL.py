@@ -34,6 +34,25 @@ create_globals(REIL_ARG, 'A_')
 import translator
 from arch import x86
 
+
+class ReadError(translator.BaseError):
+
+    def __init__(self, addr):
+
+        self.addr = addr
+
+    def __str__(self):
+
+        return 'Error while loading instruction %s' % hex(self.addr)
+
+
+class ParseError(translator.BaseError):
+
+    def __str__(self):
+
+        return 'Error while unserializing instruction %s' % hex(self.addr)
+
+
 class SymVal:
 
     def __init__(self, val, size):
@@ -274,14 +293,14 @@ class Arg:
 
             if self.size not in [ U1, U8, U16, U32, U64 ]:
 
-                raise(Exception('Invalid operand size'))            
+                return False
             
             if self.type == A_REG: self.name = value
             elif self.type == A_TEMP: self.name = value
             elif self.type == A_CONST: self.val = value
             else: 
 
-                raise(Exception('Invalid operand type'))
+                return False
 
         elif len(data) == 0:
 
@@ -289,7 +308,9 @@ class Arg:
             self.size = self.name = None 
             self.val = 0L
 
-        else: raise(Exception('Invalid operand'))
+        else: return False
+
+        return True
 
     def is_var(self):
 
@@ -344,16 +365,21 @@ class Insn:
         self.ir_addr = (self.addr, self.inum)
 
         self.op = Insn_op(data)
-        if self.op > len(REIL_INSN) - 1:
+        if self.op > len(REIL_INSN) - 1: 
 
-            raise(Exception('Invalid operation code'))
+            raise(ParseError(self.addr))
 
         args = Insn_args(data) 
-        if len(args) != 3: raise(Exception('Invalid arguments'))
+        if len(args) != 3: 
 
-        self.a.unserialize(args[0])
-        self.b.unserialize(args[1])
-        self.c.unserialize(args[2])
+            raise(ParseError(self.addr))
+
+        if not self.a.unserialize(args[0]) or \
+           not self.b.unserialize(args[1]) or \
+           not self.c.unserialize(args[2]): 
+
+           raise(ParseError(self.addr))
+
         return self
 
     def have_flag(self, val):
@@ -513,15 +539,19 @@ class StorageMemory(Storage):
         keys = self.items.keys()
         keys.sort()
 
-        for k in keys: yield Insn(self.items[k])
+        for k in keys: yield Insn(self.items[k])    
+
+    def _get_key(self, insn):
+
+        return Insn_addr(insn), Insn_inum(insn)
+
+    def _store(self, insn):
+
+        self.items[self._get_key(insn)] = insn
 
     def clear(self):
 
         self.items = {}
-
-    def get_key(self, insn):
-
-        return Insn_addr(insn), Insn_inum(insn)
 
     def to_file(self, path):
 
@@ -566,10 +596,6 @@ class StorageMemory(Storage):
             inum += 1
 
         return ret
-
-    def _store(self, insn):
-
-        self.items[self.get_key(insn)] = insn
 
     def store(self, insn_or_insn_list): 
 
@@ -767,11 +793,11 @@ class Translator(translator.Translator):
 
         except KeyError:
 
+            if self.reader is None: raise(ReadError(addr))
+
             # read instruction bytes from memory
             data = self.reader.read_insn(addr)
-            if data is None:
-
-                raise(Exception('Unable to read instruction ' + hex(addr)))        
+            if data is None: raise(ReadError(addr))
 
             # translate to REIL
             ret = self.to_reil(data, addr = addr)

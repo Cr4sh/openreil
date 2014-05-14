@@ -660,6 +660,20 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
         // convert statement to REIL code
         process_bil(raw_info, inst_flags, s);
     }
+
+    if (inst_count == 0)
+    {
+        reil_inst_t reil_inst;
+        memset(&reil_inst, 0, sizeof(reil_inst));
+
+        reil_inst.op = I_NONE;
+        reil_inst.raw_info.addr = raw_info->addr;
+        reil_inst.raw_info.size = raw_info->size;
+        reil_inst.flags = IOPT_ASM_END;
+
+        // no instructions was stranslated, generate I_NONE
+        process_reil_inst(&reil_inst);
+    }
 }
 
 CReilTranslator::CReilTranslator(bfd_architecture arch, reil_inst_handler_t handler, void *context)
