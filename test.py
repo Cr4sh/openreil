@@ -1,45 +1,39 @@
 import sys, os
-from pyopenreil import REIL
+from pyopenreil.REIL import *
 
 CODE = '\x68\x00\x00\x00\x00\xE8\x00\x00\x00\x00\xC2\x04\x00'
 ADDR = 0x1337L
 ENTRY = 0
 
 def test_1(argv):
+    ''' Code translation test. '''
 
-    # initialize OpenREIL stuff
-    reader = REIL.RawInsnReader(CODE, addr = ADDR)    
-    storage = REIL.InsnStorageMemory()
-    translator = REIL.Translator('x86', reader, storage)
+    storage = StorageMemory()
+    reader = ReaderRaw(CODE, addr = ADDR)        
+    translator = Translator('x86', reader, storage)
 
-    # translate function and enumerate it's basic blocks
-    for node in translator.get_func(ADDR + ENTRY):
+    translator.process_func(ADDR + ENTRY)
 
-        print node
+    for insn in storage: print insn
+
+
+def test_2(argv):
+    ''' Code analysis test. '''
+
+    storage = StorageMemory()
+    storage.from_file('/vagrant_data/_tests/fib/ida_translate_func.ir')
+
+    def visitor(insn_list):
+    
+        for insn in insn_list: print insn
         print
 
-    # save serialized function IR
-    storage.to_file('test.ir')
+        return True
+
+    CfgParser(storage, visitor).traverse(0x004016B0)
 
 
-def test_3(argv):
-
-    # initialize OpenREIL stuff
-    reader = REIL.RawInsnReader('\x03\xC1', addr = ADDR)    
-    storage = REIL.InsnStorageMemory()
-    translator = REIL.Translator('x86', reader, storage)
-
-    asm = translator.get_insn(ADDR + ENTRY)
-    print asm
-
-    print 'DEF:', asm.get_def_reg()
-    print 'USE:', asm.get_use_reg()
-    print
-
-    asm.eliminate_defs([ 'R_PF', 'R_OF', 'R_AF'])
-    print asm
-    
 if __name__ == '__main__':  
 
-    exit(test_1(sys.argv))
+    exit(test_2(sys.argv))
 

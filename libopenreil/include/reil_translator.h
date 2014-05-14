@@ -26,7 +26,7 @@ public:
 
     void reset_state();    
 
-    void process_bil(reil_raw_t *raw_info, Stmt *s, Special *special);
+    void process_bil(reil_raw_t *raw_info, uint64_t inst_flags, Stmt *s);
     void process_bil(reil_raw_t *raw_info, bap_block_t *block);
 
 private:

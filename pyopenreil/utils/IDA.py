@@ -1,7 +1,7 @@
 from pyopenreil import REIL
 import idc
 
-class InsnReader(REIL.InsnReader):
+class Reader(REIL.Reader):
 
     def read(self, addr, size): 
 

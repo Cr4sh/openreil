@@ -1,9 +1,10 @@
 from abc import ABCMeta, abstractmethod
-import translator
+from sets import Set
 
-IOPT_CALL   = 0x00000001
-IOPT_RET    = 0x00000002
-IOPT_BB_END = 0x00000004
+IOPT_CALL    = 0x00000001
+IOPT_RET     = 0x00000002
+IOPT_BB_END  = 0x00000004
+IOPT_ASM_END = 0x00000008
 
 MAX_INST_LEN = 30
 
@@ -15,20 +16,220 @@ def create_globals(items, prefix):
         globals()[prefix + str(it)] = num
         num += 1
 
-instructions = [
-    'NONE', 'JCC', 
-    'STR', 'STM', 'LDM', 
-    'ADD', 'SUB', 'NEG', 'MUL', 'DIV', 'MOD', 'SMUL', 'SDIV', 'SMOD', 
-    'SHL', 'SHR', 'ROL', 'ROR', 'AND', 'OR', 'XOR', 'NOT',
-    'EQ', 'NEQ', 'L', 'LE', 'SL', 'SLE', 
-    'CAST_L', 'CAST_H', 'CAST_U', 'CAST_S' ]
+INSTRUCTIONS = [ 'NONE', 'JCC', 
+                 'STR', 'STM', 'LDM', 
+                 'ADD', 'SUB', 'NEG', 'MUL', 'DIV', 'MOD', 'SMUL', 'SDIV', 'SMOD', 
+                 'SHL', 'SHR', 'ROL', 'ROR', 'AND', 'OR', 'XOR', 'NOT',
+                 'EQ', 'NEQ', 'L', 'LE', 'SL', 'SLE', 
+                 'CAST_L', 'CAST_H', 'CAST_U', 'CAST_S' ]
 
-arguments = [ 'NONE', 'REG', 'TEMP', 'CONST' ]
-sizes = [ '1', '8', '16', '32', '64' ]
+ARGUMENTS = [ 'NONE', 'REG', 'TEMP', 'CONST' ]
 
-create_globals(instructions, 'I_')
-create_globals(arguments, 'A_')
-create_globals(sizes, 'U')
+SIZES = [ '1', '8', '16', '32', '64' ]
+
+create_globals(INSTRUCTIONS, 'I_')
+create_globals(ARGUMENTS, 'A_')
+create_globals(SIZES, 'U')
+
+import translator
+from arch import x86
+
+class SymVal:
+
+    def __init__(self, val, size):
+
+        self.val = val
+        self.size = size
+
+    def __str__(self):
+
+        return str(self.val)
+
+    def __eq__(self, other):
+
+        if other.__class__ == SymAny: return True
+        if other.__class__ != SymVal: return False
+
+        return self.val == other.val
+
+    def __ne__(self, other):
+
+        return not self == other
+
+    def __hash__(self):
+
+        return hash(self.val)
+
+    def __add__(self, other): 
+
+        return self.to_exp(I_ADD, other)    
+
+    def __sub__(self, other): 
+
+        return self.to_exp(I_SUB, other)    
+
+    def __mul__(self, other): 
+
+        return self.to_exp(I_MUL, other)
+
+    def __mod__(self, other): 
+
+        return self.to_exp(I_MOD, other)    
+
+    def __div__(self, other): 
+
+        return self.to_exp(I_DIV, other)        
+
+    def __and__(self, other): 
+
+        return self.to_exp(I_AND, other)    
+
+    def __xor__(self, other): 
+
+        return self.to_exp(I_XOR, other)    
+
+    def __or__(self, other): 
+
+        return self.to_exp(I_OR, other)  
+
+    def __lshift__(self, other): 
+
+        return self.to_exp(I_SHL, other)    
+
+    def __rshift__(self, other): 
+
+        return self.to_exp(I_SHR, other) 
+
+    def __invert__(self): 
+
+        return self.to_exp(I_NOT)    
+
+    def __neg__(self): 
+
+        return self.to_exp(I_NEG)      
+
+    def to_exp(self, op, arg = None):
+
+        return SymExp(op, self, arg)  
+
+
+class SymAny(SymVal):
+
+    def __init__(self): 
+
+        pass
+
+    def __str__(self):
+
+        return '@'
+
+    def __eq__(self, other):
+
+        return True
+
+
+class SymPtr(SymVal):
+
+    def __init__(self, val): 
+
+        self.val = val
+
+    def __str__(self):
+
+        return '*' + str(self.val)
+
+    def __eq__(self, other):
+
+        if other.__class__ == SymAny: return True
+        if other.__class__ != SymPtr: return False
+
+        return self.val == other.val
+
+    def __hash__(self):
+
+        return ~hash(self.val)
+
+
+class SymConst(SymVal):
+
+    def __str__(self):
+
+        return '0x%x' % self.val
+
+    def __eq__(self, other):
+
+        if other.__class__ == SymAny: return True
+        if other.__class__ != SymConst: return False
+
+        return self.val == other.val
+
+
+class SymExp(SymVal):
+
+    commutative = ( I_ADD, I_SUB, I_AND, I_XOR, I_OR )
+
+    def __init__(self, op, a, b = None):
+
+        self.op, self.a, self.b = op, a, b
+
+    def __str__(self):
+
+        items = [ 'I_' + INSTRUCTIONS[self.op] ]
+        if self.a is not None: items.append(str(self.a))
+        if self.b is not None: items.append(str(self.b))
+
+        return '(%s)' % ' '.join(items)
+
+    def __eq__(self, other):
+
+        if other.__class__ == SymAny: return True
+        if other.__class__ != SymExp: return False
+
+        if self.op == other.op and self.op in self.commutative:
+
+            # equation for commutative operations
+            return (self.a == other.a and self.b == other.b) or \
+                   (self.b == other.a and self.a == other.b)
+
+        return self.op == other.op and \
+               self.a == other.a and self.b == other.b
+
+    def __hash__(self):
+
+        return hash(self.op) + hash(self.a) + hash(self.a)
+
+
+class SymState:
+
+    def __init__(self, other = None):
+
+        if other is None: self.clear()
+        else: self.items = other.items.copy()
+
+    def __getitem__(self, n):
+
+        return self.items[n]
+
+    def __str__(self):
+
+        return '\n'.join(map(lambda k: '%s: %s' % (k, self.items[k]), self.items))
+
+    def clear(self):
+
+        self.items = {}
+
+    def update(self, val, exp):
+
+        self.items[val] = exp
+
+    def update_mem(self, val, exp):
+
+        self.update(SymPtr(self.items[val]), exp)
+
+    def clone(self):
+
+        return SymState(self)
+
 
 class Arg:
 
@@ -41,43 +242,46 @@ class Arg:
 
     def get_val(self):
 
-        mkval = lambda mask: self.val & mask
+        mkval = lambda mask: long(self.val & mask)
 
-        if self.size == U1: return 0 if mkval(0x1) == 0 else 1
-        elif self.size == U8: return mkval(0xff)
+        if self.size == U1:    return 0 if mkval(0x1) == 0 else 1
+        elif self.size == U8:  return mkval(0xff)
         elif self.size == U16: return mkval(0xffff)
         elif self.size == U32: return mkval(0xffffffff)
         elif self.size == U64: return mkval(0xffffffffffffffff)
 
     def __str__(self):
 
-        mkstr = lambda val: '%s:%s' % (val, sizes[self.size])
+        mkstr = lambda val: '%s:%s' % (val, SIZES[self.size])
 
-        if self.type == A_NONE: return ''
-        elif self.type == A_REG: return mkstr(self.name)
-        elif self.type == A_TEMP: return mkstr(self.name)
+        if self.type == A_NONE:    return ''
+        elif self.type == A_REG:   return mkstr(self.name)
+        elif self.type == A_TEMP:  return mkstr(self.name)
         elif self.type == A_CONST: return mkstr('%x' % self.get_val())
 
-    def __repr__(self):
+    def serialize(self):
 
-        return self.__str__()
+        if self.type in [ A_REG, A_TEMP ]: return self.type, self.size, self.name
+        elif self.type == A_NONE: return ()
+        else: return self.type, self.size, self.val
 
     def unserialize(self, data):
 
         if len(data) == 3:
+
+            value = data[2]            
+            self.type, self.size = data[0], data[1]            
+
+            if self.size not in [ U1, U8, U16, U32, U64 ]:
+
+                raise(Exception('Invalid operand size'))            
             
-            self.size = data[1]
-            if self.size > len(sizes) - 1:
-
-                raise(Exception('Invalid operand size'))
-
-            value = data[2]
-            self.type = data[0]
-
             if self.type == A_REG: self.name = value
             elif self.type == A_TEMP: self.name = value
             elif self.type == A_CONST: self.val = value
-            else: raise(Exception('Invalid operand type'))
+            else: 
+
+                raise(Exception('Invalid operand type'))
 
         elif len(data) == 0:
 
@@ -117,13 +321,21 @@ class Insn:
         self.b = Arg() if b is None else b
         self.c = Arg() if c is None else c
 
+        # unserialize raw IR instruction structure
         if serialized: self.unserialize(serialized)
 
     def __str__(self):
 
         return '%.8x.%.2x %7s %16s, %16s, %16s' % \
-               (self.addr, self.inum, instructions[self.op], \
+               (self.addr, self.inum, INSTRUCTIONS[self.op], \
                 self.a, self.b, self.c)
+
+    def serialize(self):
+
+        info = ( self.addr, self.size )
+        args = ( self.a.serialize(), self.b.serialize(), self.c.serialize() )
+        
+        return ( info, self.inum, self.op, args, self.flags )
 
     def unserialize(self, data):
 
@@ -132,7 +344,7 @@ class Insn:
         self.ir_addr = (self.addr, self.inum)
 
         self.op = Insn_op(data)
-        if self.op > len(instructions) - 1:
+        if self.op > len(INSTRUCTIONS) - 1:
 
             raise(Exception('Invalid operation code'))
 
@@ -169,8 +381,83 @@ class Insn:
 
         return ret
 
+    def to_symbolic(self, in_state = None):
 
-class InsnReader:
+        # copy input state to output state
+        out_state = SymState() if in_state is None else in_state.clone()
+
+        # skip instructions that doesn't update output state
+        if self.op in [ I_JCC, I_NONE ]: return out_state
+
+        def _to_symbolic_arg(arg):
+
+            if arg.type == A_REG or arg.type == A_TEMP:
+
+                # register value
+                arg = SymVal(arg.name, arg.size)
+
+                try: return out_state[arg]
+                except KeyError: return arg
+
+            elif arg.type == A_CONST:
+
+                # constant value
+                return SymConst(arg.get_val(), arg.size)
+
+            else: return None
+
+        # convert source arguments to symbolic expressions
+        a = _to_symbolic_arg(self.a)
+        b = _to_symbolic_arg(self.b)
+        c = SymVal(self.c.name, self.c.size)
+
+        # constant argument should always be second
+        if a.__class__ == SymConst and b.__class__ == SymVal: a, b = b, a
+
+        # move from one register to another
+        if self.op == I_STR: out_state.update(c, a)
+
+        # memory read
+        elif self.op == I_LDM: out_state.update(c, SymPtr(a))
+
+        # memory write
+        elif self.op == I_STM: out_state.update_mem(c, a)
+
+        # expression
+        else: out_state.update(c, a.to_exp(self.op, b))
+
+        return out_state
+
+    def next(self):
+
+        if self.have_flag(IOPT_RET): 
+
+            # end of function
+            return None
+
+        elif self.op == I_JCC and \
+             self.a.type == A_CONST and self.a.get_val() != 0 and \
+             not self.have_flag(IOPT_CALL):
+
+            # unconditional jump
+            return None
+
+        elif self.have_flag(IOPT_ASM_END):
+
+            # end of assembly instruction
+            return self.addr + self.size, 0
+
+        else:
+
+            return self.addr, self.inum + 1
+
+    def jcc_loc(self):
+
+        if self.op == I_JCC and self.c.type == A_CONST: return self.c.get_val(), 0
+        return None
+
+
+class Reader:
 
     __metaclass__ = ABCMeta
 
@@ -181,13 +468,13 @@ class InsnReader:
     def read_insn(self, addr): pass
 
 
-class RawInsnReader(InsnReader):
+class ReaderRaw(Reader):
 
     def __init__(self, data, addr = 0L):
 
         self.addr = addr
         self.data = data
-        InsnReader.__init__(self)
+        Reader.__init__(self)
 
     def read(self, addr, size): 
 
@@ -202,7 +489,7 @@ class RawInsnReader(InsnReader):
         return self.read(addr, MAX_INST_LEN)
 
         
-class InsnStorage:
+class Storage:
 
     __metaclass__ = ABCMeta
 
@@ -213,57 +500,34 @@ class InsnStorage:
     def store(self, insn): pass
 
 
-class InsnStorageMemory(InsnStorage):
+class StorageMemory(Storage):
 
-    class InsnIterator:
-
-        def __init__(self, storage):
-
-            self.items = storage.items            
-            self.addr, self.inum = 0, 0
-
-            self.keys = self.items.keys()
-            self.keys.sort()
-
-        def next(self):
-
-            while True:
-
-                if self.addr >= len(self.keys): 
-
-                    # last assembly instruction
-                    raise(StopIteration)
-
-                insn = self.items[self.keys[self.addr]]
-                if self.inum >= len(insn): 
-
-                    # last IR instruction
-                    self.addr, self.inum = self.addr + 1, 0
-                    continue
-
-                ret = insn[insn.keys()[self.inum]]
-                self.inum += 1
-
-                return ret
-
-    def __init__(self): 
+    def __init__(self, insn_list = None): 
 
         self.clear()
+        if insn_list is not None: self.store(insn_list)
 
     def __iter__(self):
 
-        return self.InsnIterator(self)
+        keys = self.items.keys()
+        keys.sort()
+
+        for k in keys: yield Insn(self.items[k])
 
     def clear(self):
 
         self.items = {}
+
+    def get_key(self, insn):
+
+        return Insn_addr(insn), Insn_inum(insn)
 
     def to_file(self, path):
 
         with open(path, 'w') as fd:
 
             # dump all instructions to the text file
-            for insn in self: fd.write(str(insn) + '\n')
+            for insn in self: fd.write(str(insn.serialize()) + '\n')
 
     def from_file(self, path):
 
@@ -272,335 +536,209 @@ class InsnStorageMemory(InsnStorage):
             for line in fd:
 
                 line = eval(line.strip())
-                if isinstance(line, tuple): self.store(line)
+                if isinstance(line, tuple): self._store(line)
     
-    def query(self, addr): 
+    def query(self, addr, inum = 0): 
 
-        if isinstance(addr, tuple): addr, inum = addr
-        else: inum = None
+        return Insn(self.items[( addr, inum )])
 
-        # get IR insts for assembly inst at given address
-        try: insn_list = self.items[addr]
-        except KeyError: return None
-        
-        if inum is not None: 
+    def _store(self, insn):
 
-            # return specified IR instruction
-            try: return insn_list[inum]
-            except KeyError: return None
-        
-        else: 
-
-            keys = insn_list.keys()
-            keys.sort()
-
-            # return all IR instructions
-            return map(lambda inum: insn_list[inum], keys)
+        self.items[self.get_key(insn)] = insn
 
     def store(self, insn_or_insn_list): 
 
-        if isinstance(insn_or_insn_list, tuple):
+        if isinstance(insn_or_insn_list, list):
+
+            # store instructions list
+            for insn in insn_or_insn_list: self._store(insn)
+
+        else:
 
             # store single IR instruction
-            addr = Insn_addr(insn_or_insn_list)
-            inum = Insn_inum(insn_or_insn_list)
+            self._store(insn_or_insn_list)
+
+class Cfg:
+
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def get_insn(self, addr): pass
+
+    def process_bb(self, insn_list): pass
+
+    def traverse(self, addr):
+
+        stack, visited = [], []
+        stack_top = addr
+
+        def _stack_push(addr, inum):
+
+            if ( addr, inum ) not in visited: stack.append(addr)
+
+        def _visit_bb(insn_list):
+
+            v = ( insn_list[0].addr, insn_list[0].inum )
+            if v not in visited:
             
-            try: insn_list = self.items[addr]
-            except KeyError: insn_list = self.items[addr] = {}
+                visited.append(v)
+                return self.process_bb(insn_list)
+
+            return True
+
+        def _split_bb(insn_list):
+
+            bb = []
+
+            for insn in insn_list:
+
+                bb.append(insn)
+
+                jcc_loc = insn.jcc_loc()
+                if jcc_loc is not None and not insn.have_flag(IOPT_CALL): 
+                    
+                    if not _visit_bb(bb): return False
+                    bb = []            
+
+                    _stack_push(*jcc_loc)                    
+
+            if len(bb) > 0: 
+
+                if not _visit_bb(bb): return False
+
+            return True
+
+        def _get_bb(addr):
+
+            insn_list = []
             
-            insn_list[inum] = insn_or_insn_list
+            while True:
 
-        else:
+                # translate single assembly instruction
+                insn_list += self.get_insn(addr)
+                insn = insn_list[-1]
 
-            insn = insn_or_insn_list[0]
-            addr = Insn_addr(insn)
+                # check for basic block end
+                if insn.have_flag(IOPT_BB_END) and not \
+                   insn.have_flag(IOPT_CALL): break
 
-            # save instructions block for specified address
-            insn_list = self.items[addr] = {}
-            for insn in insn_or_insn_list: insn_list[Insn_inum(insn)] = insn
+                addr += insn.size
 
+            return insn_list
 
-class AsmInsn:
+        # iterative pre-order CFG traversal
+        while True:
 
-    class Iterator:
+            # translate basic block at given address
+            insn_list = _get_bb(stack_top)
 
-        def __init__(self, insn_list):
+            # split assembly basic block into the IR basic blocks
+            if not _split_bb(insn_list): break
 
-            self.insn_list = insn_list
-            self.keys = insn_list.keys()
-            self.keys.sort()
-            self.current = 0
+            next = insn_list[-1].next()
+            if next is not None: _stack_push(*next)
 
-        def next(self):
+            try: stack_top = stack.pop()
+            except IndexError: break
+            
 
-            try: ret = self.insn_list[self.keys[self.current]]
-            except IndexError: raise(StopIteration)
+class CfgParser(Cfg):
 
-            self.current += 1
-            return ret
+    def __init__(self, storage, visitor = None):
 
-    def __init__(self, insn_list):
+        self.visitor = visitor
+        self.storage = storage
 
-        self.insn_list = {}
-        self.insn_list.update( \
-            map(lambda insn: ( Insn_inum(insn), insn ), insn_list))
+    def process_bb(self, insn_list):
 
-        self.addr = Insn_addr(insn_list[0])
-        self.size = Insn_size(insn_list[0])        
+        if self.visitor: return self.visitor(insn_list)
+        return True
 
-        test_flag = lambda v: bool(Insn_flags(self[-1]) & v)
-        
-        self.is_bb_end = test_flag(IOPT_BB_END)
-        self.is_call = test_flag(IOPT_CALL)
-        self.is_ret = test_flag(IOPT_RET)  
+    def get_insn(self, addr):
 
-    def __iter__(self):
+        inum, ret = 0, []
 
-        return self.Iterator(self.insn_list)
+        while True:
 
-    def __getitem__(self, i):
+            # query single IR instruction
+            insn = self.storage.query(addr, inum)
+            next = insn.next()
+            ret.append(insn)
 
-        keys = self.insn_list.keys()
-        keys.sort()
-        
-        return self.insn_list[keys[i]]
-
-    def __str__(self):
-
-        return '\n'.join(map(lambda insn: str(Insn(insn)), self))
-
-    def _get_reference(self, fn, t = None):
-
-        ret = {}
-        for insn in self:
-
-            insn = Insn(insn)
-            for var in fn(insn): 
-
-                if t is None or var.type == t: 
-
-                    if not ret.has_key(var.name): ret[var.name] = []
-                    ret[var.name].append(insn.inum)                    
+            # stop on assembly instruction end
+            if insn.have_flag(IOPT_ASM_END): break
+            inum += 1
 
         return ret
 
-    def _get_unused(self, t = None):
 
-        ret = []
-        var_def = self.get_def(t = t)
-        var_use = self.get_use(t = t)
-        for var_name in var_def:
+class Translator(translator.Translator):
 
-            if not var_use.has_key(var_name): ret.append(var_name)
+    class CfgTranslator(Cfg):
 
-        return ret
+        def __init__(self, translator):
 
-    def _get_branch_addr(self):
+            self.translator = translator
+            self.insn_list = []
 
-        for insn in self:
-            
-            if Insn_op(insn) == I_JCC:
+        def get_insn(self, addr):
 
-                insn = Insn(insn)
-                if insn.c.type == A_CONST:
+            return self.translator.process_insn(addr)
 
-                    addr = insn.c.get_val()
-                    if addr != insn.addr + insn.size: return addr
+        def process_bb(self, insn_list):
 
-        return None
+            for insn in insn_list: self.insn_list.append(insn)
+            return True
 
-    def get_def(self, t = None):
-
-        ret = self._get_reference(lambda insn: insn.dst(), t)
-        for var_name in ret:
-
-            if len(ret[var_name]) > 1:
-
-                raise(Exception('Multiple assignments of %s in instruction %x' % 
-                                (var_name, self.addr)))
-
-        return ret
-
-    def get_use(self, t = None):
-
-        return self._get_reference(lambda insn: insn.src(), t)
-
-    def get_def_reg(self): return self.get_def(t = A_REG)
-    def get_use_reg(self): return self.get_use(t = A_REG)
-
-    def get_successors(self):
-
-        insn = Insn(self[-1])
-        lhs, rhs = insn.addr + insn.size, None
-
-        # check for unconditional jump or return
-        if self.is_ret or \
-           (insn.op == I_JCC and insn.a.type == A_CONST and insn.inum == 0):
-
-           lhs = None
-           if insn.c.type == A_CONST: rhs = insn.c.get_val()
-
-        else:
-
-            # handle conditional branch
-            rhs = self._get_branch_addr()
-
-        return lhs, rhs    
-
-    def eliminate_defs(self, def_list, temp_cleanup = False):
-
-        killed = []
-        unused = def_list if temp_cleanup else self._get_unused()
-
-        if def_list:
-
-            # remove IR instructions that assigns specified variables
-            for var_name in def_list:
-
-                if var_name not in unused:
-
-                    raise(Exception('Error while eliminating defs of ' +
-                                    '%s for instruction %x: variable is in use' %
-                                    (var_name, self.addr)))
-
-                var_def = self.get_def()
-                if var_def.has_key(var_name):
-
-                    self.insn_list.pop(var_def[var_name][0])
-
-            # recursive cleanup of unused variables
-            self.eliminate_defs(self._get_unused(t = A_TEMP), temp_cleanup = True)
-
-
-class InsnTranslator(translator.Translator):
-
-    def __init__(self, arch, reader, storage = None):
+    def __init__(self, arch, reader = None, storage = None):
 
         self.reader = reader
         self.storage = storage
 
         translator.Translator.__init__(self, arch)
 
-    def query(self, addr):
+    def process_insn(self, addr):
 
-        if self.storage is not None: return self.storage.query(addr)
-        else: return None
-
-    def store(self, insn):
-
-        if self.storage is not None: self.storage.store(insn)
-
-    def get_insn(self, addr):
-
-        # try to return already translated code
-        insn_list = self.query(addr)
-        if insn_list is not None: return insn_list
-
-        if self.reader is None: 
-
-            raise(Exception('Unable to read instruction ' + hex(addr)))
+        ret = []
 
         # read instruction bytes from memory
         data = self.reader.read_insn(addr)
-        if data is None: return None
+        if data is None:
+
+            raise(Exception('Unable to read instruction ' + hex(addr)))
 
         # translate to REIL and save results
-        insn_list = self.to_reil(data, addr = addr)
-        self.store(insn_list)
-        
-        return AsmInsn(insn_list)
+        for insn in self.to_reil(data, addr = addr):
 
+            self.storage.store(insn)
+            ret.append(Insn(insn))
 
-class CfgNode():
+        return ret
 
-    def __init__(self, insn_list):
+    def process_bb(self, addr):
 
-        self.insn_list = {}
-        self.insn_list.update( \
-            map(lambda insn: ( Insn_inum(insn), insn ), insn_list))
-
-        self.start = self[0].addr
-        self.end = self[-1].addr        
-
-    def __iter__(self):
-
-        return AsmInsn.Iterator(self.insn_list)
-
-    def __getitem__(self, i):
-
-        keys = self.insn_list.keys()
-        keys.sort()
-
-        return self.insn_list[keys[i]]
-
-    def __str__(self):
-
-        return '\n'.join(map(lambda insn: str(insn), self))
-
-    def get_successors(self):
-
-        return self[-1].get_successors()
-
-
-class BasicBlockTranslator(InsnTranslator):
-
-    def get_bb(self, addr):
-
-        # translate first instruction
-        ret = [ self.get_insn(addr) ]
-        insn = ret[-1]
-
-        # translate until the end of basic block
-        while not insn.is_bb_end:
-
-            addr += insn.size
-            insn = self.get_insn(addr)
-
-            if insn is None: return CfgNode(ret)
-            else: ret.append(insn)
-
-        return CfgNode(ret)
-
-        
-class FuncTranslator(BasicBlockTranslator):    
-
-    def cfg_traverse_pre_order(self, addr):
-
-        stack, visited = [], []
-        stack_top = addr
-
-        def stack_push(bb_start): 
-
-            for node in visited:
-    
-                # skip processed basic block
-                if bb_start == node.start: return
- 
-            stack.append(bb_start) 
+        ret = []
 
         while True:
 
-            # translate basic block at given address
-            node = self.get_bb(stack_top)
-            visited.append(node)            
+            # translate single assembly instruction
+            ret += self.process_insn(addr)
+            insn = ret[-1]
 
-            # inspect child nodes
-            lhs, rhs = node.get_successors()
-            if rhs is not None: stack_push(rhs)
-            if lhs is not None: stack_push(lhs)
+            # check for basic block end
+            if insn.have_flag(IOPT_BB_END) and not \
+               insn.have_flag(IOPT_CALL): break
 
-            try: stack_top = stack.pop()
-            except IndexError: break       
+            addr += insn.size
 
-        return visited
+        return ret
 
-    def get_func(self, addr):
+    def process_func(self, addr):
 
-        # iterative CFG traversal
-        return self.cfg_traverse_pre_order(addr)
+        cfg = self.CfgTranslator(self)
+        cfg.traverse(addr)
 
-
-class Translator(FuncTranslator): 
-
-    pass
-
+        return cfg.insn_list
+#
+# EoF
+#

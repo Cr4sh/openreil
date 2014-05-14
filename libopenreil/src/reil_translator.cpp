@@ -552,15 +552,8 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     return c;
 }
 
-void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, Stmt *s, Special *special)
-{    
-    uint64_t inst_flags = 0;
-    if (special)
-    {
-        // translate special statement to the REIL instruction options
-        inst_flags = convert_special(special);
-    }
-
+void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, uint64_t inst_flags, Stmt *s)
+{
     current_raw_info = raw_info;
 
 #ifdef DBG_BAP
@@ -622,26 +615,45 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, Stmt *s, Special 
 
 void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *block)
 {
+    int size = block->bap_ir->size();
+
     reset_state();
-
-    for (int i = 0; i < block->bap_ir->size(); i++)
+    
+    for (int i = 0; i < size; i++)
     {
-        // enumerate BIL statements
+        // enumerate BIL statements        
         Stmt *s = block->bap_ir->at(i);
-        Special *special = NULL;
+        uint64_t inst_flags = IOPT_ASM_END;    
 
-        if (i < block->bap_ir->size() - 1)
+        for (int n = i + 1; n < size; n++)
+        {
+            // check for last IR instruction
+            Stmt *s_next = block->bap_ir->at(n);
+
+            if (s_next->stmt_type == MOVE || 
+                s_next->stmt_type == CJMP ||
+                s_next->stmt_type == JMP)
+            {
+                inst_flags = 0;
+                break;
+            }            
+        }
+
+        if (i < size - 1)
         {
             // check for the special statement that following current
             Stmt *s_next = block->bap_ir->at(i + 1);
             if (s_next->stmt_type == SPECIAL)
             {
-                special = (Special *)s_next;
+                Special *special = (Special *)s_next;
+                
+                // translate special statement to the REIL instruction options
+                inst_flags |= convert_special(special);
             }
-        }
+        }        
 
         // convert statement to REIL code
-        process_bil(raw_info, s, special);
+        process_bil(raw_info, inst_flags, s);
     }
 }
 
