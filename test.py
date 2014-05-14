@@ -5,9 +5,9 @@ CODE = '\x68\x00\x00\x00\x00\xF3\xA4\xE8\x00\x00\x00\x00\xC2\x04\x00'
 ADDR = 0x1337L
 ENTRY = 0
 
-def visitor(insn_list):
+def visitor(bb):
     
-    print '\n'.join(map(lambda insn: str(insn), insn_list)) + '\n'
+    print str(bb) + '\n'
     return True
 
 def test_1(argv):
@@ -19,7 +19,10 @@ def test_1(argv):
     translator = Translator('x86', reader, storage)
     translator.process_func(ADDR + ENTRY)    
 
-    CfgParser(storage, visitor).traverse(ADDR + ENTRY)
+    cfg = CfgParser(storage)
+    bb_list = cfg.traverse(ADDR + ENTRY)
+
+    for bb in bb_list: print str(bb) + '\n'
 
 
 def test_2(argv):
@@ -33,5 +36,5 @@ def test_2(argv):
 
 if __name__ == '__main__':  
 
-    exit(test_1(sys.argv))
+    exit(test_2(sys.argv))
 

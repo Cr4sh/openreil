@@ -583,6 +583,29 @@ class StorageMemory(Storage):
             # store single IR instruction
             self._store(insn_or_insn_list)
 
+
+class BasicBlock:
+    
+    def __init__(self, insn_list):
+
+        self.insn_list = insn_list
+        self.first, self.last = insn_list[0], insn_list[-1]
+        self.addr, self.inum = self.first.addr, self.first.inum
+        self.size = self.last.addr + self.last.size - self.addr
+
+    def __iter__(self):
+
+        for insn in self.insn_list: yield insn
+
+    def __str__(self):
+
+        return '\n'.join(map(lambda insn: str(insn), self))
+
+    def get_successors(self):
+
+        return self.last.next(), self.last.jcc_loc()
+
+
 class Cfg:
 
     __metaclass__ = ABCMeta
@@ -590,7 +613,8 @@ class Cfg:
     @abstractmethod
     def get_insn(self, addr): pass
 
-    def process_bb(self, insn_list): pass
+    def process_node(self, bb): return True
+    def process_edge(self, bb_from, bb_to): return True
 
     def _get_bb(self, addr):
 
@@ -609,24 +633,51 @@ class Cfg:
 
         return insn_list    
 
+    def get_bb(self, addr, inum = None):
+
+        inum = 0 if inum is None else inum
+        last = inum
+
+        # translate basic block at given address
+        insn_list = self._get_bb(addr)        
+
+        for insn in insn_list[inum:]:
+
+            last += 1
+            if insn.have_flag(IOPT_BB_END): 
+
+                return BasicBlock(insn_list[inum:last])
+
     def traverse(self, addr):
 
-        stack, visited = [], []
+        stack, nodes, edges = [], [], []
         stack_top = addr
 
         def _stack_push(addr, inum):
 
-            if ( addr, inum ) not in visited: stack.append(addr)
+            if ( addr, inum ) not in nodes: stack.append(addr)
 
-        def _visit_bb(insn_list):
+        def _process_node(insn_list):
 
             v = ( insn_list[0].addr, insn_list[0].inum )
-            if v not in visited:
+            if v not in nodes:
             
-                visited.append(v)
-                return self.process_bb(insn_list)
+                nodes.append(v)
+                return self.process_node(BasicBlock(insn_list))
 
-            return True        
+            return True    
+
+        def _process_edge(bb, bb_to):  
+
+            bb_from = ( bb[0].addr, bb[0].inum )
+
+            e = ( bb_from, bb_to )
+            if e not in edges:
+
+                edges.append(e)
+                return self.process_edge(BasicBlock(bb), self.get_bb(*bb_to))
+                
+            return True  
 
         # iterative pre-order CFG traversal
         while True:
@@ -642,18 +693,25 @@ class Cfg:
                 # split assembly basic block into the IR basic blocks
                 if insn.have_flag(IOPT_BB_END): 
 
-                   if not _visit_bb(bb): return False
+                   if not _process_node(bb): return False
 
                    lhs, rhs = insn.next(), insn.jcc_loc()
-                   if rhs is not None: _stack_push(*rhs)
-                   if lhs is not None: _stack_push(*lhs)
+                   if rhs is not None: 
+
+                        if not _process_edge(bb, rhs): return False
+                        _stack_push(*rhs)
+
+                   if lhs is not None: 
+
+                        if not _process_edge(bb, lhs): return False
+                        _stack_push(*lhs)
 
                    bb = []
             
             try: stack_top = stack.pop()
             except IndexError: break
             
-        return visited
+        return map(lambda bb: self.get_bb(*bb), nodes)
             
 
 class CfgParser(Cfg):
@@ -663,14 +721,14 @@ class CfgParser(Cfg):
         self.visitor = visitor
         self.storage = storage
 
-    def process_bb(self, insn_list):
+    def process_node(self, bb):
 
-        if self.visitor: return self.visitor(insn_list)
+        if self.visitor: return self.visitor(bb)
         return True
 
-    def get_insn(self, addr):
+    def get_insn(self, addr, inum = None):
 
-        return self.storage.query(addr)
+        return self.storage.query(addr, inum)
 
 
 class Translator(translator.Translator):
@@ -686,9 +744,9 @@ class Translator(translator.Translator):
 
             return self.translator.process_insn(addr)
 
-        def process_bb(self, insn_list):
+        def process_node(self, bb):
 
-            for insn in insn_list: self.insn_list.append(insn)
+            for insn in bb.insn_list: self.insn_list.append(insn)
             return True
 
     def __init__(self, arch, reader = None, storage = None):
@@ -702,25 +760,33 @@ class Translator(translator.Translator):
 
         ret = []
 
-        # read instruction bytes from memory
-        data = self.reader.read_insn(addr)
-        if data is None:
+        try: 
 
-            raise(Exception('Unable to read instruction ' + hex(addr)))
+            # query already translated IR instructions for this address
+            return self.storage.query(addr)
 
-        # translate to REIL and save results
-        for insn in self.to_reil(data, addr = addr):
+        except KeyError:
 
-            self.storage.store(insn)
-            ret.append(Insn(insn))
+            # read instruction bytes from memory
+            data = self.reader.read_insn(addr)
+            if data is None:
 
-        return ret
+                raise(Exception('Unable to read instruction ' + hex(addr)))        
+
+            # translate to REIL
+            ret = self.to_reil(data, addr = addr)
+
+        # save to storage
+        for insn in ret: self.storage.store(insn)
+
+        return map(lambda insn: Insn(insn), ret)
 
     def process_bb(self, addr):
 
         cfg = self.CfgTranslator(self)
-        
-        return cfg.get_bb(addr)
+        bb = cfg.get_bb(addr)
+
+        return bb.insn_list
 
     def process_func(self, addr):
 
