@@ -16,20 +16,20 @@ def create_globals(items, prefix):
         globals()[prefix + str(it)] = num
         num += 1
 
-INSTRUCTIONS = [ 'NONE', 'JCC', 
-                 'STR', 'STM', 'LDM', 
-                 'ADD', 'SUB', 'NEG', 'MUL', 'DIV', 'MOD', 'SMUL', 'SDIV', 'SMOD', 
-                 'SHL', 'SHR', 'ROL', 'ROR', 'AND', 'OR', 'XOR', 'NOT',
-                 'EQ', 'NEQ', 'L', 'LE', 'SL', 'SLE', 
-                 'CAST_L', 'CAST_H', 'CAST_U', 'CAST_S' ]
+REIL_INSN = [ 'NONE', 'JCC', 
+              'STR', 'STM', 'LDM', 
+              'ADD', 'SUB', 'NEG', 'MUL', 'DIV', 'MOD', 'SMUL', 'SDIV', 'SMOD', 
+              'SHL', 'SHR', 'ROL', 'ROR', 'AND', 'OR', 'XOR', 'NOT',
+              'EQ', 'NEQ', 'L', 'LE', 'SL', 'SLE', 
+              'CAST_L', 'CAST_H', 'CAST_U', 'CAST_S' ]
 
-ARGUMENTS = [ 'NONE', 'REG', 'TEMP', 'CONST' ]
+REIL_SIZE = [ '1', '8', '16', '32', '64' ]
 
-SIZES = [ '1', '8', '16', '32', '64' ]
+REIL_ARG = [ 'NONE', 'REG', 'TEMP', 'CONST' ]
 
-create_globals(INSTRUCTIONS, 'I_')
-create_globals(ARGUMENTS, 'A_')
-create_globals(SIZES, 'U')
+create_globals(REIL_INSN, 'I_')
+create_globals(REIL_SIZE, 'U')
+create_globals(REIL_ARG, 'A_')
 
 import translator
 from arch import x86
@@ -174,7 +174,7 @@ class SymExp(SymVal):
 
     def __str__(self):
 
-        items = [ 'I_' + INSTRUCTIONS[self.op] ]
+        items = [ 'I_' + REIL_INSN[self.op] ]
         if self.a is not None: items.append(str(self.a))
         if self.b is not None: items.append(str(self.b))
 
@@ -252,7 +252,7 @@ class Arg:
 
     def __str__(self):
 
-        mkstr = lambda val: '%s:%s' % (val, SIZES[self.size])
+        mkstr = lambda val: '%s:%s' % (val, REIL_SIZE[self.size])
 
         if self.type == A_NONE:    return ''
         elif self.type == A_REG:   return mkstr(self.name)
@@ -327,7 +327,7 @@ class Insn:
     def __str__(self):
 
         return '%.8x.%.2x %7s %16s, %16s, %16s' % \
-               (self.addr, self.inum, INSTRUCTIONS[self.op], \
+               (self.addr, self.inum, REIL_INSN[self.op], \
                 self.a, self.b, self.c)
 
     def serialize(self):
@@ -344,7 +344,7 @@ class Insn:
         self.ir_addr = (self.addr, self.inum)
 
         self.op = Insn_op(data)
-        if self.op > len(INSTRUCTIONS) - 1:
+        if self.op > len(REIL_INSN) - 1:
 
             raise(Exception('Invalid operation code'))
 
@@ -444,11 +444,12 @@ class Insn:
 
         elif self.have_flag(IOPT_ASM_END):
 
-            # end of assembly instruction
+            # go to first IR instruction of next assembly instruction
             return self.addr + self.size, 0
 
         else:
 
+            # go to next IR instruction of current assembly instruction
             return self.addr, self.inum + 1
 
     def jcc_loc(self):
@@ -538,9 +539,33 @@ class StorageMemory(Storage):
                 line = eval(line.strip())
                 if isinstance(line, tuple): self._store(line)
     
-    def query(self, addr, inum = 0): 
+    def query(self, addr, inum = None): 
 
-        return Insn(self.items[( addr, inum )])
+        ret = []
+
+        if inum is None: 
+
+            inum = 0
+            query_single = False
+
+        else:
+
+            query_single = True
+
+        while True:
+
+            # query single IR instruction
+            insn = Insn(self.items[(addr, inum)])
+            if query_single: return insn
+
+            next = insn.next()
+            ret.append(insn)
+
+            # stop on assembly instruction end
+            if insn.have_flag(IOPT_ASM_END): break
+            inum += 1
+
+        return ret
 
     def _store(self, insn):
 
@@ -567,6 +592,23 @@ class Cfg:
 
     def process_bb(self, insn_list): pass
 
+    def _get_bb(self, addr):
+
+        insn_list = []
+        
+        while True:
+
+            # translate single assembly instruction
+            insn_list += self.get_insn(addr)
+            insn = insn_list[-1]
+
+            # check for basic block end
+            if insn.have_flag(IOPT_BB_END): break
+
+            addr += insn.size
+
+        return insn_list    
+
     def traverse(self, addr):
 
         stack, visited = [], []
@@ -584,62 +626,34 @@ class Cfg:
                 visited.append(v)
                 return self.process_bb(insn_list)
 
-            return True
+            return True        
 
-        def _split_bb(insn_list):
+        # iterative pre-order CFG traversal
+        while True:
 
+            # translate basic block at given address
+            insn_list = self._get_bb(stack_top)
             bb = []
 
             for insn in insn_list:
 
                 bb.append(insn)
 
-                jcc_loc = insn.jcc_loc()
-                if jcc_loc is not None and not insn.have_flag(IOPT_CALL): 
-                    
-                    if not _visit_bb(bb): return False
-                    bb = []            
+                # split assembly basic block into the IR basic blocks
+                if insn.have_flag(IOPT_BB_END): 
 
-                    _stack_push(*jcc_loc)                    
+                   if not _visit_bb(bb): return False
 
-            if len(bb) > 0: 
+                   lhs, rhs = insn.next(), insn.jcc_loc()
+                   if rhs is not None: _stack_push(*rhs)
+                   if lhs is not None: _stack_push(*lhs)
 
-                if not _visit_bb(bb): return False
-
-            return True
-
-        def _get_bb(addr):
-
-            insn_list = []
+                   bb = []
             
-            while True:
-
-                # translate single assembly instruction
-                insn_list += self.get_insn(addr)
-                insn = insn_list[-1]
-
-                # check for basic block end
-                if insn.have_flag(IOPT_BB_END) and not \
-                   insn.have_flag(IOPT_CALL): break
-
-                addr += insn.size
-
-            return insn_list
-
-        # iterative pre-order CFG traversal
-        while True:
-
-            # translate basic block at given address
-            insn_list = _get_bb(stack_top)
-
-            # split assembly basic block into the IR basic blocks
-            if not _split_bb(insn_list): break
-
-            next = insn_list[-1].next()
-            if next is not None: _stack_push(*next)
-
             try: stack_top = stack.pop()
             except IndexError: break
+            
+        return visited
             
 
 class CfgParser(Cfg):
@@ -656,20 +670,7 @@ class CfgParser(Cfg):
 
     def get_insn(self, addr):
 
-        inum, ret = 0, []
-
-        while True:
-
-            # query single IR instruction
-            insn = self.storage.query(addr, inum)
-            next = insn.next()
-            ret.append(insn)
-
-            # stop on assembly instruction end
-            if insn.have_flag(IOPT_ASM_END): break
-            inum += 1
-
-        return ret
+        return self.storage.query(addr)
 
 
 class Translator(translator.Translator):
@@ -717,21 +718,9 @@ class Translator(translator.Translator):
 
     def process_bb(self, addr):
 
-        ret = []
-
-        while True:
-
-            # translate single assembly instruction
-            ret += self.process_insn(addr)
-            insn = ret[-1]
-
-            # check for basic block end
-            if insn.have_flag(IOPT_BB_END) and not \
-               insn.have_flag(IOPT_CALL): break
-
-            addr += insn.size
-
-        return ret
+        cfg = self.CfgTranslator(self)
+        
+        return cfg.get_bb(addr)
 
     def process_func(self, addr):
 

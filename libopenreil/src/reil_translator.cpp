@@ -574,10 +574,15 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, uint64_t inst_fla
     
     case JMP:
         {
+            if (!(inst_flags & IOPT_CALL))
+            {
+                inst_flags |= IOPT_BB_END;
+            }
+
             // jump statement
             Jmp *jmp = (Jmp *)s;
             Constant c(REG_1, 1);
-            process_bil_inst(I_JCC, inst_flags | IOPT_BB_END, jmp->target, &c);
+            process_bil_inst(I_JCC, inst_flags, jmp->target, &c);
             break;
         }
 
