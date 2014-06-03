@@ -53,7 +53,7 @@ class ParseError(translator.BaseError):
         return 'Error while unserializing instruction %s' % hex(self.addr)
 
 
-class SymVal:
+class SymVal(object):
 
     def __init__(self, val, size):
 
@@ -66,8 +66,8 @@ class SymVal:
 
     def __eq__(self, other):
 
-        if other.__class__ == SymAny: return True
-        if other.__class__ != SymVal: return False
+        if type(other) == SymAny: return True
+        if type(other) != SymVal: return False
 
         return self.val == other.val
 
@@ -159,8 +159,8 @@ class SymPtr(SymVal):
 
     def __eq__(self, other):
 
-        if other.__class__ == SymAny: return True
-        if other.__class__ != SymPtr: return False
+        if type(other) == SymAny: return True
+        if type(other) != SymPtr: return False
 
         return self.val == other.val
 
@@ -177,8 +177,8 @@ class SymConst(SymVal):
 
     def __eq__(self, other):
 
-        if other.__class__ == SymAny: return True
-        if other.__class__ != SymConst: return False
+        if type(other) == SymAny: return True
+        if type(other) != SymConst: return False
 
         return self.val == other.val
 
@@ -201,8 +201,8 @@ class SymExp(SymVal):
 
     def __eq__(self, other):
 
-        if other.__class__ == SymAny: return True
-        if other.__class__ != SymExp: return False
+        if type(other) == SymAny: return True
+        if type(other) != SymExp: return False
 
         if self.op == other.op and self.op in self.commutative:
 
@@ -218,7 +218,7 @@ class SymExp(SymVal):
         return hash(self.op) + hash(self.a) + hash(self.a)
 
 
-class SymState:
+class SymState(object):
 
     def __init__(self, other = None):
 
@@ -250,7 +250,7 @@ class SymState:
         return SymState(self)
 
 
-class Arg:
+class Arg(object):
 
     def __init__(self, t = None, size = None, name = None, val = None):
 
@@ -326,7 +326,14 @@ Insn_op    = lambda insn: insn[2]    # operation code
 Insn_args  = lambda insn: insn[3]    # tuple with 3 arguments
 Insn_flags = lambda insn: insn[4]    # instruction flags
 
-class Insn:    
+
+class Insn(object):    
+
+    class IRAddr(tuple):
+
+        def __str__(self):
+
+            return '%.x.%.2x' % self
 
     def __init__(self, op = None, a = None, b = None, c = None):
 
@@ -362,7 +369,7 @@ class Insn:
 
         self.addr, self.size = Insn_addr(data), Insn_size(data) 
         self.inum, self.flags = Insn_inum(data), Insn_flags(data)
-        self.ir_addr = (self.addr, self.inum)
+        self.ir_addr = self.IRAddr(( self.addr, self.inum ))
 
         self.op = Insn_op(data)
         if self.op > len(REIL_INSN) - 1: 
@@ -438,7 +445,7 @@ class Insn:
         c = SymVal(self.c.name, self.c.size)
 
         # constant argument should always be second
-        if a.__class__ == SymConst and b.__class__ == SymVal: a, b = b, a
+        if type(a) == SymConst and type(b) == SymVal: a, b = b, a
 
         # move from one register to another
         if self.op == I_STR: out_state.update(c, a)
@@ -484,14 +491,14 @@ class Insn:
         return None
 
 
-class BasicBlock:
+class BasicBlock(object):
     
     def __init__(self, insn_list):
 
         self.insn_list = insn_list
         self.first, self.last = insn_list[0], insn_list[-1]
-        self.addr, self.inum = self.first.addr, self.first.inum
-        self.size = self.last.addr + self.last.size - self.addr
+        self.ir_addr = self.first.ir_addr
+        self.size = self.last.addr + self.last.size - self.ir_addr[0]
 
     def __iter__(self):
 
@@ -506,18 +513,158 @@ class BasicBlock:
         return self.last.next(), self.last.jcc_loc()
 
 
-class CfgParser:
+class GraphNode(object):
+
+    def __init__(self, item = None):
+
+        self.item = item
+        self.in_edges, self.out_edges = Set(), Set()
+
+
+class GraphEdge(object):
+
+    def __init__(self, node_from, node_to, name = None):
+        
+        self.node_from, self.node_to = node_from, node_to
+        self.name = name
+
+        node_from.out_edges.add(self)
+        node_to.in_edges.add(self)
+
+    def __eq__(self, other):
+
+        return hash(self) == hash(other)
+
+    def __ne__(self, other):
+
+        return not self == other
+
+    def __hash__(self):
+
+        return hash(( self.node_from, self.node_to, self.name ))
+
+
+class Graph(object):
+
+    NODE = GraphNode
+    EDGE = GraphEdge
+
+    def __init__(self):
+
+        self.nodes, self.edges = {}, Set()
+
+    def node(self, key):
+
+        return self.nodes[key]
+
+    def add_node(self, item):
+
+        node = item if isinstance(item, self.NODE) else self.NODE(item)
+        key = node.key()
+
+        try: return self.nodes[key]        
+        except KeyError: self.nodes[key] = node
+
+        return node
+
+    def del_node(self, item):
+
+        node = item if isinstance(item, self.NODE) else self.NODE(item)
+
+        edges = Set()
+        edges.union_update(node.in_edges)
+        edges.union_update(node.out_edges)
+
+        # delete node edges
+        for edge in edges: self.del_edge(edge)
+
+        # delete node
+        self.nodes.pop(node.key())
+
+    def add_edge(self, node_from, node_to, name = None):
+
+        if not isinstance(node_from, self.NODE):
+
+            node_from = self.node(node_from)
+
+        if not isinstance(node_to, self.NODE):
+
+            node_to = self.node(node_to)
+
+        edge = self.EDGE(node_from, node_to, name)
+        self.edges.add(edge)
+
+        return edge
+
+    def del_edge(self, edge):
+
+        # cleanup output node
+        edge.node_from.out_edges.remove(edge)
+
+        # cleanup input node
+        edge.node_to.in_edges.remove(edge)
+
+        # delete edge
+        self.edges.remove(edge)
+
+    def to_dot_file(self, path):
+
+        with open(path, 'w') as fd:
+
+            fd.write('digraph pyopenreil {\n')
+
+            for edge in self.edges:
+
+                name, attr = str(edge), {}
+                if len(name) > 0: 
+
+                    attr['label'] = '"%s"' % name
+
+                attr = ' '.join(map(lambda a: '%s=%s' % a, attr.items()))
+                data = '"%s" -> "%s" [%s];\n' % (str(edge.node_from), str(edge.node_to), attr)
+
+                fd.write(data)
+
+            fd.write('}\n')
+
+
+class CFGraphNode(GraphNode):    
+
+    def __str__(self):
+
+        return '%x.%.2x' % self.item.ir_addr
+
+    def key(self):
+
+        return self.item.ir_addr
+
+
+class CFGraphEdge(GraphEdge):
+
+    def __str__(self):
+
+        return ''
+
+
+class CFGraph(Graph):    
+
+    NODE = CFGraphNode
+    EDGE = CFGraphEdge
+
+
+class CFGraphBuilder(object):
 
     def __init__(self, storage):
 
         self.storage = storage
 
-    def process_node(self, bb): return True
-    def process_edge(self, bb_from, bb_to): return True
+    def process_node(self, bb, state, context): 
 
-    def get_insn(self, addr, inum = None):
+        return True
 
-        return self.storage.get_insn(addr, inum)    
+    def get_insn(self, ir_addr):
+
+        return self.storage.get_insn(ir_addr)    
 
     def _get_bb(self, addr):
 
@@ -536,14 +683,18 @@ class CfgParser:
 
         return insn_list    
 
-    def get_bb(self, addr, inum = None):
+    def get_bb(self, ir_addr):
+
+        ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)
+        addr, inum = ir_addr
 
         inum = 0 if inum is None else inum
         last = inum
 
-        # translate basic block at given address
+        # translate assembly basic block at given address
         insn_list = self._get_bb(addr)        
 
+        # split it into the IR basic blocks
         for insn in insn_list[inum:]:
 
             last += 1
@@ -551,73 +702,155 @@ class CfgParser:
 
                 return BasicBlock(insn_list[inum:last])
 
-    def traverse(self, addr):
+    def traverse(self, ir_addr, state = None, context = None):
 
         stack, nodes, edges = [], [], []
-        stack_top = addr
+        cfg = CFGraph()
 
-        def _stack_push(addr, inum):
+        ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)        
+        state = {} if state is None else state        
 
-            if ( addr, inum ) not in nodes: stack.append(addr)
+        def _process_node(bb, state, context):
 
-        def _process_node(insn_list):
-
-            v = ( insn_list[0].addr, insn_list[0].inum )
-            if v not in nodes:
+            if bb.ir_addr not in nodes: nodes.append(bb.ir_addr)
             
-                nodes.append(v)
-                return self.process_node(BasicBlock(insn_list))
+            return self.process_node(bb, state, context)
 
-            return True    
+        def _process_edge(edge):
 
-        def _process_edge(bb, bb_to):  
-
-            bb_from = ( bb[0].addr, bb[0].inum )
-
-            e = ( bb_from, bb_to )
-            if e not in edges:
-
-                edges.append(e)
-                return self.process_edge(BasicBlock(bb), self.get_bb(*bb_to))
-                
-            return True  
+            if edge not in edges: edges.append(edge)
 
         # iterative pre-order CFG traversal
         while True:
 
-            # translate basic block at given address
-            insn_list = self._get_bb(stack_top)
-            bb = []
+            # query IR for basic block
+            bb = self.get_bb(ir_addr)
+            cfg.add_node(bb)
 
-            for insn in insn_list:
+            if not _process_node(bb, state, context): return False
 
-                bb.append(insn)
+            # process immediate postdominators
+            lhs, rhs = bb.last.next(), bb.last.jcc_loc()
+            if rhs is not None and not rhs in nodes: 
 
-                # split assembly basic block into the IR basic blocks
-                if insn.have_flag(IOPT_BB_END): 
+                _process_edge(( bb.ir_addr, rhs ))
+                stack.append(( rhs, state.copy() ))
 
-                   if not _process_node(bb): return False
+            if lhs is not None: 
 
-                   lhs, rhs = insn.next(), insn.jcc_loc()
-                   if rhs is not None: 
-
-                        if not _process_edge(bb, rhs): return False
-                        _stack_push(*rhs)
-
-                   if lhs is not None: 
-
-                        if not _process_edge(bb, lhs): return False
-                        _stack_push(*lhs)
-
-                   bb = []
+                _process_edge(( bb.ir_addr, lhs ))
+                stack.append(( lhs, state.copy() ))
             
-            try: stack_top = stack.pop()
+            try: ir_addr, state = stack.pop()
             except IndexError: break
+
+        # add processed edges to the CFG
+        for edge in edges: cfg.add_edge(*edge)
             
-        return map(lambda bb: self.get_bb(*bb), nodes)
+        return cfg
 
 
-class Reader:
+class DFGraphNode(GraphNode):    
+
+    def __str__(self):
+
+        return '%s %s' % (self.key(), REIL_INSN[self.item.op])
+
+    def key(self):
+
+        return self.item.ir_addr
+
+
+class DFGraphEntryNode(DFGraphNode): 
+
+    class Label(tuple): 
+
+        def __str__(self): return 'ENTRY'
+
+    def __str__(self):
+
+        return str(self.key())
+
+    def key(self):
+
+        return self.Label(( None, 0L ))
+
+
+class DFGraphExitNode(DFGraphNode): 
+
+    class Label(tuple): 
+
+        def __str__(self): return 'EXIT'
+
+    def __str__(self):
+
+        return str(self.key())
+
+    def key(self):
+
+        return self.Label(( None, 1L ))
+
+
+class DFGraphEdge(GraphEdge):
+
+    def __str__(self):
+
+        return self.name
+
+
+class DFGraph(Graph):    
+
+    NODE = DFGraphNode
+    EDGE = DFGraphEdge
+
+    def __init__(self):
+
+        super(DFGraph, self).__init__()
+
+        self.entry_node = DFGraphEntryNode()
+        self.exit_node = DFGraphExitNode()        
+
+        self.add_node(self.entry_node)
+        self.add_node(self.exit_node)
+
+
+class DFGraphBuilder(CFGraphBuilder):
+
+    def process_node(self, bb, state, context):
+
+        dfg = context
+
+        for insn in bb:
+
+            for arg in insn.src():
+
+                # propagate register usage information to immediate dominator
+                try: node_from = dfg.add_node(state[arg.name])
+                except KeyError: node_from = dfg.entry_node                      
+
+                dfg.add_edge(node_from, dfg.add_node(insn), str(arg))
+
+            # update current state
+            for arg in insn.dst(): state[arg.name] = insn
+
+        if bb.get_successors() == ( None, None ):
+
+            # end of the function, make exit edges for current state
+            for arg_name, insn in state.items():
+
+                dfg.add_edge(dfg.add_node(insn), dfg.exit_node.key(), arg_name)
+
+        return True
+    
+    def traverse(self, ir_addr):        
+
+        dfg = DFGraph()
+        super(DFGraphBuilder, self).traverse(ir_addr, state = {}, context = dfg)
+
+        return dfg
+
+
+class Reader(object):
 
     __metaclass__ = ABCMeta
 
@@ -634,7 +867,8 @@ class ReaderRaw(Reader):
 
         self.addr = addr
         self.data = data
-        Reader.__init__(self)
+
+        super(ReaderRaw, self).__init__(self)
 
     def read(self, addr, size): 
 
@@ -649,7 +883,7 @@ class ReaderRaw(Reader):
         return self.read(addr, MAX_INST_LEN)
 
 
-class CodeStorage:
+class CodeStorage(object):
 
     __metaclass__ = ABCMeta
 
@@ -702,7 +936,10 @@ class CodeStorageMem(CodeStorage):
                 line = eval(line.strip())
                 if isinstance(line, tuple): self._put_insn(line)
     
-    def get_insn(self, addr, inum = None): 
+    def get_insn(self, ir_addr): 
+
+        ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)
+        addr, inum = ir_addr
 
         query_single, ret = True, []
 
@@ -741,16 +978,22 @@ class CodeStorageMem(CodeStorage):
 
 class CodeStorageTranslator(CodeStorage):
 
-    class _CfgParser(CfgParser):
+    class _CFGraphBuilder(CFGraphBuilder):
 
         def __init__(self, storage):
 
-            self.storage = storage
-            self.insn_list = []
+            self.insn_list, self.visited = [], [] 
 
-        def process_node(bb):
+            super(_CFGraphBuilder, self).__init__(storage)
 
-            self.insn_list += bb.insn_list
+        def process_node(self, bb, state, context):
+
+            if bb.ir_addr not in self.visited:
+            
+                self.insn_list += bb.insn_list
+                self.visited.append(bb.ir_addr)
+
+            return True
 
     def __init__(self, arch, reader = None, storage = None):
 
@@ -758,44 +1001,45 @@ class CodeStorageTranslator(CodeStorage):
         self.storage = CodeStorageMem() if storage is None else storage
         self.reader = reader        
 
-    def get_insn(self, addr, inum = None):
+    def get_insn(self, ir_addr):
 
+        ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)
         ret = []
 
         try: 
 
             # query already translated IR instructions for this address
-            return self.storage.get_insn(addr, inum = inum)
+            return self.storage.get_insn(ir_addr)
 
         except KeyError:
 
-            if self.reader is None: raise(ReadError(addr))
+            if self.reader is None: raise(ReadError(ir_addr[0]))
 
             # read instruction bytes from memory
-            data = self.reader.read_insn(addr)
-            if data is None: raise(ReadError(addr))
+            data = self.reader.read_insn(ir_addr[0])
+            if data is None: raise(ReadError(ir_addr[0]))
 
             # translate to REIL
-            ret = self.translator.to_reil(data, addr = addr)
+            ret = self.translator.to_reil(data, addr = ir_addr[0])
 
         # save to storage
         for insn in ret: self.storage.put_insn(insn)
-        return self.storage.get_insn(addr, inum = inum)
+        return self.storage.get_insn(ir_addr)
 
     def put_insn(self, insn_or_insn_list):
 
         self.storage.put_insn(insn_or_insn_list)
 
-    def get_bb(self, addr):
+    def get_bb(self, ir_addr):
 
-        cfg = CfgParser(self)
+        cfg = CFGraphBuilder(self)
         
-        return cfg.get_bb(addr)
+        return cfg.get_bb(ir_addr).insn_list
 
-    def get_func(self, addr):
+    def get_func(self, ir_addr):
 
-        cfg = self._CfgParser(self)
-        cfg.traverse(addr)
+        cfg = self._CFGraphBuilder(self)
+        cfg.traverse(ir_addr)
 
         return cfg.insn_list
 #
