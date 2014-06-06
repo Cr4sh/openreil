@@ -66,19 +66,20 @@ bool asmir_get_print_warning()
 {
     return print_warnings;
 }
+
 //======================================================================
 //
 // Helper functions for the translation
 //
 //======================================================================
 
-/// Set whether to use the thunk code with function calls, or not.
+// Set whether to use the thunk code with function calls, or not.
 void set_use_eflags_thunks(bool value)
 {
     use_eflags_thunks = value;
 }
 
-/// Set whether to use code with simple segments or not.
+// Set whether to use code with simple segments or not.
 void asmir_set_use_simple_segments(bool value)
 {
     use_simple_segments = value;
@@ -213,7 +214,7 @@ void modify_flags(bap_block_t *block)
         break;
     
     default:
-    
+
         panic("modify_flags");
     }
 }
@@ -302,7 +303,6 @@ Temp *mk_temp(reg_t type, vector<Stmt *> *stmts)
     return ret;
 }
 
-
 Temp *mk_temp(IRType ty, vector<Stmt *> *stmts)
 {
     reg_t typ = IRType_to_reg_type(ty);
@@ -329,7 +329,6 @@ Name *mk_dest_name(Addr64 dest)
     return new Name("pc_0x" + int_to_hex(dest));
 }
 
-
 //======================================================================
 //
 // Actual translation functions
@@ -353,6 +352,7 @@ Exp *translate_32HLto64(Exp *arg1, Exp *arg2)
 
     return new BinOp(BITOR, high, low);
 }
+
 Exp *translate_64HLto64(Exp *high, Exp *low)
 {
     assert(high);
@@ -364,7 +364,6 @@ Exp *translate_64HLto64(Exp *high, Exp *low)
 
     return new BinOp(BITOR, high, low);
 }
-
 
 Exp *translate_DivModU64to32(Exp *arg1, Exp *arg2)
 {
@@ -1076,33 +1075,33 @@ Exp *translate_binop(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
     case Iop_I32StoF32: /* IRRoundingMode(I32) x signed I32 -> F32 */
     case Iop_I64StoF32: /* IRRoundingMode(I32) x signed I64 -> F32 */
 
-        /* Conversion between floating point formats */
+    /* Conversion between floating point formats */
     case Iop_F32toF64:  /*                       F32 -> F64 */
     case Iop_F64toF32:  /* IRRoundingMode(I32) x F64 -> F32 */
 
-        /* Reinterpretation.  Take an F64 and produce an I64 with
-           the same bit pattern, or vice versa. */
+    /* Reinterpretation.  Take an F64 and produce an I64 with
+       the same bit pattern, or vice versa. */
     case Iop_ReinterpF64asI64:
     case Iop_ReinterpI64asF64:
     case Iop_ReinterpF32asI32:
     case Iop_ReinterpI32asF32:
 
-        /* Support for 128-bit floating point */
+    /* Support for 128-bit floating point */
     case Iop_F64HLtoF128:/* (high half of F128,low half of F128) -> F128 */
     case Iop_F128HItoF64:/* F128 -> high half of F128 into a F64 register */
     case Iop_F128LOtoF64:/* F128 -> low  half of F128 into a F64 register */
 
-        /* :: IRRoundingMode(I32) x F128 x F128 -> F128 */
+    /* :: IRRoundingMode(I32) x F128 x F128 -> F128 */
     case Iop_AddF128:
     case Iop_SubF128:
     case Iop_MulF128:
     case Iop_DivF128:
 
-        /* :: F128 -> F128 */
+    /* :: F128 -> F128 */
     case Iop_NegF128:
     case Iop_AbsF128:
 
-        /* :: IRRoundingMode(I32) x F128 -> F128 */
+    /* :: IRRoundingMode(I32) x F128 -> F128 */
     case Iop_SqrtF128:
 
     case Iop_I32StoF128: /*                signed I32  -> F128 */
@@ -1658,7 +1657,6 @@ Stmt *translate_jumpkind(IRSB *irbb, vector<Stmt *> *irout)
     return result;
 }
 
-
 // FIXME: call arch specific functions
 bool is_special(address_t inst)
 {
@@ -1802,10 +1800,10 @@ vector<bap_block_t *> generate_vex_ir(VexArch guest, uint8_t *data, address_t st
     return results;
 }
 
-/**
- * Insert both special("call") and special("ret") into the code.
- * This function should be replacing add_special_returns()
- */
+//----------------------------------------------------------------------
+// Insert both special("call") and special("ret") into the code.
+// This function should be replacing add_special_returns()
+//----------------------------------------------------------------------
 void insert_specials(bap_block_t *block)
 {
     IRSB *bb = block->vex_ir;
@@ -1904,8 +1902,7 @@ void generate_bap_ir_block(VexArch guest, bap_block_t *block)
 
 }
 
-vector<bap_block_t *>
-generate_bap_ir(VexArch guest, vector<bap_block_t *> vblocks)
+vector<bap_block_t *> generate_bap_ir(VexArch guest, vector<bap_block_t *> vblocks)
 {
     unsigned int vblocksize = vblocks.size();
 

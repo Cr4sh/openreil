@@ -9,7 +9,6 @@
 
 typedef struct bap_block_s bap_block_t;
 
-
 //
 // VEX headers (inside Valgrind/VEX/pub)
 //
@@ -19,7 +18,6 @@ typedef struct bap_block_s bap_block_t;
 extern "C"
 {
 #endif
-
 
 #include "libvex.h"
 
@@ -54,7 +52,9 @@ struct bap_block_s
 //
 //======================================================================
 
-extern "C" {
+extern "C" 
+{
+
 //
 // Initializes VEX. This function must be called before translate_insn
 // can be used. 
@@ -68,11 +68,12 @@ void translate_init();
 // \param insn_addr Address of the instruction in its own address space
 // \return An IRSB containing the VEX IR translation of the given instruction
 // vexir.c
-IRSB *translate_insn( VexArch guest, unsigned char *insn_start, unsigned int insn_addr, int *insn_size );
+IRSB *translate_insn(VexArch guest, unsigned char *insn_start, unsigned int insn_addr, int *insn_size);
 
 //
 // Translate an IRSB into a vector of Stmts in our IR
-vector<Stmt *> *translate_irbb( IRSB *irbb );
+vector<Stmt *> *translate_irbb(IRSB *irbb);
+
 }
 
 
@@ -91,10 +92,9 @@ bap_block_t* generate_vex_ir(VexArch guest, uint8_t *data, address_t inst, int *
 // Same as generate_vex_ir, but only for an address range
 vector<bap_block_t *> generate_vex_ir(VexArch guest, uint8_t *data, address_t start, address_t end);
 
-
 // Take a bap block that has gone through VEX translation and translate it
 // to Vine IR.
-void generate_bap_ir_block( VexArch guest, bap_block_t *block );
+void generate_bap_ir_block(VexArch guest, bap_block_t *block);
 
 //
 // Take a vector of bap blocks that have gone through VEX translation
@@ -103,11 +103,12 @@ void generate_bap_ir_block( VexArch guest, bap_block_t *block );
 // \param vblocks Vector of bap blocks with valid VEX IR translations
 // \return Vector of bap blocks with the bap_ir field filled in
 //
-vector<bap_block_t *> generate_bap_ir( VexArch guest, vector<bap_block_t *> vblocks );
+vector<bap_block_t *> generate_bap_ir(VexArch guest, vector<bap_block_t *> vblocks);
 
 
-extern "C" {
-  typedef struct vector<bap_block_t *> bap_blocks_t;
+extern "C" 
+{
+typedef struct vector<bap_block_t *> bap_blocks_t;
 
 #endif  // __cplusplus
 

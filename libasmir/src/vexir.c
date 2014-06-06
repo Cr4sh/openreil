@@ -21,10 +21,10 @@
 //======================================================================
 
 // Some info required for translation
-static VexArchInfo         vai;
-static VexGuestExtents     vge;
-static VexTranslateArgs    vta;
-static VexTranslateResult  vtr;
+static VexArchInfo vai;
+static VexGuestExtents vge;
+static VexTranslateArgs vta;
+static VexTranslateResult vtr;
 
 // Define a temp buffer to hold the translated bytes
 // Not needed with patched VEX

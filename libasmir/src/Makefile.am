@@ -6,9 +6,7 @@ AM_CXXFLAGS = $(AM_CFLAGS)
 
 libasmir_a_SOURCES = \
 	./old_ir/stmt.cpp \
-	./old_ir/stmt_c.cpp \
 	./old_ir/exp.cpp \
-	./old_ir/exp_c.cpp \
 	irtoir.cpp \
 	irtoir-i386.cpp \
 	irtoir-arm.cpp \
