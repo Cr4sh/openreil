@@ -11,7 +11,7 @@ INCDIR := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig
 PLATINCDIR := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_python_inc(plat_specific = True))")
 
 ../translator.$(PYEXT): translator.o ../../libopenreil/src/libopenreil.a ../../libasmir/src/libasmir.a ../../VEX/libvex.a
-	$(CXX) -pthread -shared -o $@ $^ -ldl -lbfd -lopcodes -lz -liberty -lpython$(PYVERSION) $(MINGW_LIBS)
+	$(CXX) -pthread -shared -o $@ $^ -lpython$(PYVERSION) $(MINGW_LIBS)
 
 translator.o: translator.cpp translator.pyx libopenreil.pxd
 	$(CXX) -c translator.cpp -I$(INCDIR) -I$(PLATINCDIR) -I../../libopenreil/include

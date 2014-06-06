@@ -12,7 +12,6 @@ extern "C"
 }
 
 // libasmir includes
-#include "asm_program.h"
 #include "irtoir.h"
 
 // OpenREIL includes
@@ -556,12 +555,6 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, uint64_t inst_fla
 {
     current_raw_info = raw_info;
 
-#ifdef DBG_BAP
-        
-    printf("%s\n", s->tostring().c_str());
-
-#endif
-
     switch (s->stmt_type)
     {
     case MOVE:    
@@ -609,13 +602,6 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, uint64_t inst_fla
 
         break;
     }  
-
-#if defined(DBG_BAP) && defined(DBG_REIL)
-
-    printf("\n");
-
-#endif  
-
 }
 
 void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *block)
@@ -655,11 +641,22 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
                 // translate special statement to the REIL instruction options
                 inst_flags |= convert_special(special);
             }
-        }        
+        }   
+
+#ifdef DBG_BAP
+        
+        printf("%s\n", s->tostring().c_str());
+#endif     
 
         // convert statement to REIL code
         process_bil(raw_info, inst_flags, s);
     }
+
+#ifdef DBG_BAP
+        
+    printf("\n");
+
+#endif  
 
     if (inst_count == 0)
     {
@@ -671,30 +668,17 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
         reil_inst.raw_info.size = raw_info->size;
         reil_inst.flags = IOPT_ASM_END;
 
-        // no instructions was stranslated, generate I_NONE
+        // no instructions was translated, generate I_NONE
         process_reil_inst(&reil_inst);
     }
 }
 
-CReilTranslator::CReilTranslator(bfd_architecture arch, reil_inst_handler_t handler, void *context)
+CReilTranslator::CReilTranslator(VexArch arch, reil_inst_handler_t handler, void *context)
 {
     // initialize libasmir
     translate_init();
 
-    // allocate a fake bfd instance
-    prog = asmir_new_asmp_for_arch(arch);
-    assert(prog);
-
-    // create code segment for instruction buffer 
-    prog->segs = (section_t *)bfd_alloc(prog->abfd, sizeof(section_t));
-    assert(prog->segs);
-            
-    prog->segs->data = inst_buffer;
-    prog->segs->datasize = MAX_INST_LEN;                        
-    prog->segs->section = NULL;
-    prog->segs->is_code = true;
-    set_inst_addr(0);
-
+    guest = arch;
     translator = new CReilFromBilTranslator(handler, context);
     assert(translator);
 }
@@ -702,38 +686,20 @@ CReilTranslator::CReilTranslator(bfd_architecture arch, reil_inst_handler_t hand
 CReilTranslator::~CReilTranslator()
 {
     delete translator;
-    asmir_close(prog);
-}
-
-void CReilTranslator::set_inst_addr(address_t addr)
-{
-    prog->segs->start_addr = addr;
-    prog->segs->end_addr = addr + MAX_INST_LEN;
 }
 
 int CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
 {
     int ret = 0;
-
-    set_inst_addr(addr);
-    memcpy(inst_buffer, data, min(size, MAX_INST_LEN));
-
+    
     // translate to VEX
-    bap_block_t *block = generate_vex_ir(prog, addr);
+    bap_block_t *block = generate_vex_ir(guest, data, addr, &ret);
+    
     assert(block);
-
-#ifdef DBG_ASM
-
-    string asm_code = asmir_string_of_insn(prog, addr);
-    printf("# %s\n\n", asm_code.c_str());
-
-#endif
-
-    ret = asmir_get_instr_length(prog, addr);
     assert(ret != 0 && ret != -1);
 
     // tarnslate to BAP
-    generate_bap_ir_block(prog, block);                
+    generate_bap_ir_block(guest, block);                
 
     // generate REIL
     reil_raw_t raw_info;
@@ -750,10 +716,10 @@ int CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
 
     delete block->bap_ir;
     delete block;        
-
+    
     // free VEX memory
     // asmir_close() is also doing that
     vx_FreeAll();
-
+    
     return ret;
 }

@@ -162,7 +162,7 @@ Exp  *arm_translate_ccall( IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout )
   return new Unknown("CCall: " + func, regt_of_irexpr(irbb, expr));
 }
 
-void  arm_modify_flags( asm_program_t *prog, bap_block_t *block )
+void  arm_modify_flags( bap_block_t *block )
 {
   //vector<Stmt *> *ir = block->bap_ir;
   // FIXME: implement this

@@ -46,7 +46,7 @@ Temp *mk_temp( IRType ty, vector<Stmt *> *stmts );
 
 Exp *translate_expr( IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout );
 
-string get_op_str(asm_program_t *prog, address_t inst );
+//string get_op_str(asm_program_t *prog, address_t inst );
 
 int match_mux0x(vector<Stmt*> *ir, unsigned int i,
 		Exp **cond, Exp **exp0,	Exp **expx, Exp **res);
@@ -64,16 +64,16 @@ vector<VarDecl *> i386_get_reg_decls();
 Exp  *i386_translate_get( IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout );
 Stmt *i386_translate_put( IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout );
 Exp  *i386_translate_ccall( IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout );
-void  i386_modify_flags( asm_program_t *prog, bap_block_t *block );
+void  i386_modify_flags( bap_block_t *block );
 bool i386_op_is_very_broken ( string op );
-void del_get_thunk( asm_program_t *prog, bap_block_t *block );
+void del_get_thunk( bap_block_t *block );
 
 // defined in irtoir-arm.cpp
 vector<VarDecl *> arm_get_reg_decls();
 Exp  *arm_translate_get( IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout );
 Stmt *arm_translate_put( IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout );
 Exp  *arm_translate_ccall( IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout );
-void  arm_modify_flags( asm_program_t *prog, bap_block_t *block );
+void  arm_modify_flags( bap_block_t *block );
 
 
 #endif

@@ -7,7 +7,6 @@
 #include <string>
 
 // libasmir includes
-#include "asm_program.h"
 #include "irtoir.h"
 
 // OpenREIL includes
@@ -92,11 +91,11 @@ void reil_inst_print(reil_inst_t *inst)
 
 reil_t reil_init(reil_arch_t arch, reil_inst_handler_t handler, void *context)
 {
-    enum bfd_architecture bfd_arch;
+    VexArch guest;
 
     switch (arch)
     {
-    case REIL_X86: bfd_arch = bfd_arch_i386; break;
+    case REIL_X86: guest = VexArchX86; break;
     default: assert(0);
     }
 
@@ -105,7 +104,7 @@ reil_t reil_init(reil_arch_t arch, reil_inst_handler_t handler, void *context)
     assert(c);
 
     // create new translator instance
-    c->translator = new CReilTranslator(bfd_arch, handler, context);
+    c->translator = new CReilTranslator(guest, handler, context);
     assert(c->translator);
 
     return c;

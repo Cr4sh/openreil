@@ -58,18 +58,15 @@ class CReilTranslator
 {
 public:
 
-    CReilTranslator(bfd_architecture arch, reil_inst_handler_t handler, void *context);
+    CReilTranslator(VexArch arch, reil_inst_handler_t handler, void *context);
     ~CReilTranslator();
 
     int process_inst(address_t addr, uint8_t *data, int size);
 
 private:
 
-    void set_inst_addr(address_t addr);
-
+    VexArch guest;
     CReilFromBilTranslator *translator;
-    uint8_t inst_buffer[MAX_INST_LEN];
-    asm_program_t *prog;
 };
 
 #endif

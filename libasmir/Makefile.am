@@ -2,4 +2,4 @@
 # Do not copy, disclose, or distribute without explicit written
 # permission.
 
-SUBDIRS= src apps 
+SUBDIRS= src 

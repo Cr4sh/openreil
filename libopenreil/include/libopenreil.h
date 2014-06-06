@@ -5,7 +5,6 @@
 // IR format definitions
 #include "reil_ir.h"
 
-#define DBG_ASM
 #define DBG_BAP
 #define DBG_REIL
 

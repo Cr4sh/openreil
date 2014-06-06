@@ -70,5 +70,5 @@ def test_2(argv):
 
 if __name__ == '__main__':  
 
-    exit(test_2(sys.argv))
+    exit(test_1(sys.argv))
 

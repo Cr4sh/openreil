@@ -868,7 +868,7 @@ class ReaderRaw(Reader):
         self.addr = addr
         self.data = data
 
-        super(ReaderRaw, self).__init__(self)
+        super(ReaderRaw, self).__init__()
 
     def read(self, addr, size): 
 
