@@ -1,18 +1,27 @@
 from pyopenreil.REIL import *
 
+# architecture name
 name = 'x86'
 
+# pointer size
 ptr_len = 4
 
 class Registers:
 
-    flags = ( 'R_ZF', 'R_PF', 'R_CF', 
-              'R_AF', 'R_SF', 'R_OF' )
+    # flag registers
+    flags = ( 'R_ZF', 'R_PF', 'R_CF', 'R_AF', 'R_SF', 'R_OF' )
 
+    # general purpose registers
+    general = ( 'R_EAX', 'R_EBX', 'R_ECX', 'R_EDX', 'R_ESI', 'R_EDI', 'R_EBP', 'R_ESP' )
+
+    # instruction pointer
     ip = 'R_EIP'
+
+    # stack pointer
     sp = 'R_ESP'
 
-    reg = (( 'EFLAGS', U32 ),
+    # all of the registers
+    all = (( 'EFLAGS', U32 ),
            ( 'R_LDT', U32 ), 
            ( 'R_GDT', U32 ),
            ( 'R_DFLAG', U32 ),
@@ -62,7 +71,6 @@ class Registers:
            ( 'R_SI', U16 ),  
            ( 'R_DI', U16 ),  
            ( 'R_SP', U16 ),  
-
 
            # 8-bit registers (bits 0-7)
            ( 'R_AL', U8 ),  

@@ -4,7 +4,16 @@ from sets import Set
 from pyopenreil.REIL import *
 from pyopenreil.arch import x86
 
-CODE = '\x68\x00\x00\x00\x00\xF3\xA4\xE8\x00\x00\x00\x00\xC2\x04\x00'
+CODE  = '\x0f\x32\x0f\x30' # rdmsr, wrmsr
+CODE += '\x0f\x01\x08\x0f\x01\x00\x0f\x00\x00' # sidt, sgdt, sldt
+CODE += '\x0f\x01\x10\x0f\x01\x18\x0f\x00\x10' # lidt, lgdt, lldt
+CODE += '\x0f\x31' # rdtsc
+CODE += '\x0f\xa2' # cupid
+CODE += '\xcc' # int 3
+CODE += '\x90' # nop
+CODE += '\xf4' # hlt
+CODE += '\x68\x00\x00\x00\x00\xF3\xA4\xE8\x00\x00\x00\x00\xC2\x04\x00'
+
 ADDR = 0x1337L
 ENTRY = 0
         
@@ -23,7 +32,7 @@ def test_1(argv):
 def test_2(argv):
     ''' Code elimination test. '''
 
-    storage = CodeStorageMem()
+    storage = CodeStorageMem('x86')
     storage.from_file('/vagrant_data/_tests/fib/ida_translate_func.ir')
 
     cfg = CFGraphBuilder(storage).traverse(0x004016B0)

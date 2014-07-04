@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <assert.h>
 
-//#include "typecheck_ir.h"
 #include "irtoir-internal.h"
 #include "config.h"
 
@@ -31,11 +30,13 @@ VexArch guest_arch = VexArch_INVALID;
 
 using namespace std;
 
+#include "disasm.h"
+
 //
 // For labeling untranslated VEX IR instructions
 //
-static string uTag = "Unknown: ";
-static string sTag = "Skipped: ";
+string uTag = "Unknown: ";
+string sTag = "Skipped: ";
 
 //
 // Special Exp to record the AST for shl, shr
@@ -219,6 +220,11 @@ void modify_flags(bap_block_t *block)
     }
 }
 
+Temp *mk_reg(string name, reg_t width)
+{
+    return new Temp(width, "R_" + name);
+}
+
 // Note:
 //  VEX uses IRType to specify both the width(in terms of bits) and
 //  type(signed/unsigned/float) of an expression. To translate an
@@ -259,7 +265,7 @@ reg_t IRType_to_reg_type(IRType type)
 
         if (print_warnings)
         {
-            fprintf(stderr, "warning: Float32 register encountered\n");
+            fprintf(stderr, "WARNING: Float32 register encountered\n");
         }
 
         t = REG_32;
@@ -269,7 +275,7 @@ reg_t IRType_to_reg_type(IRType type)
 
         if (print_warnings)
         {
-            fprintf(stderr, "warning: Float64 register encountered\n");
+            fprintf(stderr, "WARNING: Float64 register encountered\n");
         }
 
         t = REG_64;
@@ -1606,7 +1612,6 @@ Stmt *translate_jumpkind(IRSB *irbb, vector<Stmt *> *irout)
         {
             result = new Jmp(dest);
         }
-
         else
         {
             result = new Call(NULL, dest, vector<Exp *>());
@@ -1620,7 +1625,6 @@ Stmt *translate_jumpkind(IRSB *irbb, vector<Stmt *> *irout)
         {
             result = new Jmp(dest);
         }
-
         else
         {
             Exp::destroy(dest);
@@ -1632,7 +1636,7 @@ Stmt *translate_jumpkind(IRSB *irbb, vector<Stmt *> *irout)
     case Ijk_NoDecode:
     
         Exp::destroy(dest);
-        result = new Special("VEX decode error");
+        result = new Special(uTag + "NoDecode");
         break;
     
     case Ijk_Sys_syscall:
@@ -1644,7 +1648,6 @@ Stmt *translate_jumpkind(IRSB *irbb, vector<Stmt *> *irout)
         // won't translate these as a jump here.
         Exp::destroy(dest);
         return NULL;
-        break;
     
     default:
     
@@ -1757,17 +1760,19 @@ vector<Stmt *> *translate_irbb(IRSB *irbb)
 //
 //======================================================================
 
-bap_block_t *generate_vex_ir(VexArch guest, uint8_t *data, address_t inst, int *inst_size)
+bap_block_t *generate_vex_ir(VexArch guest, uint8_t *data, address_t inst)
 {
     bap_block_t *vblock = new bap_block_t;
-
+    
     vblock->inst = inst;
+    vblock->inst_size = disasm_insn(guest, data, vblock->op_str);
+    assert(vblock->inst_size != 0 && vblock->inst_size != -1);
 
     // Skip the VEX translation of special instructions because these
     // are also the ones that VEX does not handle
     if (!is_special(inst))
     {
-        vblock->vex_ir = translate_insn(guest, data, inst, inst_size);
+        vblock->vex_ir = translate_insn(guest, data, inst, NULL);
     }
     else
     {
@@ -1786,15 +1791,12 @@ vector<bap_block_t *> generate_vex_ir(VexArch guest, uint8_t *data, address_t st
     vector<bap_block_t *> results;
     address_t inst;
 
-    for (inst = start; inst < end;)
+    for (inst = start; inst < end; )
     {
-        int inst_size = 0;
-
-        bap_block_t *vblock = generate_vex_ir(guest, data, inst, &inst_size);
-        assert(inst_size != 0 && inst_size != -1);
-
+        bap_block_t *vblock = generate_vex_ir(guest, data, inst);        
         results.push_back(vblock);
-        inst += inst_size;
+
+        inst += vblock->inst_size;
     }
 
     return results;
@@ -1899,7 +1901,6 @@ void generate_bap_ir_block(VexArch guest, bap_block_t *block)
 
         vir->at(j)->ir_address = ir_addr++;
     }
-
 }
 
 vector<bap_block_t *> generate_bap_ir(VexArch guest, vector<bap_block_t *> vblocks)
@@ -1920,23 +1921,6 @@ vector<bap_block_t *> generate_bap_ir(VexArch guest, vector<bap_block_t *> vbloc
 // Helpers
 //
 //----------------------------------------------------------------------
-/*
-string inst_to_str(asm_program_t *prog, address_t inst)
-{
-    return string(asmir_string_of_insn(prog, inst));
-}
-
-string get_op_str(asm_program_t *prog, address_t inst)
-{
-    string str = inst_to_str(prog, inst);
-    istringstream stream(str);
-    string token;
-    getline(stream, token, '\t');
-    getline(stream, token, '\t');
-
-    return token;
-}
-*/
 
 // Needed to be able to delete the Mux0X statements in shift instructions
 int match_mux0x(vector<Stmt *> *ir, unsigned int i, Exp **cond, Exp **exp0,	Exp **expx, Exp **res)

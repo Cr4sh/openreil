@@ -32,6 +32,7 @@
 // functions internal to irtoir.cpp and irtoir-*.cpp
 void panic(string msg);
 
+Temp *mk_reg(string name, reg_t width);
 reg_t IRType_to_reg_type(IRType type);
 reg_t regt_of_irexpr(IRSB *irbb, IRExpr *e);
 
@@ -47,8 +48,6 @@ Temp *mk_temp(reg_t type, vector<Stmt *> *stmts);
 Temp *mk_temp(IRType ty, vector<Stmt *> *stmts);
 
 Exp *translate_expr(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout);
-
-string get_op_str(address_t inst);
 
 int match_mux0x(vector<Stmt *> *ir, unsigned int i, Exp **cond, Exp **exp0,	Exp **expx, Exp **res);
 

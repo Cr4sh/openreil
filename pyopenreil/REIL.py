@@ -1,6 +1,10 @@
 from abc import ABCMeta, abstractmethod
 from sets import Set
 
+IATTR_FLAGS  = 'F'
+IATTR_SRC    = 'S'
+IATTR_DST    = 'D'
+
 IOPT_CALL    = 0x00000001
 IOPT_RET     = 0x00000002
 IOPT_BB_END  = 0x00000004
@@ -31,6 +35,7 @@ create_globals(REIL_INSN, 'I_')
 create_globals(REIL_SIZE, 'U')
 create_globals(REIL_ARG, 'A_')
 
+
 import translator
 from arch import x86
 
@@ -43,14 +48,25 @@ class ReadError(translator.BaseError):
 
     def __str__(self):
 
-        return 'Error while loading instruction %s' % hex(self.addr)
+        return 'Error while reading instruction %s' % hex(self.addr)
 
 
 class ParseError(translator.BaseError):
 
     def __str__(self):
 
-        return 'Error while unserializing instruction %s' % hex(self.addr)
+        return 'Error while deserializing instruction %s' % hex(self.addr)
+
+
+def get_arch(arch):
+
+    try: 
+
+        return { 'x86': x86 }[arch]
+
+    except KeyError: 
+
+        raise(translator.BaseError('Architecture %s is unknown' % arch))
 
 
 class SymVal(object):
@@ -254,10 +270,19 @@ class Arg(object):
 
     def __init__(self, t = None, size = None, name = None, val = None):
 
+        serialized = None
+        if isinstance(t, tuple): 
+            
+            serialized = t
+            t = None
+
         self.type = A_NONE if t is None else t
         self.size = None if size is None else size
         self.name = None if name is None else name
         self.val = 0L if val is None else long(val)
+
+        # unserialize raw IR instruction argument structure
+        if serialized: self.unserialize(serialized)
 
     def get_val(self):
 
@@ -324,10 +349,12 @@ Insn_size  = lambda insn: insn[0][1] # assembly code size
 Insn_inum  = lambda insn: insn[1]    # IR subinstruction number
 Insn_op    = lambda insn: insn[2]    # operation code
 Insn_args  = lambda insn: insn[3]    # tuple with 3 arguments
-Insn_flags = lambda insn: insn[4]    # instruction flags
-
+Insn_attr  = lambda insn: insn[4]    # instruction attributes
 
 class Insn(object):    
+
+    ATTR_DEFS = (( IATTR_FLAGS, 0 ), # optional REIL flags
+                 )
 
     class IRAddr(tuple):
 
@@ -335,19 +362,31 @@ class Insn(object):
 
             return '%.x.%.2x' % self
 
-    def __init__(self, op = None, a = None, b = None, c = None):
+    def __init__(self, op = None, attr = None, size = None, ir_addr = None, 
+                       a = None, b = None, c = None):
 
         serialized = None
         if isinstance(op, tuple): 
             
             serialized = op
-            op = None
+            op = None                
 
-        self.addr, self.inum, self.ir_addr = 0L, 0, ()
-        self.op = I_NONE if op is None else op
+        self.init_attr(attr)
+
+        self.op = I_NONE if op is None else op        
+        self.size = 0 if size is None else size        
+
+        self.addr, self.inum = 0L, 0
+        self.ir_addr = ()
+
+        if ir_addr is not None:
+
+            self.ir_addr = ir_addr
+            self.addr, self.inum = ir_addr
+
         self.a = Arg() if a is None else a
         self.b = Arg() if b is None else b
-        self.c = Arg() if c is None else c
+        self.c = Arg() if c is None else c        
 
         # unserialize raw IR instruction structure
         if serialized: self.unserialize(serialized)
@@ -356,19 +395,19 @@ class Insn(object):
 
         return '%.8x.%.2x %7s %16s, %16s, %16s' % \
                (self.addr, self.inum, REIL_INSN[self.op], \
-                self.a, self.b, self.c)
+                self.a, self.b, self.c)    
 
     def serialize(self):
 
         info = ( self.addr, self.size )
         args = ( self.a.serialize(), self.b.serialize(), self.c.serialize() )
         
-        return ( info, self.inum, self.op, args, self.flags )
+        return ( info, self.inum, self.op, args, self.attr )
 
     def unserialize(self, data):
 
-        self.addr, self.size = Insn_addr(data), Insn_size(data) 
-        self.inum, self.flags = Insn_inum(data), Insn_flags(data)
+        self.init_attr(Insn_attr(data))
+        self.addr, self.inum, self.size = Insn_addr(data), Insn_inum(data), Insn_size(data)
         self.ir_addr = self.IRAddr(( self.addr, self.inum ))
 
         self.op = Insn_op(data)
@@ -389,9 +428,30 @@ class Insn(object):
 
         return self
 
+    def init_attr(self, attr):
+
+        self.attr = {} if attr is None else attr
+
+        # initialize missing attributes with default values
+        for name, val in self.ATTR_DEFS:
+
+            if not self.attr.has_key(name): self.set_attr(name, val)
+
+    def get_attr(self, name):
+
+        return self.attr[name]
+
+    def set_attr(self, name, val):
+
+        self.attr[name] = val
+
     def have_flag(self, val):
 
-        return self.flags & val != 0
+        return self.get_attr(IATTR_FLAGS) & val != 0
+
+    def set_flag(self, val):
+
+        self.set_attr(IATTR_FLAGS, self.get_attr(IATTR_FLAGS) | val)
 
     def dst(self):
 
@@ -656,6 +716,7 @@ class CFGraphBuilder(object):
 
     def __init__(self, storage):
 
+        self.arch = storage.arch
         self.storage = storage
 
     def process_node(self, bb, state, context): 
@@ -822,16 +883,34 @@ class DFGraphBuilder(CFGraphBuilder):
 
         for insn in bb:
 
-            for arg in insn.src():
+            src = [ arg.name for arg in insn.src() ]
+            dst = [ arg.name for arg in insn.dst() ]
+
+            if insn.have_flag(IOPT_CALL):
+
+                #
+                # Function call instruction.
+                #
+                # To make all the things a bit more simpler we assuming that:
+                #
+                #   - target function can read and write all general purpose registers;
+                #   - target function is not using any flag values that was set in current function;
+                #
+                # Normally this approach will works fine for code that was generated by high level
+                # language compiler, but some handwritten assembly junk can break it.
+                #
+                src = dst = self.arch.Registers.general
+
+            for arg in src:
 
                 # propagate register usage information to immediate dominator
-                try: node_from = dfg.add_node(state[arg.name])
+                try: node_from = dfg.add_node(state[arg])
                 except KeyError: node_from = dfg.entry_node                      
 
-                dfg.add_edge(node_from, dfg.add_node(insn), str(arg))
+                dfg.add_edge(node_from, dfg.add_node(insn), arg)
 
             # update current state
-            for arg in insn.dst(): state[arg.name] = insn
+            for arg in dst: state[arg] = insn
 
         if bb.get_successors() == ( None, None ):
 
@@ -896,9 +975,10 @@ class CodeStorage(object):
 
 class CodeStorageMem(CodeStorage):
 
-    def __init__(self, insn_list = None): 
+    def __init__(self, arch, insn_list = None): 
 
         self.clear()
+        self.arch = get_arch(arch)
         if insn_list is not None: self.put_insn(insn_list)
 
     def __iter__(self):
@@ -984,7 +1064,7 @@ class CodeStorageTranslator(CodeStorage):
 
             self.insn_list, self.visited = [], [] 
 
-            super(_CFGraphBuilder, self).__init__(storage)
+            CFGraphBuilder.__init__(self, storage)
 
         def process_node(self, bb, state, context):
 
@@ -996,10 +1076,46 @@ class CodeStorageTranslator(CodeStorage):
             return True
 
     def __init__(self, arch, reader = None, storage = None):
-
+        
+        self.arch = get_arch(arch)
         self.translator = translator.Translator(arch)
-        self.storage = CodeStorageMem() if storage is None else storage
-        self.reader = reader        
+        self.storage = CodeStorageMem(arch) if storage is None else storage
+        self.reader = reader
+
+    def translate_insn(self, data, addr):                
+
+        src, dst = [], []
+        ret_insn = Insn(I_NONE, ir_addr = ( addr, 0 ))
+        ret_insn.set_flag(IOPT_ASM_END)        
+
+        # generate IR instructions
+        ret = self.translator.to_reil(data, addr = addr)
+
+        #
+        # Convert untranslated instruction representation into the 
+        # single I_NONE IR instruction and save operands information
+        # into it's attributes.
+        #
+        for insn in ret:
+
+            if Insn_op(insn) == I_NONE:
+
+                args = Insn_args(insn)
+                a, c = Arg(args[0]), Arg(args[2])
+
+                if a.type != A_NONE: src.append(a.serialize())
+                if c.type != A_NONE: dst.append(c.serialize())
+
+                ret_insn.size = Insn_size(insn)
+
+            else:
+
+                return ret
+
+        if len(src) > 0: ret_insn.set_attr(IATTR_SRC, src)
+        if len(dst) > 0: ret_insn.set_attr(IATTR_DST, dst)
+
+        return [ ret_insn.serialize() ]
 
     def get_insn(self, ir_addr):
 
@@ -1020,7 +1136,7 @@ class CodeStorageTranslator(CodeStorage):
             if data is None: raise(ReadError(ir_addr[0]))
 
             # translate to REIL
-            ret = self.translator.to_reil(data, addr = ir_addr[0])
+            ret = self.translate_insn(data, ir_addr[0])
 
         # save to storage
         for insn in ret: self.storage.put_insn(insn)

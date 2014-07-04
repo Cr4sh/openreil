@@ -4,16 +4,19 @@ from pyopenreil.REIL import *
 from pyopenreil.utils import IDA
 
 OUTNAME = 'ida_translate_func.ir'
+DEF_ARCH = 'x86'
+
+arch = DEF_ARCH
 
 # initialize OpenREIL stuff
 reader = IDA.Reader()
-storage = StorageMemory()
-translator = Translator('x86', reader, storage)
+storage = CodeStorageMem(arch)
+translator = CodeStorageTranslator(arch, reader, storage)
 
 # translate function and enumerate it's basic blocks
-translator.process_func(idc.ScreenEA())
+cfg = CFGraphBuilder(translator).traverse(idc.ScreenEA())
 
-for insn in storage: print insn
+for node in cfg.nodes.values(): print str(node.item) + '\n'
 
 # save serialized function IR
 storage.to_file(OUTNAME)

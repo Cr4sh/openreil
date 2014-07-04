@@ -21,7 +21,7 @@ class CReilFromBilTranslator
 {
 public:
     
-    CReilFromBilTranslator(reil_inst_handler_t handler, void *context); 
+    CReilFromBilTranslator(VexArch arch, reil_inst_handler_t handler, void *context); 
     ~CReilFromBilTranslator();
 
     void reset_state();    
@@ -30,6 +30,9 @@ public:
     void process_bil(reil_raw_t *raw_info, bap_block_t *block);
 
 private:
+
+    bool is_unknown_insn(bap_block_t *block);
+    void process_unknown_insn(reil_raw_t *raw_info);
 
     string tempreg_get_name(int32_t tempreg_num);
     int32_t tempreg_bap_find(string name);
@@ -45,6 +48,7 @@ private:
     Exp *process_bil_exp(Exp *exp);    
     Exp *process_bil_inst(reil_op_t inst, uint64_t inst_flags, Exp *c, Exp *exp);
 
+    VexArch guest;
     vector<TEMPREG_BAP> tempreg_bap;
     int32_t tempreg_count;
     reil_inum_t inst_count;

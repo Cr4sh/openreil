@@ -37,6 +37,8 @@ extern "C"
 struct bap_block_s
 {
   address_t       inst;
+  int             inst_size;
+  string          op_str;
   IRSB            *vex_ir;
   vector<Stmt *>  *bap_ir;
 };
@@ -87,7 +89,7 @@ vector<Stmt *> *translate_irbb(IRSB *irbb);
 
 // Take an instrs and translate it into a VEX IR block
 // and store it in a bap block
-bap_block_t* generate_vex_ir(VexArch guest, uint8_t *data, address_t inst, int *inst_size);
+bap_block_t* generate_vex_ir(VexArch guest, uint8_t *data, address_t inst);
 
 // Same as generate_vex_ir, but only for an address range
 vector<bap_block_t *> generate_vex_ir(VexArch guest, uint8_t *data, address_t start, address_t end);

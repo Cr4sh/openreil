@@ -1,5 +1,5 @@
 BAPDIRS=libasmir libopenreil pyopenreil
-SUBDIRS=VEX $(BAPDIRS)
+SUBDIRS=capstone VEX $(BAPDIRS)
 
 .PHONY: cscope
 

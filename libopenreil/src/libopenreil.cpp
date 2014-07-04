@@ -121,6 +121,14 @@ void reil_close(reil_t reil)
     free(c);
 }
 
+int reil_translate_report_error(reil_addr_t addr, const char *reason)
+{
+    fprintf(stderr, "Eror while processing instruction at address 0x%llx\n", addr);
+    fprintf(stderr, "Exception occurs: %s\n", reason);
+    
+    return REIL_ERROR;
+}
+
 int reil_translate_insn(reil_t reil, reil_addr_t addr, unsigned char *buff, int len)
 {
     int inst_len = 0;
@@ -134,9 +142,13 @@ int reil_translate_insn(reil_t reil, reil_addr_t addr, unsigned char *buff, int 
     }
     catch (CReilTranslatorException e)
     {
-        printf("Eror while processing instruction at address 0x%llx\n", addr);
-        printf("REIL translator exception occurs: %s\n", e.reason.c_str());
-        return REIL_ERROR;
+        // libopenreil exception
+        return reil_translate_report_error(addr, e.reason.c_str());
+    }
+    catch (const char *e)
+    {
+        // libasmir exception
+        return reil_translate_report_error(addr, e);
     }
 
     return inst_len;

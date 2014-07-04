@@ -225,8 +225,8 @@ using namespace std;
 //
 // For labeling untranslated VEX IR instructions
 //
-static string uTag = "Unknown: ";
-static string sTag = "Skipped: ";
+extern string uTag;
+extern string sTag;
 
 
 //======================================================================
@@ -520,12 +520,6 @@ static string reg_offset_to_name(int offset)
 
     return name;
 }
-
-static inline Temp *mk_reg(string name, reg_t width)
-{
-    return new Temp(width, "R_" + name);
-}
-
 
 //======================================================================
 //
@@ -1024,7 +1018,7 @@ Exp *i386_translate_ccall(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
             if (tempexp->tag != Iex_RdTmp)
             {
                 cerr << tempexp->tag << endl;
-                panic("Expected unop.");
+                panic("Expected unop");
             }
 
             tempnum = tempexp->Iex.RdTmp.tmp;
@@ -1552,112 +1546,6 @@ Stmt *i386_translate_put(IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout)
     return result;
 }
 
-/* FIXME: These are arch specific
-//----------------------------------------------------------------------
-// Determines if a given instruction is a "special" instruction,
-// basically ones that VEX does not handle
-//----------------------------------------------------------------------
-bool is_special(Instruction *inst)
-{
-    assert(inst);
-
-    bool result = false;
-
-    // opcode extension
-    char reg = (inst->modrm >> 3) & 7;
-
-    switch (inst->opcode[0])
-    {    
-    case 0xF4: // HLT
-        
-        result = true;
-        break;
-    
-    case 0xAE: // STMXCSR
-        
-        if (inst->opcode[1] == 0xF) result = true;
-        break;
-    
-    case 0xA2: // CPUID
-
-        if (inst->opcode[1] == 0x0F) result = true;
-        break;
-    
-    case 0xFF: // long indirect jmp
-
-        if (reg == 5) result = true;
-        break;
-    }
-
-    return result;
-}
-
-//----------------------------------------------------------------------
-// Translate special instructions straight from asm to Vine IR
-//----------------------------------------------------------------------
-vector<Stmt *> *translate_special(Instruction *inst)
-{
-    assert(inst);
-
-    vector<Stmt *> *irout = new vector<Stmt *>();
-    assert(irout);
-
-    // opcode extension
-    char reg = (inst->modrm >> 3) & 7;
-    Stmt *st = NULL;
-
-    switch (inst->opcode[0])
-    {
-    case 0xF4: // HLT
-    
-        st = new Special("hlt");
-        break;
-
-    case 0xAE: // STMXCSR
-    
-        if (inst->opcode[1] == 0xF) st = new Special("stmxcsr");
-        break;
-
-    case 0xA2: // CPUID
-
-        if (inst->opcode[1] == 0x0F) st = new Special("cpuid");
-        break;
-    
-    case 0xFF: // long indirect jmp
-
-        if (reg == 5) st = new Special("ljmpi");
-        break;
-
-    default:
-        
-        panic("Why would you call translate_special on something that isn't?");
-    }
-
-    irout->push_back(mk_dest_label(inst->address));
-    irout->push_back(st);
-
-    return irout;
-}
-
-static void add_special_returns(bap_block_t *block)
-{
-    if (block->inst == NULL) 
-    {
-        return;
-    }
-    
-    // If this is a return statement, make note of it
-    if (block->inst->opcode[0] == 0xC2 ||
-        block->inst->opcode[0] == 0xC3 ||
-        block->inst->opcode[0] == 0xCA ||
-        block->inst->opcode[0] == 0xCB)
-    {
-        block->bap_ir->push_back(new Special("ret"));
-        block->bap_ir->push_back(mk_label());
-    }
-}
-*/
-
 //======================================================================
 //
 // Code that deals with the setting of EFLAGS
@@ -1676,6 +1564,12 @@ void del_get_thunk(bap_block_t *block)
 
     vector<Stmt *> rv;
     vector<Stmt *> *ir = block->bap_ir;
+    string op = block->op_str;
+
+    if (i386_op_is_very_broken(op)) 
+    {       
+        return;
+    }
 
     assert(ir);
 
@@ -2717,11 +2611,8 @@ int del_put_thunk(vector<Stmt *> *ir, string op_string, int opi, int dep1, int d
     assert(opi >= 0 && dep1 >= 0 && dep2 >= 0 && ndep >= 0);
 
     vector<Stmt *> rv;
-
-    // int end = -1;
     int len = 0;
     int j = 0;
-    string op;
 
     // Delete statements assigning to flag thunk temps
     for (vector<Stmt *>::iterator i = ir->begin(); i != ir->end(); i++, j++)
@@ -3106,13 +2997,34 @@ void i386_modify_flags(bap_block_t *block)
 
         modify_eflags_helper(op_s, type, ir, num_params, cb);
         return;
-
     }
-    else
+    else 
     {
-        cerr << "Warning! Flags not handled for " << op
-             << hex
-             << " at " << block->inst
-             << endl;
+        string op = block->op_str;
+      
+        // FIXME: how to figure out types?
+        if (op.find("rol", 0) == 0)
+        {
+            modify_eflags_helper(op, REG_32, ir, 3, (Mod_Func_0 *)mod_eflags_rol);
+        }
+        else if (op.find("ror", 0) == 0)
+        {
+            modify_eflags_helper(op, REG_32, ir, 3, (Mod_Func_0 *)mod_eflags_ror);
+        }
+        else if (op.find("shr", 0) == 0 || op.find("sar", 0) == 0)
+        {
+            modify_eflags_helper(op, REG_32, ir, 2, (Mod_Func_0 *)mod_eflags_shr);
+        }
+        else if (op.find("shl", 0) == 0 && op.find("shld") == string::npos)
+        {
+            modify_eflags_helper(op, REG_32, ir, 2, (Mod_Func_0 *)mod_eflags_shl);
+        }
+        else 
+        {
+            cerr << "Warning! Flags not handled for " << op 
+                 << hex 
+                 << " at " << block->inst
+                 << endl;
+        }
     }
 }

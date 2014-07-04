@@ -37,13 +37,16 @@ case "$(uname -s)" in
   *MINGW* ) MINGW_LIBS="-lintl" ;;
 esac
 
-VEX_DIR=`pwd`/'VEX'
-VEX_VERSION=2201
-
 # Python library
 AC_CHECK_LIB([python$PYTHON_VERSION], [Py_Initialize], , AC_MSG_ERROR([Python library not found]))
 
+AC_SUBST(CAPSTONE_DIR)
+CAPSTONE_DIR=`pwd`/'capstone/capstone'
+
 AC_SUBST(VEX_DIR)
+VEX_DIR=`pwd`/'VEX'
+VEX_VERSION=2201
+
 AC_SUBST(MINGW_LIBS)
 AC_SUBST(INCDIRS)
 
@@ -68,7 +71,7 @@ echo "MINGW_LIBS=${MINGW_LIBS}" >> pyopenreil/src/makefile.inc
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([fcntl.h stdint.h stdlib.h string.h unistd.h], ,
+AC_CHECK_HEADERS([fcntl.h stdint.h stdlib.h stdio.h string.h unistd.h], ,
    AC_MSG_ERROR([Standard headers missing]))
 
 # Checks for typedefs, structures, and compiler characteristics.

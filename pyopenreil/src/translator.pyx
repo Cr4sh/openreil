@@ -1,5 +1,8 @@
 cimport libopenreil
 
+IATTR_FLAGS = 'F'
+
+
 cdef arg_handler(libopenreil._reil_arg_t arg):
 
     # convert reil_arg_t to the python tuple
@@ -10,10 +13,13 @@ cdef arg_handler(libopenreil._reil_arg_t arg):
 
 cdef int inst_handler(libopenreil.reil_inst_t* inst, object context):
 
+    attr = {}
+    if inst.flags != 0: attr[IATTR_FLAGS] = inst.flags
+
     # convert reil_inst_t to the python tuple
     raw_info = (inst.raw_info.addr, inst.raw_info.size)
     args = (arg_handler(inst.a), arg_handler(inst.b), arg_handler(inst.c))
-    context.insert(0, (raw_info, inst.inum, inst.op, args, inst.flags))
+    context.insert(0, (raw_info, inst.inum, inst.op, args, attr))
 
     return 1
     

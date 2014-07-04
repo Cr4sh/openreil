@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <iostream>
 #include <string>
+#include <algorithm>
 
 extern "C" 
 { 
@@ -14,11 +15,17 @@ extern "C"
 // libasmir includes
 #include "irtoir.h"
 
+// defined in irtoir.cpp
+extern string uTag;
+extern string sTag;
+
 // OpenREIL includes
 #include "libopenreil.h"
 #include "reil_translator.h"
 
 using namespace std;
+
+#include "disasm.h"
 
 const char *reil_inst_name[] = 
 {
@@ -115,8 +122,9 @@ void Relative::destroy(Constant *expr)
     delete expr;
 }
 
-CReilFromBilTranslator::CReilFromBilTranslator(reil_inst_handler_t handler, void *context)
+CReilFromBilTranslator::CReilFromBilTranslator(VexArch arch, reil_inst_handler_t handler, void *context)
 {
+    guest = arch;
     inst_handler = handler;
     inst_handler_context = context;
     reset_state();
@@ -334,6 +342,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     reil_inst.op = inst;
     reil_inst.raw_info.addr = current_raw_info->addr;
     reil_inst.raw_info.size = current_raw_info->size;
+    reil_inst.raw_info.data = NULL;
     reil_inst.flags = inst_flags;
 
     if (c && c->exp_type == MEM)
@@ -590,7 +599,7 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, uint64_t inst_fla
     case CALL:
     case RETURN:
         {            
-            printf("Statement %d is not implemented\n", s->stmt_type);
+            fprintf(stderr, "ERROR: Statement %d is not implemented\n", s->stmt_type);
             reil_assert(0, "unimplemented statement");
         }
 
@@ -604,11 +613,142 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, uint64_t inst_fla
     }  
 }
 
+bool CReilFromBilTranslator::is_unknown_insn(bap_block_t *block)
+{   
+    for (int i = 0; i < block->bap_ir->size(); i++)
+    {
+        // enumerate BIL statements        
+        Stmt *s = block->bap_ir->at(i);
+
+        if (s->stmt_type == SPECIAL)
+        {
+            // get special statement
+            Special *special = (Special *)s;
+
+            // check for unknown instruction tag
+            if (special->special.find(uTag) == 0)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+void CReilFromBilTranslator::process_unknown_insn(reil_raw_t *raw_info)
+{    
+    vector<Temp *>::iterator it;
+    vector<Temp *> arg_src, arg_dst, arg_all;    
+
+    // get instruction arguments
+    disasm_arg_src(guest, raw_info->data, arg_src);
+    disasm_arg_dst(guest, raw_info->data, arg_dst);   
+
+    if (arg_src.size() > 0)
+    {
+
+#ifdef DBG_BAP
+
+        printf("// src registers: ");
+#endif
+        for (it = arg_src.begin(); it != arg_src.end(); ++it)
+        {
+
+#ifdef DBG_BAP
+
+            Temp *temp = *it;
+            printf("%s ", temp->name.c_str());
+#endif
+            arg_all.push_back(*it);
+        }
+
+#ifdef DBG_BAP
+
+        printf("\n");
+#endif
+
+    }    
+
+    if (arg_dst.size() > 0)
+    {
+
+#ifdef DBG_BAP
+
+        printf("// dst registers: ");
+#endif
+        for (it = arg_dst.begin(); it != arg_dst.end(); ++it)
+        {
+
+#ifdef DBG_BAP
+
+            Temp *temp = *it;
+            printf("%s ", temp->name.c_str());
+#endif
+            arg_all.push_back(*it);
+        }
+
+#ifdef DBG_BAP
+
+        printf("\n");
+#endif
+
+    }
+
+    reil_inst_t reil_inst;
+    memset(&reil_inst, 0, sizeof(reil_inst));                
+
+    reil_inst.op = I_NONE;
+    reil_inst.raw_info.addr = raw_info->addr;
+    reil_inst.raw_info.size = raw_info->size;
+    reil_inst.raw_info.data = NULL;
+
+    if (arg_all.size() == 0)
+    {
+        // no arguments found, generate I_NONE
+        reil_inst.flags = IOPT_ASM_END;
+        process_reil_inst(&reil_inst);
+    }
+
+    for (it = arg_all.begin(); it != arg_all.end(); ++it)
+    {
+        Temp *temp = *it;        
+
+        if (it + 1 == arg_all.end())
+        {
+            reil_inst.flags = IOPT_ASM_END;        
+        }        
+
+        if (find(arg_src.begin(), arg_src.end(), temp) != arg_src.end())
+        {
+            // generate I_NONE with source argument access
+            memset(&reil_inst.c, 0, sizeof(reil_arg_t));
+            convert_operand(temp, &reil_inst.a);
+            process_reil_inst(&reil_inst);
+        }
+        else if (find(arg_dst.begin(), arg_dst.end(), temp) != arg_dst.end())
+        {
+            // generate I_NONE with destination argument access
+            memset(&reil_inst.a, 0, sizeof(reil_arg_t));
+            convert_operand(temp, &reil_inst.c);
+            process_reil_inst(&reil_inst);
+        }
+
+        reil_inst.inum += 1;
+        delete temp;
+    }    
+}
+
 void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *block)
 {
     int size = block->bap_ir->size();
 
     reset_state();
+
+    if (is_unknown_insn(block))
+    {
+        goto _end;
+    }
     
     for (int i = 0; i < size; i++)
     {
@@ -652,25 +792,22 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
         process_bil(raw_info, inst_flags, s);
     }
 
+_end:
+
+    if (inst_count == 0)
+    {
+        fprintf(stderr, "WARNING: 0x%llx was not translated\n", raw_info->addr);
+
+        // add metainformation about unknown instruction into the code
+        process_unknown_insn(raw_info);
+    }
+
 #ifdef DBG_BAP
         
     printf("\n");
 
 #endif  
 
-    if (inst_count == 0)
-    {
-        reil_inst_t reil_inst;
-        memset(&reil_inst, 0, sizeof(reil_inst));
-
-        reil_inst.op = I_NONE;
-        reil_inst.raw_info.addr = raw_info->addr;
-        reil_inst.raw_info.size = raw_info->size;
-        reil_inst.flags = IOPT_ASM_END;
-
-        // no instructions was translated, generate I_NONE
-        process_reil_inst(&reil_inst);
-    }
 }
 
 CReilTranslator::CReilTranslator(VexArch arch, reil_inst_handler_t handler, void *context)
@@ -679,7 +816,7 @@ CReilTranslator::CReilTranslator(VexArch arch, reil_inst_handler_t handler, void
     translate_init();
 
     guest = arch;
-    translator = new CReilFromBilTranslator(handler, context);
+    translator = new CReilFromBilTranslator(arch, handler, context);
     assert(translator);
 }
 
@@ -691,20 +828,30 @@ CReilTranslator::~CReilTranslator()
 int CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
 {
     int ret = 0;
+    reil_raw_t raw_info;
     
     // translate to VEX
-    bap_block_t *block = generate_vex_ir(guest, data, addr, &ret);
+    bap_block_t *block = generate_vex_ir(guest, data, addr);
     
     assert(block);
-    assert(ret != 0 && ret != -1);
+    assert(block->inst_size != 0 && block->inst_size != -1);
+
+    ret = block->inst_size;
 
     // tarnslate to BAP
-    generate_bap_ir_block(guest, block);                
+    generate_bap_ir_block(guest, block);  
 
-    // generate REIL
-    reil_raw_t raw_info;
+#ifdef DBG_BAP
+
+    printf("// %s: addr = 0x%llx, len = %d\n", block->op_str.c_str(), addr, block->inst_size);              
+    
+#endif
+
     raw_info.addr = addr;
     raw_info.size = ret;
+    raw_info.data = data;
+
+    // generate REIL
     translator->process_bil(&raw_info, block);
 
     for (int i = 0; i < block->bap_ir->size(); i++)

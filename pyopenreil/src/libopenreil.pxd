@@ -63,6 +63,7 @@ cdef extern from "libopenreil.h":
 
         reil_addr_t addr    # address of the original assembly instruction
         int size            # .. and it's size
+        unsigned char *data # pointer to the instruction bytes
 
     cdef struct _reil_inst_t:
 

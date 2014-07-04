@@ -10,7 +10,7 @@ include makefile.inc
 INCDIR := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_python_inc())")
 PLATINCDIR := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_python_inc(plat_specific = True))")
 
-../translator.$(PYEXT): translator.o ../../libopenreil/src/libopenreil.a ../../libasmir/src/libasmir.a ../../VEX/libvex.a
+../translator.$(PYEXT): translator.o ../../libopenreil/src/libopenreil.a ../../libasmir/src/libasmir.a ../../VEX/libvex.a ../../capstone/capstone/libcapstone.a
 	$(CXX) -pthread -shared -o $@ $^ -lpython$(PYVERSION) $(MINGW_LIBS)
 
 translator.o: translator.cpp translator.pyx libopenreil.pxd

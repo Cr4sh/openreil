@@ -75,6 +75,9 @@ typedef struct _reil_raw_t
     reil_addr_t addr;   // address of the original assembly instruction
     int size;           // .. and it's size
 
+    // pointer to the instruction bytes
+    unsigned char *data;
+
 } reil_raw_t;
 
 typedef struct _reil_inst_t

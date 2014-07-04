@@ -161,11 +161,6 @@ static string reg_offset_to_name(int offset)
 
 }
 
-static inline Temp *mk_reg(string name, reg_t width)
-{
-    return new Temp(width, name);
-}
-
 static Exp *translate_get_reg_32(int offset)
 {
     assert(offset >= 0);
