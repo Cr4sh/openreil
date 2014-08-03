@@ -60,7 +60,7 @@ def test_2(argv):
         for node in dfg.nodes.values():
 
             if len(node.out_edges) == 0 and node != dfg.exit_node and \
-               not node.item.op in [ I_JCC, I_STM ]:
+               not node.item.op in [ I_JCC, I_STM, I_NONE ]:
 
                 print 'DFG node "%s" has no output edges' % node
                 dfg.del_node(node)

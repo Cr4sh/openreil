@@ -445,32 +445,50 @@ class Insn(object):
 
         self.attr[name] = val
 
-    def have_flag(self, val):
+    def have_attr(self, name):
 
-        return self.get_attr(IATTR_FLAGS) & val != 0
+        return self.attr.has_key(name)
 
     def set_flag(self, val):
 
         self.set_attr(IATTR_FLAGS, self.get_attr(IATTR_FLAGS) | val)
 
+    def have_flag(self, val):
+
+        return self.get_attr(IATTR_FLAGS) & val != 0    
+
     def dst(self):
 
         ret = []
 
-        if self.op != I_JCC and self.op != I_STM and \
-           self.c.is_var(): ret.append(self.c)
+        if self.op != I_NONE: 
+
+            if self.op != I_JCC and self.op != I_STM and \
+               self.c.is_var(): ret.append(self.c)
+
+        elif self.have_attr(IATTR_DST):
+
+            # get operands information from attributes
+            ret = map(lambda a: Arg(a), self.get_attr(IATTR_DST))
 
         return ret
 
     def src(self):
 
         ret = []
-        
-        if self.a.is_var(): ret.append(self.a)
-        if self.b.is_var(): ret.append(self.b)
 
-        if (self.op == I_JCC or self.op == I_STM) and \
-           self.c.is_var(): ret.append(self.c)
+        if self.op != I_NONE: 
+        
+            if self.a.is_var(): ret.append(self.a)
+            if self.b.is_var(): ret.append(self.b)
+
+            if (self.op == I_JCC or self.op == I_STM) and \
+               self.c.is_var(): ret.append(self.c)
+
+        elif self.have_attr(IATTR_SRC):
+
+            # get operands information from attributes
+            ret = map(lambda a: Arg(a), self.get_attr(IATTR_SRC))
 
         return ret
 
