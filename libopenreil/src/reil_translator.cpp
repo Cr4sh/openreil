@@ -14,6 +14,10 @@ extern "C"
 
 // libasmir includes
 #include "irtoir.h"
+#include "irtoir-internal.h"
+
+// libasmir architecture specific
+#include "irtoir-i386.h"
 
 // defined in irtoir.cpp
 extern string uTag;
@@ -140,6 +144,7 @@ void CReilFromBilTranslator::reset_state()
 {
     tempreg_bap.clear();
     tempreg_count = inst_count = 0;
+    skip_eflags = false;
 }
 
 string CReilFromBilTranslator::tempreg_get_name(int32_t tempreg_num)
@@ -292,6 +297,32 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
         reil_arg->type = A_TEMP;
         reil_arg->size = convert_operand_size(temp->typ);
         strncpy(reil_arg->name, ret.c_str(), REIL_MAX_NAME_LEN - 1);
+    }
+
+    if (!strcmp(reil_arg->name, "R_EFLAGS") && !skip_eflags)
+    {        
+        vector<Stmt *> set_eflags_stmt;
+        vector<Stmt *>::iterator it;
+
+        set_eflags_bits(
+            &set_eflags_stmt, 
+            mk_reg("CF", REG_1), 
+            mk_reg("PF", REG_1), 
+            mk_reg("AF", REG_1), 
+            mk_reg("ZF", REG_1), 
+            mk_reg("SF", REG_1), 
+            mk_reg("OF", REG_1)
+        );
+
+        skip_eflags = true;
+
+        // enumerate expressions that sets EFLAGS value        
+        for (it = set_eflags_stmt.begin(); it != set_eflags_stmt.end(); ++it)
+        {
+            process_bil(NULL, 0, *it);
+        }
+
+        skip_eflags = false;
     }
 }
 
@@ -541,15 +572,15 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
         
         tempreg_name = tempreg_get_name(tempreg_alloc());
         c = new Temp(tempreg_type, tempreg_name);
-    }        
-
-    reil_inst.inum = inst_count;
-    inst_count += 1;
+    }            
 
     // make REIL operands from BIL expressions
     convert_operand(a, &reil_inst.a);
     convert_operand(b, &reil_inst.b);
     convert_operand(c, &reil_inst.c);    
+
+    reil_inst.inum = inst_count;
+    inst_count += 1;
 
     // handle assembled REIL instruction
     process_reil_inst(&reil_inst);
@@ -563,7 +594,10 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
 
 void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, uint64_t inst_flags, Stmt *s)
 {
-    current_raw_info = raw_info;
+    if (raw_info)
+    {
+        current_raw_info = raw_info;
+    }
 
     switch (s->stmt_type)
     {

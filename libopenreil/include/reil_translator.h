@@ -53,6 +53,7 @@ private:
     int32_t tempreg_count;
     reil_inum_t inst_count;
     reil_raw_t *current_raw_info;
+    bool skip_eflags;
 
     reil_inst_handler_t inst_handler;
     void *inst_handler_context;
