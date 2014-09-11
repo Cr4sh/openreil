@@ -23,7 +23,8 @@ def create_globals(items, prefix):
 REIL_INSN = [ 'NONE', 'JCC', 
               'STR', 'STM', 'LDM', 
               'ADD', 'SUB', 'NEG', 'MUL', 'DIV', 'MOD', 'SMUL', 'SDIV', 'SMOD', 
-              'SHL', 'SHR', 'ROL', 'ROR', 'AND', 'OR', 'XOR', 'NOT',
+              'SHL', 'SHR', 'SAL', 'SAR', 'ROL', 'ROR', 
+              'AND', 'OR', 'XOR', 'NOT',
               'EQ', 'NEQ', 'L', 'LE', 'SL', 'SLE', 
               'CAST_L', 'CAST_H', 'CAST_U', 'CAST_S' ]
 
@@ -435,7 +436,7 @@ class Insn(object):
         # initialize missing attributes with default values
         for name, val in self.ATTR_DEFS:
 
-            if not self.attr.has_key(name): self.set_attr(name, val)
+            if not self.have_attr(name): self.set_attr(name, val)
 
     def get_attr(self, name):
 

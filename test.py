@@ -14,6 +14,7 @@ CODE += '\x90' # nop
 CODE += '\xf4' # hlt
 CODE += '\x68\x00\x00\x00\x00\xF3\xA4\xE8\x00\x00\x00\x00\xC2\x04\x00'
 
+CODE = '\x9c\xC3'
 ADDR = 0x1337L
 ENTRY = 0
         

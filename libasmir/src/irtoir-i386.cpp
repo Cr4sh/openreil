@@ -242,7 +242,7 @@ vector<VarDecl *> i386_get_reg_decls()
     reg_t r8 = REG_8;
     reg_t r1 = REG_1;
 
-    ret.push_back(new VarDecl("EFLAGS", r32));
+    ret.push_back(new VarDecl("R_EFLAGS", r32));
     ret.push_back(new VarDecl("R_LDT", r32));
     ret.push_back(new VarDecl("R_GDT", r32));
     ret.push_back(new VarDecl("R_DFLAG", r32));
@@ -846,7 +846,7 @@ Exp *i386_translate_ccall(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
                 c_OF_POS(REG_32, OF_POS),
                 c_1(REG_32, 1);
 
-    Temp EFLAGS(REG_32, "EFLAGS");
+    Temp EFLAGS(REG_32, "R_EFLAGS");
 
     Temp *CF = mk_reg("CF", REG_1);
     Temp *ZF = mk_reg("ZF", REG_1);
@@ -1667,7 +1667,7 @@ void set_eflags_bits(vector<Stmt *> *irout, Exp *CF, Exp *PF, Exp *AF, Exp *ZF, 
                 c_N_OF_MASK(REG_32, ~OF_MASK), c_OF_POS(REG_32, OF_POS);
 
     // Merge the individual flags together into eflags
-    Temp EFLAGS(REG_32, "EFLAGS");
+    Temp EFLAGS(REG_32, "R_EFLAGS");
 
     // Clear all the flag bits
     irout->push_back(new Move(new Temp(EFLAGS), ex_and(&EFLAGS,  &c_N_CF_MASK,
@@ -1695,7 +1695,7 @@ void get_eflags_bits(vector<Stmt *> *irout)
     Exp *SF = mk_reg("SF", REG_1);
     Exp *OF = mk_reg("OF", REG_1);
 
-    Temp EFLAGS(REG_32, "EFLAGS");
+    Temp EFLAGS(REG_32, "R_EFLAGS");
 
     irout->push_back(new Move(CF, _ex_l_cast(_ex_shr(_ex_and(ecl(&EFLAGS),
                               ex_const(CF_MASK)),
@@ -1825,7 +1825,7 @@ vector<Stmt *> mod_eflags_copy(reg_t type, Exp *arg1, Exp *arg2)
                 c_SF_MASK(REG_32, SF_MASK),
                 c_OF_MASK(REG_32, OF_MASK);
 
-    Temp EFLAGS(REG_32, "EFLAGS");
+    Temp EFLAGS(REG_32, "R_EFLAGS");
 
     irout.push_back(new Move(new Temp(EFLAGS), _ex_and(ecl(arg1), ex_or(&c_CF_MASK,
                              &c_PF_MASK,

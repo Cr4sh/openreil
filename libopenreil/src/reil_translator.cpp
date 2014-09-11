@@ -32,7 +32,8 @@ const char *reil_inst_name[] =
     "NONE", "JCC", 
     "STR", "STM", "LDM", 
     "ADD", "SUB", "NEG", "MUL", "DIV", "MOD", "SMUL", "SDIV", "SMOD", 
-    "SHL", "SHR", "ROL", "ROR", "AND", "OR", "XOR", "NOT",
+    "SHL", "SHR", "SAL", "SAR", "ROL", "ROR", 
+    "AND", "OR", "XOR", "NOT",
     "EQ", "NEQ", "L", "LE", "SL", "SLE", 
     "CAST_L", "CAST_H", "CAST_U", "CAST_S"
 };
@@ -46,7 +47,7 @@ reil_op_t reil_inst_map_binop[] =
     /* MOD      */ I_MOD,      
     /* LSHIFT   */ I_SHL,   
     /* RSHIFT   */ I_SHR,  
-    /* ARSHIFT  */ I_NONE,
+    /* ARSHIFT  */ I_SAR,
     /* LROTATE  */ I_ROL,  
     /* RROTATE  */ I_ROR,  
     /* LOGICAND */ I_AND, 
@@ -336,7 +337,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     Exp *a_temp = NULL, *b_temp = NULL, *exp_temp = NULL;
 
     reil_assert(exp, "invalid expression");
-    reil_assert(inst == I_STR || inst == I_JCC, "invalid instruction");
+    reil_assert(inst == I_STR || inst == I_JCC, "invalid instruction [0]");
     
     memset(&reil_inst, 0, sizeof(reil_inst));
     reil_inst.op = inst;
@@ -396,7 +397,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     // get a and b operands values from expression
     if (exp->exp_type == BINOP)
     {
-        reil_assert(reil_inst.op == I_STR, "invalid instruction");
+        reil_assert(reil_inst.op == I_STR, "invalid instruction [1]");
 
         // store result of binary operation
         BinOp *binop = (BinOp *)exp;  
@@ -414,7 +415,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     }
     else if (exp->exp_type == UNOP)
     {
-        reil_assert(reil_inst.op == I_STR, "invalid instruction");
+        reil_assert(reil_inst.op == I_STR, "invalid instruction [2]");
 
         // store result of unary operation
         UnOp *unop = (UnOp *)exp;   
@@ -426,7 +427,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     }    
     else if (exp->exp_type == CAST)
     {
-        reil_assert(reil_inst.op == I_STR, "invaid instruction");
+        reil_assert(reil_inst.op == I_STR, "invaid instruction [3]");
 
         // store with type cast
         Cast *cast = (Cast *)exp;
@@ -548,7 +549,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     // make REIL operands from BIL expressions
     convert_operand(a, &reil_inst.a);
     convert_operand(b, &reil_inst.b);
-    convert_operand(c, &reil_inst.c);
+    convert_operand(c, &reil_inst.c);    
 
     // handle assembled REIL instruction
     process_reil_inst(&reil_inst);

@@ -27,6 +27,8 @@ typedef enum _reil_op_t
     I_SMOD,     // signed modulus
     I_SHL,      // shift left
     I_SHR,      // shift right
+    I_SAL,      // ...
+    I_SAR,      // ...
     I_ROL,      // rotate left
     I_ROR,      // rotate right
     I_AND,      // binary and
