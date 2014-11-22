@@ -7,7 +7,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(Bap, 0.7, bap-dev@lists.andrew.cmu.edu)
+AC_INIT(OpenREIL, 0.1, cr4sh0@gmail.com)
 AC_CONFIG_SRCDIR([libasmir/src/irtoir.cpp])
 AC_CONFIG_HEADER([libasmir/config.h])
 
@@ -26,19 +26,13 @@ if test x"$CYTHON_FOUND" != x"yes" ; then
     AC_MSG_ERROR([Cython not found])
 fi
 
-# Add -DAMD64 when needed
-if test "$(uname -m)" == "x86_64";
-   then export CFLAGS="$CFLAGS -DAMD64";
-fi
-
-# Link with the libintl on MinGW systems
-MINGW_LIBS=""
-case "$(uname -s)" in
-  *MINGW* ) MINGW_LIBS="-lintl" ;;
-esac
-
 # Python library
 AC_CHECK_LIB([python$PYTHON_VERSION], [Py_Initialize], , AC_MSG_ERROR([Python library not found]))
+
+# Add -DAMD64 when needed
+if test "$(uname -m)" == "x86_64";
+    then export CFLAGS="$CFLAGS -DAMD64";
+fi
 
 AC_SUBST(CAPSTONE_DIR)
 CAPSTONE_DIR=`pwd`/'capstone/capstone'
@@ -46,19 +40,29 @@ CAPSTONE_DIR=`pwd`/'capstone/capstone'
 AC_SUBST(UDIS86_DIR)
 UDIS86_DIR=`pwd`/'libudis86'
 
+# OS-specific stuff
+case "$target_os" in  
+*linux-gnu)
+    ;;
+darwin*)
+    ;;
+mingw*) 
+    LIBS="$LIBS -lintl" 
+    ;;
+esac
+
+# VEX stuff
 AC_SUBST(VEX_DIR)
 VEX_DIR=`pwd`/'VEX'
 VEX_VERSION=2201
 
-AC_SUBST(MINGW_LIBS)
 AC_SUBST(INCDIRS)
 
 rm -f libasmir/makefile.inc
 echo "VEX_DIR=${VEX_DIR}" >> libasmir/makefile.inc
-echo "MINGW_LIBS=${MINGW_LIBS}" >> libasmir/makefile.inc
 echo "LIBASMIR_CXXFLAGS=-I${VEX_DIR}/pub -I`pwd`/src/include $CXXFLAGS" >> libasmir/makefile.inc
 echo "LIBASMIR_LDFLAGS=-L${VEX_DIR} -L`pwd`/src $LDFLAGS" >> libasmir/makefile.inc
-echo "LIBASMIR_LIBS=-lasmir -lvex ${MINGW_LIBS}" >> libasmir/makefile.inc
+echo "LIBASMIR_LIBS=-lasmir -lvex" >> libasmir/makefile.inc
 echo "CLIBS=asmir vex stdc++" >> libasmir/makefile.inc
 AC_SUBST(ASMIR_DIR)
 ASMIR_DIR="`pwd`/libasmir"
@@ -68,9 +72,6 @@ BAP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 AC_SUBST(OPENREIL_DIR)
 OPENREIL_DIR="`pwd`/libopenreil"
-
-rm -rf pyopenreil/src/makefile.inc
-echo "MINGW_LIBS=${MINGW_LIBS}" >> pyopenreil/src/makefile.inc
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -88,9 +89,7 @@ AC_FUNC_MALLOC
 AC_FUNC_MEMCMP
 AC_CHECK_FUNCS([bzero memset strstr strtoul])
 
-
 # Check for library function versions
-
 AC_CONFIG_FILES([Makefile
                  libasmir/Makefile
                  libasmir/src/Makefile

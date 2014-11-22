@@ -13,5 +13,3 @@ libasmir_a_SOURCES = \
     irtoir-arm.cpp \
     vexir.c \
     vexmem.c
-
-libasmir_a_LIBADD = @VEX_DIR@/libvex.a @CAPSTONE_DIR@/libcapstone.a
