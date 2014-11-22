@@ -73,6 +73,9 @@ BAP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 AC_SUBST(OPENREIL_DIR)
 OPENREIL_DIR="`pwd`/libopenreil"
 
+rm -f pyopenreil/src/makefile.inc
+echo "" >> pyopenreil/src/makefile.inc
+
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([fcntl.h stdint.h stdlib.h stdio.h string.h unistd.h], ,
