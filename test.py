@@ -38,39 +38,14 @@ def test_2(argv):
 
     cfg = CFGraphBuilder(storage).traverse(0x004016B0)
 
-    for node in cfg.nodes.values(): print str(node.item) + '\n'
+    for node in cfg.nodes.values(): 
+
+        print str(node.item) + '\n'
 
     dfg = DFGraphBuilder(storage).traverse(0x004016B0)
 
-    deleted_nodes = []
+    deleted_nodes = dfg.eliminate_dead_code()
 
-    for edge in list(dfg.exit_node.in_edges):
-
-        arg = edge.node_from.item.dst()[0]
-        if (arg.type == A_TEMP) or \
-           (arg.type == A_REG and arg.name in x86.Registers.flags):
-
-            print 'Eliminating %s that live at the end of the function...' % arg.name
-            dfg.del_edge(edge)
-
-    while True:
-
-        print 'Cleanup...'
-
-        deleted = 0
-        for node in dfg.nodes.values():
-
-            if len(node.out_edges) == 0 and node != dfg.exit_node and \
-               not node.item.op in [ I_JCC, I_STM, I_NONE ]:
-
-                print 'DFG node "%s" has no output edges' % node
-                dfg.del_node(node)
-                deleted_nodes.append(node.item.ir_addr)
-                deleted += 1
-
-        if deleted == 0: break
-
-    print len(dfg.edges)
     dfg.to_dot_file('test.dot')
 
     for insn in storage:

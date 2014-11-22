@@ -43,6 +43,9 @@ AC_CHECK_LIB([python$PYTHON_VERSION], [Py_Initialize], , AC_MSG_ERROR([Python li
 AC_SUBST(CAPSTONE_DIR)
 CAPSTONE_DIR=`pwd`/'capstone/capstone'
 
+AC_SUBST(UDIS86_DIR)
+UDIS86_DIR=`pwd`/'libudis86'
+
 AC_SUBST(VEX_DIR)
 VEX_DIR=`pwd`/'VEX'
 VEX_VERSION=2201

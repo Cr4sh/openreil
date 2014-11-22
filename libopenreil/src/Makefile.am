@@ -6,8 +6,8 @@ AM_CFLAGS = -I@VEX_DIR@/pub -I@CAPSTONE_DIR@/include -I@ASMIR_DIR@/include -I@AS
 AM_CXXFLAGS = $(AM_CFLAGS)
 
 libopenreil_a_SOURCES = \
-	libopenreil.cpp \
-	reil_translator.cpp
+    libopenreil.cpp \
+    reil_translator.cpp
 
 libopenreil_a_LIBADD = @VEX_DIR@/libvex.a @CAPSTONE_DIR@/libcapstone.a @ASMIR_DIR@/src/libasmir.a
 

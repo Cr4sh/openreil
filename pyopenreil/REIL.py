@@ -5,10 +5,11 @@ IATTR_FLAGS  = 'F'
 IATTR_SRC    = 'S'
 IATTR_DST    = 'D'
 
-IOPT_CALL    = 0x00000001
-IOPT_RET     = 0x00000002
-IOPT_BB_END  = 0x00000004
-IOPT_ASM_END = 0x00000008
+IOPT_CALL       = 0x00000001
+IOPT_RET        = 0x00000002
+IOPT_BB_END     = 0x00000004
+IOPT_ASM_END    = 0x00000008
+IOPT_ELIMINATED = 0x00000010
 
 MAX_INST_LEN = 30
 
@@ -730,6 +731,10 @@ class CFGraph(Graph):
     NODE = CFGraphNode
     EDGE = CFGraphEdge
 
+    def eliminate_dead_code(self):
+
+        pass
+
 
 class CFGraphBuilder(object):
 
@@ -892,6 +897,46 @@ class DFGraph(Graph):
 
         self.add_node(self.entry_node)
         self.add_node(self.exit_node)
+
+    def eliminate_dead_code(self):
+
+        deleted_nodes = []
+
+        # check for variables that live at the end of the function
+        for edge in list(self.exit_node.in_edges):
+
+            arg = edge.node_from.item.dst()[0]
+            if (arg.type == A_TEMP) or \
+               (arg.type == A_REG and arg.name in x86.Registers.flags):
+
+                print 'Eliminating %s that live at the end of the function...' % arg.name
+                self.del_edge(edge)
+
+        while True:
+
+            deleted = 0
+
+            print 'Cleanup...'
+            
+            for node in self.nodes.values():
+
+                if len(node.out_edges) == 0 and node != dfg.exit_node and \
+                   not node.item.op in [ I_JCC, I_STM, I_NONE ]:
+
+                    print 'DFG node "%s" has no output edges' % node
+
+                    # delete node that has no output edges                    
+                    self.del_node(node)
+                    
+                    deleted_nodes.append(node.item.ir_addr)
+                    deleted += 1
+
+            if deleted == 0: 
+
+                # no more nodes to delete
+                break
+
+        return deleted_nodes
 
 
 class DFGraphBuilder(CFGraphBuilder):
