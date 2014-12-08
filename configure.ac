@@ -1,8 +1,3 @@
-# Owned and copyright BitBlaze, 2007. All rights reserved.
-# Do not copy, disclose, or distribute without explicit written
-# permission.
-
-
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
@@ -34,21 +29,18 @@ if test "$(uname -m)" == "x86_64";
     then export CFLAGS="$CFLAGS -DAMD64";
 fi
 
-AC_SUBST(CAPSTONE_DIR)
-CAPSTONE_DIR=`pwd`/'capstone/capstone'
-
-AC_SUBST(UDIS86_DIR)
-UDIS86_DIR=`pwd`/'libudis86'
-
 AC_SUBST(XED_DIR)
 XED_DIR=`pwd`/'xed2-ia32'
 
 # OS-specific stuff
+AC_SUBST(LIB_EXT)
 case "$(uname -a)" in  
 Linux*)    
     LIB_EXT="a"
     ;;
 Darwin*)
+    echo ERROR: OS X is not supported yet
+    exit
     ;;
 MINGW*) 
     LIB_EXT="lib"
