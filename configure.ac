@@ -40,13 +40,18 @@ CAPSTONE_DIR=`pwd`/'capstone/capstone'
 AC_SUBST(UDIS86_DIR)
 UDIS86_DIR=`pwd`/'libudis86'
 
+AC_SUBST(XED_DIR)
+XED_DIR=`pwd`/'xed2-ia32'
+
 # OS-specific stuff
-case "$target_os" in  
-*linux-gnu)
+case "$(uname -a)" in  
+Linux*)    
+    LIB_EXT="a"
     ;;
-darwin*)
+Darwin*)
     ;;
-mingw*) 
+MINGW*) 
+    LIB_EXT="lib"
     LIBS="$LIBS -lintl" 
     ;;
 esac
@@ -74,7 +79,7 @@ AC_SUBST(OPENREIL_DIR)
 OPENREIL_DIR="`pwd`/libopenreil"
 
 rm -f pyopenreil/src/makefile.inc
-echo "" >> pyopenreil/src/makefile.inc
+echo "LIB_EXT=${LIB_EXT}" >> pyopenreil/src/makefile.inc
 
 # Checks for header files.
 AC_HEADER_STDC

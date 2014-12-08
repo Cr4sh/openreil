@@ -21,7 +21,7 @@ def create_globals(items, prefix):
         globals()[prefix + str(it)] = num
         num += 1
 
-REIL_INSN = [ 'NONE', 'JCC', 
+REIL_INSN = [ 'NONE', 'UNK', 'JCC', 
               'STR', 'STM', 'LDM', 
               'ADD', 'SUB', 'NEG', 'MUL', 'DIV', 'MOD', 'SMUL', 'SDIV', 'SMOD', 
               'SHL', 'SHR', 'SAL', 'SAR', 'ROL', 'ROR', 

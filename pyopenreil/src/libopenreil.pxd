@@ -6,7 +6,8 @@ cdef extern from "libopenreil.h":
 
     cdef enum _reil_op_t:
 
-        I_NONE,
+        I_NONE,     # no operation
+        I_UNK,      # unknown instruction
         I_JCC,      # conditional jump 
         I_STR,      # store value to register
         I_STM,      # store value to memory

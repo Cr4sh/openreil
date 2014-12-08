@@ -33,7 +33,7 @@ using namespace std;
 
 const char *reil_inst_name[] = 
 {
-    "NONE", "JCC", 
+    "NONE", "UNK", "JCC", 
     "STR", "STM", "LDM", 
     "ADD", "SUB", "NEG", "MUL", "DIV", "MOD", "SMUL", "SDIV", "SMOD", 
     "SHL", "SHR", "SAL", "SAR", "ROL", "ROR", 
@@ -733,14 +733,14 @@ void CReilFromBilTranslator::process_unknown_insn(reil_raw_t *raw_info)
     reil_inst_t reil_inst;
     memset(&reil_inst, 0, sizeof(reil_inst));                
 
-    reil_inst.op = I_NONE;
+    reil_inst.op = I_UNK;
     reil_inst.raw_info.addr = raw_info->addr;
     reil_inst.raw_info.size = raw_info->size;
     reil_inst.raw_info.data = NULL;
 
     if (arg_all.size() == 0)
     {
-        // no arguments found, generate I_NONE
+        // no arguments found
         reil_inst.flags = IOPT_ASM_END;
         process_reil_inst(&reil_inst);
     }
@@ -756,14 +756,14 @@ void CReilFromBilTranslator::process_unknown_insn(reil_raw_t *raw_info)
 
         if (find(arg_src.begin(), arg_src.end(), temp) != arg_src.end())
         {
-            // generate I_NONE with source argument access
+            // generate I_UNK with source argument access
             memset(&reil_inst.c, 0, sizeof(reil_arg_t));
             convert_operand(temp, &reil_inst.a);
             process_reil_inst(&reil_inst);
         }
         else if (find(arg_dst.begin(), arg_dst.end(), temp) != arg_dst.end())
         {
-            // generate I_NONE with destination argument access
+            // generate I_UNK with destination argument access
             memset(&reil_inst.a, 0, sizeof(reil_arg_t));
             convert_operand(temp, &reil_inst.c);
             process_reil_inst(&reil_inst);
