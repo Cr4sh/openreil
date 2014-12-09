@@ -32,6 +32,15 @@ fi
 AC_SUBST(XED_DIR)
 XED_DIR=`pwd`/'xed2-ia32'
 
+AC_SUBST(CAPSTONE_DIR)
+CAPSTONE_DIR=`pwd`/'capstone/capstone'
+
+AC_SUBST(DISASM_NAME)
+DISASM_NAME='capstone'
+
+AC_SUBST(DISASM_INC)
+DISASM_INC='${CAPSTONE_DIR}/include'
+
 # OS-specific stuff
 AC_SUBST(LIB_EXT)
 case "$(uname -a)" in  
@@ -53,6 +62,9 @@ AC_SUBST(VEX_DIR)
 VEX_DIR=`pwd`/'VEX'
 VEX_VERSION=2201
 
+AC_SUBST(LDADD)
+LDADD="$LIBS ${VEX_DIR}/libvex.a ${CAPSTONE_DIR}/libcapstone.a" 
+
 AC_SUBST(INCDIRS)
 
 rm -f libasmir/makefile.inc
@@ -71,7 +83,7 @@ AC_SUBST(OPENREIL_DIR)
 OPENREIL_DIR="`pwd`/libopenreil"
 
 rm -f pyopenreil/src/makefile.inc
-echo "LIB_EXT=${LIB_EXT}" >> pyopenreil/src/makefile.inc
+echo "LDADD=${LDADD}" >> pyopenreil/src/makefile.inc
 
 # Checks for header files.
 AC_HEADER_STDC
