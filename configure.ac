@@ -63,7 +63,7 @@ VEX_DIR=`pwd`/'VEX'
 VEX_VERSION=2201
 
 AC_SUBST(LDADD)
-LDADD="$LIBS ${VEX_DIR}/libvex.a ${CAPSTONE_DIR}/libcapstone.a" 
+LDADD="${VEX_DIR}/libvex.a ${CAPSTONE_DIR}/libcapstone.a" 
 
 AC_SUBST(INCDIRS)
 
