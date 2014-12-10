@@ -48,8 +48,7 @@ Linux*)
     LIB_EXT="a"
     ;;
 Darwin*)
-    echo ERROR: OS X is not supported yet
-    exit
+    LIB_EXT="a"
     ;;
 MINGW*) 
     LIB_EXT="lib"

@@ -23,10 +23,6 @@ cdef extern from "libopenreil.h":
         I_SMOD,     # signed modulus
         I_SHL,      # shift left
         I_SHR,      # shift right
-        I_SAL,      # ...
-        I_SAR,      # ...
-        I_ROL,      # rotate left
-        I_ROR,      # rotate right
         I_AND,      # binary and
         I_OR,       # binary or
         I_XOR,      # binary xor
@@ -36,11 +32,7 @@ cdef extern from "libopenreil.h":
         I_L,        # less than
         I_LE,       # less or equal than
         I_SL,       # signed less than
-        I_SLE,      # signed less or equal than    
-        I_LCAST,    # low half of the integer
-        I_HCAST,    # high half of the integer
-        I_UCAST,    # cast to unsigned value
-        I_SCAST     # cast with sign bit
+        I_SLE       # signed less or equal than
 
     cdef enum _reil_type_t:
 

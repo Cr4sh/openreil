@@ -36,10 +36,8 @@ const char *reil_inst_name[] =
     "NONE", "UNK", "JCC", 
     "STR", "STM", "LDM", 
     "ADD", "SUB", "NEG", "MUL", "DIV", "MOD", "SMUL", "SDIV", "SMOD", 
-    "SHL", "SHR", "SAL", "SAR", "ROL", "ROR", 
-    "AND", "OR", "XOR", "NOT",
-    "EQ", "NEQ", "L", "LE", "SL", "SLE", 
-    "CAST_L", "CAST_H", "CAST_U", "CAST_S"
+    "SHL", "SHR", "AND", "OR", "XOR", "NOT",
+    "EQ", "NEQ", "L", "LE", "SL", "SLE"
 };
 
 reil_op_t reil_inst_map_binop[] = 
@@ -51,9 +49,9 @@ reil_op_t reil_inst_map_binop[] =
     /* MOD      */ I_MOD,      
     /* LSHIFT   */ I_SHL,   
     /* RSHIFT   */ I_SHR,  
-    /* ARSHIFT  */ I_SAR,
-    /* LROTATE  */ I_ROL,  
-    /* RROTATE  */ I_ROR,  
+    /* ARSHIFT  */ I_NONE,
+    /* LROTATE  */ I_NONE,  
+    /* RROTATE  */ I_NONE,  
     /* LOGICAND */ I_AND, 
     /* LOGICOR  */ I_OR,
     /* BITAND   */ I_AND,  
@@ -132,7 +130,7 @@ CReilFromBilTranslator::CReilFromBilTranslator(VexArch arch, reil_inst_handler_t
     guest = arch;
     inst_handler = handler;
     inst_handler_context = context;
-    reset_state();
+    reset_state(NULL);
 }
 
 CReilFromBilTranslator::~CReilFromBilTranslator()
@@ -140,25 +138,18 @@ CReilFromBilTranslator::~CReilFromBilTranslator()
     
 }
 
-void CReilFromBilTranslator::reset_state()
+void CReilFromBilTranslator::reset_state(bap_block_t *block)
 {
     tempreg_bap.clear();
+    
+    current_block = block;
+    current_stmt = -1;
+
     tempreg_count = inst_count = 0;
-    skip_eflags = false;
+    skip_eflags = false;    
 }
 
-string CReilFromBilTranslator::tempreg_get_name(int32_t tempreg_num)
-{
-    char number[15];
-    sprintf(number, "%.2d", tempreg_num);
-
-    string tempreg_name = string("V_");
-    tempreg_name += number;
-
-    return tempreg_name;
-}
-
-int32_t CReilFromBilTranslator::tempreg_bap_find(string name)
+int32_t CReilFromBilTranslator::tempreg_find(string name)
 {
     vector<TEMPREG_BAP>::iterator it;
 
@@ -200,6 +191,46 @@ int32_t CReilFromBilTranslator::tempreg_alloc(void)
     return -1;
 }
 
+string CReilFromBilTranslator::tempreg_get_name(int32_t tempreg_num)
+{
+    char number[15];
+    sprintf(number, "%.2d", tempreg_num);
+
+    string tempreg_name = string("V_");
+    tempreg_name += number;
+
+    return tempreg_name;
+}
+
+string CReilFromBilTranslator::tempreg_get(string name)
+{
+    // lookup for BAP temporary registry alias
+    int32_t tempreg_num = tempreg_find(name);
+    if (tempreg_num == -1)
+    {
+        // there is no alias for this registry, create it
+        tempreg_num = tempreg_alloc();
+        tempreg_bap.push_back(make_pair(tempreg_num, name));
+
+#ifdef DBG_TEMPREG
+
+        printf("Temp reg %d reserved for %s\n", tempreg_num, name.c_str());
+#endif
+
+    }
+    else
+    {
+
+#ifdef DBG_TEMPREG
+
+        printf("Temp reg %d found for %s\n", tempreg_num, name.c_str());   
+#endif
+
+    }
+
+    return tempreg_get_name(tempreg_num);
+}
+
 uint64_t CReilFromBilTranslator::convert_special(Special *special)
 {
     if (special->special == "call")
@@ -227,6 +258,19 @@ reil_size_t CReilFromBilTranslator::convert_operand_size(reg_t typ)
     }    
 }
 
+reg_t CReilFromBilTranslator::convert_operand_size(reil_size_t size)
+{
+    switch (size)
+    {
+    case U1: return REG_1;
+    case U8: return REG_8;
+    case U16: return REG_16;
+    case U32: return REG_32;
+    case U64: return REG_64;
+    default: reil_assert(0, "invalid operand size");
+    }    
+}
+
 void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
 {
     if (exp == NULL) return;
@@ -247,33 +291,12 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
 
     Temp *temp = (Temp *)exp;    
     string ret = temp->name;
-
     const char *c_name = ret.c_str();
-    if (strncmp(c_name, "R_", 2) && strncmp(c_name, "V_", 2) && strncmp(c_name, "pc_0x", 5))
+
+    if (strncmp(c_name, "R_", 2) && strncmp(c_name, "V_", 2))
     {
         // this is a BAP temporary registry
-        int32_t tempreg_num = tempreg_bap_find(temp->name);
-        if (tempreg_num == -1)
-        {
-            // there is no alias for this registry, create it
-            tempreg_num = tempreg_alloc();
-            tempreg_bap.push_back(make_pair(tempreg_num, temp->name));
-
-#ifdef DBG_TEMPREG
-
-            printf("Temp reg %d reserved for %s\n", tempreg_num, name.c_str());
-#endif
-        }
-        else
-        {
-
-#ifdef DBG_TEMPREG
-
-            printf("Temp reg %d found for %s\n", tempreg_num, name.c_str());   
-#endif
-        }
-
-        ret = tempreg_get_name(tempreg_num);
+        ret = tempreg_get(ret);
     }
 
     if (!strncmp(c_name, "R_", 2))
@@ -282,14 +305,6 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
         reil_arg->type = A_REG;
         reil_arg->size = convert_operand_size(temp->typ);
         strncpy(reil_arg->name, ret.c_str(), REIL_MAX_NAME_LEN - 1);
-    }
-    else if (!strncmp(c_name, "pc_0x", 5))
-    {
-        // code pointer
-        reil_arg->type = A_CONST;
-        reil_arg->size = convert_operand_size(temp->typ);
-        reil_arg->val = strtoll(c_name + 5, NULL, 16);
-        reil_assert(errno != EINVAL, "invalid pc value");
     }
     else
     {
@@ -324,6 +339,14 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
 
         skip_eflags = false;
     }
+}
+
+Exp *CReilFromBilTranslator::temp_operand(reg_t typ, reil_inum_t inum)
+{
+    char buff[MAX_REG_NAME_LEN];
+    sprintf(buff, "V_REIL_TMP_%d", inum);
+
+    return new Temp(typ, tempreg_get(buff));
 }
 
 void CReilFromBilTranslator::process_reil_inst(reil_inst_t *reil_inst)
@@ -361,6 +384,333 @@ Exp *CReilFromBilTranslator::process_bil_exp(Exp *exp)
     return NULL;
 }
 
+reil_const_t reil_cast_bits(reil_size_t size)
+{
+    switch (size)
+    {
+    case U1: return 1;
+    case U8: return 8;
+    case U16: return 16;
+    case U32: return 32;
+    case U64: return 64;
+    default: reil_assert(0, "invalid size");
+    }
+}
+
+reil_const_t reil_cast_mask(reil_size_t size)
+{
+    switch (size)
+    {
+    case U1: return 0x1;
+    case U8: return 0xff;
+    case U16: return 0xffff;
+    case U32: return 0xffffffff;
+    case U64: return 0xffffffffffffffff;
+    default: reil_assert(0, "invalid size");
+    }
+}
+
+reil_const_t reil_cast_mask_sign(reil_size_t size)
+{
+    switch (size)
+    {
+    case U1: return 0x1;
+    case U8: return 0x80;
+    case U16: return 0x8000;
+    case U32: return 0x80000000;
+    case U64: return 0x8000000000000000;
+    default: reil_assert(0, "invalid size");
+    }
+}
+
+reil_const_t reil_cast_high(reil_size_t size)
+{
+    switch (size)
+    {
+    case U16: return 8;
+    case U32: return 16;
+    case U64: return 32;
+    default: reil_assert(0, "invalid size");
+    }
+}
+
+#define COPY_ARG(_dst_, _src_) memcpy((_dst_), (_src_), sizeof(reil_arg_t))
+
+#define NEW_INST(_op_, _inum_)                          \
+                                                        \
+    memset(&new_inst, 0, sizeof(new_inst));             \
+    new_inst.op = (_op_);                               \
+    new_inst.raw_info.addr = current_raw_info->addr;    \
+    new_inst.raw_info.size = current_raw_info->size;    \
+                                                        \
+    new_inst.inum = (_inum_);                           \
+    inst_count += 1;    
+
+void CReilFromBilTranslator::process_bil_arshift(reil_inst_t *reil_inst)
+{
+    reil_inst_t new_inst;
+    reil_size_t size_dst = reil_inst->c.size;
+
+    Exp *tmp_0 = temp_operand(convert_operand_size(reil_inst->a.size), reil_inst->inum);            
+
+    // get sign bit of the source value
+    // AND src, mask, tmp_0
+    NEW_INST(I_AND, reil_inst->inum);
+    COPY_ARG(&new_inst.a, &reil_inst->a);
+    new_inst.b.type = A_CONST;
+    new_inst.b.size = new_inst.a.size;
+    new_inst.b.val = reil_cast_mask_sign(new_inst.b.size);
+    convert_operand(tmp_0, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    Exp *tmp_1 = temp_operand(REG_1, reil_inst->inum);
+
+    // check if sign bit is zero
+    // EQ tmp_0, 0, tmp_1
+    NEW_INST(I_EQ, reil_inst->inum);
+    convert_operand(tmp_0, &new_inst.a);
+    new_inst.b.type = A_CONST;
+    new_inst.b.size = new_inst.a.size;
+    new_inst.b.val = 0;
+    convert_operand(tmp_1, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    Exp *tmp_2 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
+
+    // extend value size
+    // OR tmp_1, 0, tmp_2
+    NEW_INST(I_OR, reil_inst->inum);
+    convert_operand(tmp_1, &new_inst.a);
+    new_inst.b.type = A_CONST;
+    new_inst.b.size = size_dst;
+    new_inst.b.val = 0;
+    convert_operand(tmp_2, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    Exp *tmp_3 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
+
+    // set all bits if sign bit of source value was set
+    // SUB tmp_2, 1, tmp_3
+    NEW_INST(I_SUB, reil_inst->inum);
+    convert_operand(tmp_2, &new_inst.a);
+    new_inst.b.type = A_CONST;
+    new_inst.b.size = size_dst;
+    new_inst.b.val = 1;
+    convert_operand(tmp_3, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    Exp *tmp_4 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
+
+    // calculate left shift size for mask
+    // SUB digits, shift, tmp_4
+    NEW_INST(I_SUB, reil_inst->inum);
+    new_inst.a.type = A_CONST;
+    new_inst.a.size = size_dst;
+    new_inst.a.val = reil_cast_bits(size_dst);
+    COPY_ARG(&new_inst.b, &reil_inst->b);
+    convert_operand(tmp_4, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    Exp *tmp_5 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
+
+    // make higher bits mask
+    // SHL tmp_3, tmp_4, tmp_5
+    NEW_INST(I_SHL, reil_inst->inum);
+    convert_operand(tmp_3, &new_inst.a);
+    convert_operand(tmp_4, &new_inst.b);
+    convert_operand(tmp_5, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    Exp *tmp_6 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
+
+    // calculate lower bits of destination value
+    // SHR src, shift, tmp_6
+    NEW_INST(I_SHR, reil_inst->inum);
+    COPY_ARG(&new_inst.a, &reil_inst->a);
+    COPY_ARG(&new_inst.b, &reil_inst->b);
+    convert_operand(tmp_6, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    // set higher bits of destination value
+    // OR tmp_5, tmp_6, dst
+    reil_inst->op = I_OR;            
+    convert_operand(tmp_5, &reil_inst->a);
+    convert_operand(tmp_6, &reil_inst->b);
+
+    free_bil_exp(tmp_0);
+    free_bil_exp(tmp_1);
+    free_bil_exp(tmp_2);
+    free_bil_exp(tmp_3);
+    free_bil_exp(tmp_4);
+    free_bil_exp(tmp_5);
+    free_bil_exp(tmp_6);
+}
+
+bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
+{
+    reil_inst_t new_inst;
+    Cast *cast = (Cast *)exp;    
+
+    switch (cast->cast_type)
+    {
+    case CAST_LOW:
+        {
+            // use low half of the value
+            reil_inst->op = I_AND;
+            reil_inst->b.type = A_CONST;
+            reil_inst->b.size = reil_inst->c.size;
+            reil_inst->b.val = reil_cast_mask(reil_inst->c.size);
+
+            return true;
+        }
+
+    case CAST_HIGH:
+        {
+            // use high half of the value
+            Exp *tmp = temp_operand(convert_operand_size(reil_inst->a.size), reil_inst->inum);
+
+            NEW_INST(I_SHR, reil_inst->inum);
+            COPY_ARG(&new_inst.a, &reil_inst->a);
+            new_inst.b.type = A_CONST;
+            new_inst.b.size = new_inst.a.size;
+            new_inst.b.val = reil_cast_high(new_inst.b.size);
+            convert_operand(tmp, &new_inst.c);
+
+            process_reil_inst(&new_inst);
+            reil_inst->inum += 1;
+
+            reil_inst->op = I_AND;            
+            convert_operand(tmp, &reil_inst->a);            
+            reil_inst->b.type = A_CONST;
+            reil_inst->b.size = reil_inst->c.size;
+            reil_inst->b.val = reil_cast_mask(reil_inst->c.size);
+
+            free_bil_exp(tmp);
+
+            return true;
+        }
+
+    case CAST_UNSIGNED:
+        {
+            // cast to unsigned
+            reil_inst->op = I_OR;
+            reil_inst->b.type = A_CONST;
+            reil_inst->b.size = reil_inst->c.size;
+            reil_inst->b.val = 0;
+
+            return true;
+        }
+
+    case CAST_SIGNED:
+        {
+            // cast to signed
+            reil_size_t size_src = reil_inst->a.size;
+            reil_size_t size_dst = reil_inst->c.size;
+
+            reil_assert(size_dst > size_src, "invalid signed cast");
+            
+            Exp *tmp_0 = temp_operand(convert_operand_size(reil_inst->a.size), reil_inst->inum);            
+
+            // get sign bit of the source value
+            // AND src, mask, tmp_0
+            NEW_INST(I_AND, reil_inst->inum);
+            COPY_ARG(&new_inst.a, &reil_inst->a);
+            new_inst.b.type = A_CONST;
+            new_inst.b.size = new_inst.a.size;
+            new_inst.b.val = reil_cast_mask_sign(new_inst.b.size);
+            convert_operand(tmp_0, &new_inst.c);
+
+            process_reil_inst(&new_inst);
+            reil_inst->inum += 1;
+
+            Exp *tmp_1 = temp_operand(REG_1, reil_inst->inum);
+
+            // check if sign bit is zero
+            // EQ tmp_0, 0, tmp_1
+            NEW_INST(I_EQ, reil_inst->inum);
+            convert_operand(tmp_0, &new_inst.a);
+            new_inst.b.type = A_CONST;
+            new_inst.b.size = new_inst.a.size;
+            new_inst.b.val = 0;
+            convert_operand(tmp_1, &new_inst.c);
+
+            process_reil_inst(&new_inst);
+            reil_inst->inum += 1;
+
+            Exp *tmp_2 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
+
+            // extend value size
+            // OR tmp_1, 0, tmp_2
+            NEW_INST(I_OR, reil_inst->inum);
+            convert_operand(tmp_1, &new_inst.a);
+            new_inst.b.type = A_CONST;
+            new_inst.b.size = size_dst;
+            new_inst.b.val = 0;
+            convert_operand(tmp_2, &new_inst.c);
+
+            process_reil_inst(&new_inst);
+            reil_inst->inum += 1;
+
+            Exp *tmp_3 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
+
+            // set all bits if sign bit of source value was set
+            // SUB tmp_2, 1, tmp_3
+            NEW_INST(I_SUB, reil_inst->inum);
+            convert_operand(tmp_2, &new_inst.a);
+            new_inst.b.type = A_CONST;
+            new_inst.b.size = size_dst;
+            new_inst.b.val = 1;
+            convert_operand(tmp_3, &new_inst.c);
+
+            process_reil_inst(&new_inst);
+            reil_inst->inum += 1;
+
+            Exp *tmp_4 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
+
+            // clear lower bits of the result
+            // AND tmp_3, mask, tmp_4
+            NEW_INST(I_AND, reil_inst->inum);
+            convert_operand(tmp_3, &new_inst.a);
+            new_inst.b.type = A_CONST;
+            new_inst.b.size = size_dst;
+            new_inst.b.val = reil_cast_mask(size_dst) & ~reil_cast_mask(size_src);
+            convert_operand(tmp_4, &new_inst.c);
+
+            process_reil_inst(&new_inst);
+            reil_inst->inum += 1;
+
+            // join result with the source value
+            // OR src, tmp_4, dst
+            reil_inst->op = I_OR;
+            convert_operand(tmp_4, &reil_inst->b);
+
+            free_bil_exp(tmp_0);
+            free_bil_exp(tmp_1);
+            free_bil_exp(tmp_2);
+            free_bil_exp(tmp_3);
+            free_bil_exp(tmp_4);
+
+            return true;
+        }    
+    }
+
+    return false;
+}
+
 Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flags, Exp *c, Exp *exp)
 {
     reil_inst_t reil_inst;
@@ -368,7 +718,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     Exp *a_temp = NULL, *b_temp = NULL, *exp_temp = NULL;
 
     reil_assert(exp, "invalid expression");
-    reil_assert(inst == I_STR || inst == I_JCC, "invalid instruction [0]");
+    reil_assert(inst == I_STR || inst == I_JCC, "invalid instruction");
     
     memset(&reil_inst, 0, sizeof(reil_inst));
     reil_inst.op = inst;
@@ -402,14 +752,6 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
             exp = exp_temp;
         }
     }
-    else if (c && c->exp_type == NAME)
-    {
-        // check for the jump
-        reil_assert(reil_inst.op == I_JCC, "invalid instruction used with name operand");
-
-        Name *name = (Name *)c;
-        c = new Temp(REG_32, name->name);
-    }
 
     if (reil_inst.op == I_STR) 
     {
@@ -423,12 +765,12 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
             "invalid I_STM argument");
     }
 
-    bool binary_logic = false;
+    bool binary_logic = false, is_arshift = false;
     
     // get a and b operands values from expression
     if (exp->exp_type == BINOP)
     {
-        reil_assert(reil_inst.op == I_STR, "invalid instruction [1]");
+        reil_assert(reil_inst.op == I_STR, "invalid instruction used with BINOP expression");
 
         // store result of binary operation
         BinOp *binop = (BinOp *)exp;  
@@ -439,14 +781,21 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
             binary_logic = true;
         }
 
-        reil_assert(reil_inst.op != I_NONE, "invalid binop expression");
+        if (binop->binop_type == ARSHIFT)
+        {
+            is_arshift = true;
+        }
+        else
+        {
+            reil_assert(reil_inst.op != I_NONE, "invalid binop expression");
+        }        
 
         a = binop->lhs;
         b = binop->rhs;
     }
     else if (exp->exp_type == UNOP)
     {
-        reil_assert(reil_inst.op == I_STR, "invalid instruction [2]");
+        reil_assert(reil_inst.op == I_STR, "invalid instruction used with UNOP expression");
 
         // store result of unary operation
         UnOp *unop = (UnOp *)exp;   
@@ -458,36 +807,12 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     }    
     else if (exp->exp_type == CAST)
     {
-        reil_assert(reil_inst.op == I_STR, "invaid instruction [3]");
+        reil_assert(reil_inst.op == I_STR, "invaid instruction used with CAST expression");
 
         // store with type cast
         Cast *cast = (Cast *)exp;
-        if (cast->cast_type == CAST_HIGH)
-        {
-            // use high half
-            reil_inst.op = I_HCAST;
-        }
-        else if (cast->cast_type == CAST_LOW)
-        {
-            // use low half
-            reil_inst.op = I_LCAST;
-        }
-        else if (cast->cast_type == CAST_UNSIGNED)
-        {
-            // cast to unsigned value of bigger size
-            reil_inst.op = I_UCAST;
-        }
-        else if (cast->cast_type == CAST_SIGNED)
-        {
-            // cast to signed value of bigger size
-            reil_inst.op = I_SCAST;
-        }
-        else
-        {
-            reil_assert(0, "invalid cast");
-        }
 
-        a = cast->exp;
+        a = cast->exp;     
     }
     else if (exp->exp_type == MEM)
     {
@@ -577,12 +902,27 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     // make REIL operands from BIL expressions
     convert_operand(a, &reil_inst.a);
     convert_operand(b, &reil_inst.b);
-    convert_operand(c, &reil_inst.c);    
+    convert_operand(c, &reil_inst.c);
 
     reil_inst.inum = inst_count;
     inst_count += 1;
 
-    // handle assembled REIL instruction
+    if (exp->exp_type == CAST)
+    {
+        // generate code for BAP casts
+        if (!process_bil_cast(exp, &reil_inst))
+        {
+            reil_assert(0, "process_bil_cast() fails");
+        }
+    }    
+
+    if (is_arshift)
+    {
+        // generate code for BAP ARSHIFT binary operand
+        process_bil_arshift(&reil_inst);
+    }
+
+    // add assembled REIL instruction
     process_reil_inst(&reil_inst);
 
     free_bil_exp(a_temp);
@@ -590,6 +930,29 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     free_bil_exp(exp_temp);
 
     return c;
+}
+
+void CReilFromBilTranslator::check_cjmp_false_target(Exp *target)
+{
+    if (target->exp_type != NAME)
+    {
+        reil_assert(0, "check_cjmp_false_target(): unexpected expression");
+    }
+    
+    Stmt *s = get_bil_stmt(current_stmt + 1);
+    if (s->stmt_type != LABEL)
+    {
+        reil_assert(0, "check_cjmp_false_target(): unexpected next statement type");   
+    }
+
+    Name *name = (Name *)target;
+    Label *label = (Label *)s;
+
+    // match next label name with the cjmp target name
+    if (label->label != name->name)
+    {
+        reil_assert(0, "check_cjmp_false_target(): unexpected label");   
+    }
 }
 
 void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, uint64_t inst_flags, Stmt *s)
@@ -601,6 +964,28 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, uint64_t inst_fla
 
     switch (s->stmt_type)
     {
+    case LABEL:
+        {
+            // label statement
+            Label *label = (Label *)s;
+            reil_addr_t label_addr = current_raw_info->addr;
+            reil_inum_t label_inum = inst_count;
+
+            if (inst_flags & IOPT_ASM_END)
+            {
+                // label belongs to the next instruction
+                label_addr = current_raw_info->addr + current_raw_info->size;
+                label_inum = 0;
+            }
+
+#ifdef DBG_BAP
+
+            printf("// BAP label %s at 0x%llx.%.2x\n", label->label.c_str(), 
+                label_addr, label_inum);
+#endif
+            break;
+        }
+
     case MOVE:    
         {
             // move statement
@@ -618,16 +1003,75 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, uint64_t inst_fla
 
             // jump statement
             Jmp *jmp = (Jmp *)s;
-            Constant c(REG_1, 1);
-            process_bil_inst(I_JCC, inst_flags, jmp->target, &c);
+            Exp *target = jmp->target, *target_tmp = NULL;            
+
+            if (target->exp_type == NAME)
+            {
+                Name *name = (Name *)target;
+                reil_addr_t addr = 0;
+
+                // find jump destination address by label name
+                if (!get_bil_label(name->name, &addr))
+                {
+                    reil_assert(0, "get_bil_label() fails");
+                }
+
+                target = target_tmp = new Constant(REG_32, addr);
+            }
+
+            Constant cond(REG_1, 1);
+            process_bil_inst(I_JCC, inst_flags, target, &cond);
+
+            if (target_tmp)
+            {
+                free_bil_exp(target_tmp);
+            }
+
             break;
         }
 
     case CJMP:
-        {
+        {            
             // conditional jump statement
             CJmp *cjmp = (CJmp *)s;
-            process_bil_inst(I_JCC, inst_flags | IOPT_BB_END, cjmp->t_target, cjmp->cond);
+            Exp *target = cjmp->t_target, *target_tmp = NULL;            
+            Exp *cond = cjmp->cond, *cond_tmp = NULL;            
+
+            if (target->exp_type == NAME)
+            {
+                Name *name = (Name *)target;
+                reil_addr_t addr = 0;
+
+                // find true target destination address by label name
+                if (!get_bil_label(name->name, &addr))
+                {
+                    reil_assert(0, "get_bil_label() fails");
+                }
+
+                target = target_tmp = new Constant(REG_32, addr);
+            }
+          
+            if (cond->exp_type != TEMP)
+            {
+                Exp *tmp = temp_operand(REG_1, inst_count);
+                cond = cond_tmp = process_bil_inst(I_STR, 0, tmp, cond);
+            }
+
+            // verify that false target points to the next BAP instruction
+            check_cjmp_false_target(cjmp->f_target);
+
+            process_bil_inst(I_JCC, inst_flags | IOPT_BB_END, target, cond);
+
+            if (target_tmp)
+            {
+                free_bil_exp(target_tmp);
+            }
+
+            if (cond_tmp)
+            {
+                free_bil_exp(cond_tmp);
+            }
+
             break;
         }
 
@@ -641,7 +1085,6 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, uint64_t inst_fla
     case EXPSTMT:
     case COMMENT:
     case SPECIAL:
-    case LABEL:
     case VARDECL:
 
         break;
@@ -774,11 +1217,95 @@ void CReilFromBilTranslator::process_unknown_insn(reil_raw_t *raw_info)
     }    
 }
 
+bool CReilFromBilTranslator::get_bil_label(string name, reil_addr_t *addr)
+{
+    if (current_block == NULL)
+    {
+        reil_assert(0, "get_bil_label(): invalid BAP block");
+    }
+
+    reil_addr_t ret = 0;
+    int size = current_block->bap_ir->size();
+    
+    for (int i = 0; i < size; i++)
+    {
+        // enumerate BIL statements        
+        Stmt *s = current_block->bap_ir->at(i);
+        uint64_t inst_flags = IOPT_ASM_END;    
+
+        for (int n = i + 1; n < size; n++)
+        {
+            // check for last IR instruction
+            Stmt *s_next = current_block->bap_ir->at(n);
+
+            if (s_next->stmt_type == MOVE || 
+                s_next->stmt_type == CJMP ||
+                s_next->stmt_type == JMP)
+            {
+                inst_flags = 0;
+                break;
+            }            
+        }
+
+        switch (s->stmt_type)
+        {
+        case LABEL:
+            {
+                Label *label = (Label *)s;
+
+                // find label by name
+                if (label->label == name)
+                {
+                    if (inst_flags & IOPT_ASM_END)
+                    {
+                        // label belongs to the next instruction
+                        ret = current_raw_info->addr + current_raw_info->size;
+#ifdef DBG_BAP
+                        printf("// %s -> 0x%llx\n", name.c_str(), ret);
+#endif
+                    }
+                    else
+                    {
+                        reil_assert(0, "labels at the middle of the BAP instruction are not implemented");
+                    }
+
+                    if (addr)
+                    {
+                        *addr = ret;
+                    }
+
+                    return true;
+                }                
+
+                break;
+            }
+        }        
+    }     
+
+    return false;
+}
+
+Stmt *CReilFromBilTranslator::get_bil_stmt(int pos)
+{
+    if (current_block == NULL)
+    {
+        reil_assert(0, "get_bil_stmt(): invalid BAP block");
+    }
+
+    int size = current_block->bap_ir->size();
+    if (pos >= size)
+    {
+        reil_assert(0, "get_bil_stmt(): invalid BAP statement position");
+    }
+
+    return current_block->bap_ir->at(pos);
+}
+
 void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *block)
 {
     int size = block->bap_ir->size();
 
-    reset_state();
+    reset_state(block);
 
     if (is_unknown_insn(block))
     {
@@ -787,6 +1314,8 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
     
     for (int i = 0; i < size; i++)
     {
+        current_stmt = i;
+
         // enumerate BIL statements        
         Stmt *s = block->bap_ir->at(i);
         uint64_t inst_flags = IOPT_ASM_END;    

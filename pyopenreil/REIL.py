@@ -24,10 +24,8 @@ def create_globals(items, prefix):
 REIL_INSN = [ 'NONE', 'UNK', 'JCC', 
               'STR', 'STM', 'LDM', 
               'ADD', 'SUB', 'NEG', 'MUL', 'DIV', 'MOD', 'SMUL', 'SDIV', 'SMOD', 
-              'SHL', 'SHR', 'SAL', 'SAR', 'ROL', 'ROR', 
-              'AND', 'OR', 'XOR', 'NOT',
-              'EQ', 'NEQ', 'L', 'LE', 'SL', 'SLE', 
-              'CAST_L', 'CAST_H', 'CAST_U', 'CAST_S' ]
+              'SHL', 'SHR', 'AND', 'OR', 'XOR', 'NOT',
+              'EQ', 'NEQ', 'L', 'LE', 'SL', 'SLE' ]
 
 REIL_SIZE = [ '1', '8', '16', '32', '64' ]
 
