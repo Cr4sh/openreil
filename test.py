@@ -17,15 +17,18 @@ CODE += '\xc3\x68\x00\x00\x00\x00\xF3\xA4\xE8\x00\x00\x00\x00\xC2\x04\x00'
 ADDR = 0x1337L
 ENTRY = 0        
 
+CODE = '\xe2\xf4'
+
 def test_1(argv):
     ''' Code translation test. '''
 
     reader = ReaderRaw(CODE, addr = ADDR)
     storage = CodeStorageTranslator('x86', reader)
 
-    cfg = CFGraphBuilder(storage).traverse(ADDR + ENTRY)
+    for insn in storage.get_insn(ADDR + ENTRY): print str(insn)
 
-    for node in cfg.nodes.values(): print str(node.item) + '\n'
+    #cfg = CFGraphBuilder(storage).traverse(ADDR + ENTRY)
+    #for node in cfg.nodes.values(): print str(node.item) + '\n'
 
 
 def test_2(argv):

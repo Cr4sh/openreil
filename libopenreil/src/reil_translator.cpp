@@ -1219,14 +1219,31 @@ void CReilFromBilTranslator::process_unknown_insn(reil_raw_t *raw_info)
 
 bool CReilFromBilTranslator::get_bil_label(string name, reil_addr_t *addr)
 {
+    reil_addr_t ret = 0;
+    const char *c_name = name.c_str();
+
+    if (!strncmp(c_name, "pc_0x", 5))
+    {
+        // get code pointer from label text
+        ret = strtoll(c_name + 5, NULL, 16);
+        reil_assert(errno != EINVAL, "invalid pc value");
+
+        if (addr)
+        {
+            *addr = ret;
+        }
+
+        return true;
+    }
+
     if (current_block == NULL)
     {
         reil_assert(0, "get_bil_label(): invalid BAP block");
     }
-
-    reil_addr_t ret = 0;
+    
     int size = current_block->bap_ir->size();
     
+    // lookup for statement with the given label
     for (int i = 0; i < size; i++)
     {
         // enumerate BIL statements        
