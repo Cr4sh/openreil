@@ -1114,8 +1114,22 @@ bool CReilFromBilTranslator::is_unknown_insn(bap_block_t *block)
     return false;
 }
 
+void CReilFromBilTranslator::process_empty_insn(reil_raw_t *raw_info)
+{
+    reil_inst_t reil_inst;
+    memset(&reil_inst, 0, sizeof(reil_inst));                
+
+    reil_inst.op = I_NONE;
+    reil_inst.raw_info.addr = raw_info->addr;
+    reil_inst.raw_info.size = raw_info->size;
+    reil_inst.raw_info.data = NULL;
+
+    reil_inst.flags = IOPT_ASM_END;
+    process_reil_inst(&reil_inst);
+}
+
 void CReilFromBilTranslator::process_unknown_insn(reil_raw_t *raw_info)
-{    
+{  
     vector<Temp *>::iterator it;
     vector<Temp *> arg_src, arg_dst, arg_all;    
 
@@ -1326,6 +1340,11 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
 
     if (is_unknown_insn(block))
     {
+        fprintf(stderr, "WARNING: 0x%llx was not translated\n", raw_info->addr);
+
+        // add metainformation about unknown instruction into the code
+        process_unknown_insn(raw_info);
+
         goto _end;
     }
     
@@ -1373,15 +1392,13 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
         process_bil(raw_info, inst_flags, s);
     }
 
-_end:
-
     if (inst_count == 0)
     {
-        fprintf(stderr, "WARNING: 0x%llx was not translated\n", raw_info->addr);
-
-        // add metainformation about unknown instruction into the code
-        process_unknown_insn(raw_info);
+        // add I_NONE
+        process_empty_insn(raw_info);
     }
+
+_end:
 
 #ifdef DBG_BAP
         

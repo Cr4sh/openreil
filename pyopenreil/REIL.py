@@ -1,7 +1,10 @@
 from abc import ABCMeta, abstractmethod
 from sets import Set
 
+import numpy
+
 IATTR_FLAGS  = 'F'
+IATTR_NEXT   = 'N'
 IATTR_SRC    = 'S'
 IATTR_DST    = 'D'
 
@@ -39,19 +42,34 @@ create_globals(REIL_ARG, 'A_')
 import translator
 from arch import x86
 
+class Error(translator.BaseError):
 
-class ReadError(translator.BaseError):
+    pass
+
+
+class StorageError(Error):
+
+    def __init__(self, addr, inum):
+
+        self.addr, self.inum = addr, inum
+
+    def __str__(self):
+
+        return 'Error while reading instruction %s.%.2d from storage' % (hex(self.addr), self.inum)
+
+
+class ReadError(StorageError):
 
     def __init__(self, addr):
 
-        self.addr = addr
+        self.addr, self.inum = addr, 0
 
     def __str__(self):
 
         return 'Error while reading instruction %s' % hex(self.addr)
 
 
-class ParseError(translator.BaseError):
+class ParseError(Error):
 
     def __str__(self):
 
@@ -66,7 +84,7 @@ def get_arch(arch):
 
     except KeyError: 
 
-        raise(translator.BaseError('Architecture %s is unknown' % arch))
+        raise translator.BaseError('Architecture %s is unknown' % arch)
 
 
 class SymVal(object):
@@ -266,6 +284,90 @@ class SymState(object):
         return SymState(self)
 
 
+class Math(object):
+
+    type_u = { 
+
+        U1: numpy.uint8, 
+        U8: numpy.uint8, 
+        U16: numpy.uint16,
+        U32: numpy.uint32, 
+        U64: numpy.uint64 }
+
+    type_s = { 
+
+        U1: numpy.int8, 
+        U8: numpy.int8, 
+        U16: numpy.int16,
+        U32: numpy.int32, 
+        U64: numpy.int64 }
+
+    def __init__(self, a = None, b = None):
+
+        self.a, self.b = a, b    
+
+    def val(self, arg):
+
+        return None if arg is None else arg.get_val()
+
+    def val_u(self, arg):
+
+        # Arg to numpy unsigned integer
+        return None if arg is None else self.type_u[arg.size](self.val(arg))
+
+    def val_s(self, arg):
+
+        # Arg to numpy signed integer
+        return None if arg is None else self.type_s[arg.size](self.val_u(arg))
+
+    def eval(self, op, a = None, b = None):
+
+        a = self.a if a is None else a
+        b = self.b if b is None else b
+
+        # evaluale unsigned expression
+        eval_u = lambda fn: fn(self.val_u(a), self.val_u(b)).item()
+
+        # evaluate signed expression
+        eval_s = lambda fn: fn(self.val_s(a), self.val_s(b)).item()
+
+        eval_fn = { 
+
+            I_STR: lambda: a.get_val(),            
+            I_ADD: lambda: eval_u(lambda a, b: a + b),
+            I_SUB: lambda: eval_u(lambda a, b: a - b),            
+            I_NEG: lambda: eval_u(lambda a, b: -a),
+            I_MUL: lambda: eval_u(lambda a, b: a * b),
+            I_DIV: lambda: eval_u(lambda a, b: a / b),
+            I_MOD: lambda: eval_u(lambda a, b: a % b),
+           I_SMUL: lambda: eval_s(lambda a, b: a * b),
+           I_SDIV: lambda: eval_s(lambda a, b: a / b),
+           I_SMOD: lambda: eval_s(lambda a, b: a % b),
+            I_SHL: lambda: eval_u(lambda a, b: a << b),
+            I_SHR: lambda: eval_u(lambda a, b: a >> b),
+            I_AND: lambda: eval_u(lambda a, b: a & b),
+             I_OR: lambda: eval_u(lambda a, b: a | b),
+            I_XOR: lambda: eval_u(lambda a, b: a ^ b),            
+            I_NOT: lambda: eval_u(lambda a, b: ~a),
+             I_EQ: lambda: eval_u(lambda a, b: a == b),
+            I_NEQ: lambda: eval_u(lambda a, b: a != b),
+              I_L: lambda: eval_u(lambda a, b: a < b),
+             I_LE: lambda: eval_u(lambda a, b: a <= b),
+             I_SL: lambda: eval_s(lambda a, b: a < b),
+            I_SLE: lambda: eval_s(lambda a, b: a <= b) }
+
+        return eval_fn[op]()
+
+ARG_TYPE = 0
+ARG_SIZE = 1
+ARG_NAME = 2
+ARG_VAL  = 2
+
+Arg_type = lambda arg: arg[ARG_TYPE] # argument type (see REIL_ARG)
+Arg_size = lambda arg: arg[ARG_SIZE] # argument size (see REIL_SIZE)
+Arg_name = lambda arg: arg[ARG_NAME] # argument name (for A_REG and A_TEMP)
+Arg_val  = lambda arg: arg[ARG_VAL]  # argument value (for A_CONST)
+
 class Arg(object):
 
     def __init__(self, t = None, size = None, name = None, val = None):
@@ -312,17 +414,16 @@ class Arg(object):
     def unserialize(self, data):
 
         if len(data) == 3:
-
-            value = data[2]            
-            self.type, self.size = data[0], data[1]            
+      
+            self.type, self.size = Arg_type(data), Arg_size(data)
 
             if self.size not in [ U1, U8, U16, U32, U64 ]:
 
                 return False
             
-            if self.type == A_REG: self.name = value
-            elif self.type == A_TEMP: self.name = value
-            elif self.type == A_CONST: self.val = value
+            if self.type == A_REG: self.name = Arg_name(data)
+            elif self.type == A_TEMP: self.name = Arg_name(data)
+            elif self.type == A_CONST: self.val = Arg_val(data)
             else: 
 
                 return False
@@ -342,14 +443,22 @@ class Arg(object):
         # check for temporary or target architecture register
         return self.type == A_REG or self.type == A_TEMP
 
+INSN_ADDR = 0
+INSN_INUM = 1
+INSN_OP   = 2
+INSN_ARGS = 3
+INSN_ATTR = 4
+
+INSN_ADDR_ADDR = 0
+INSN_ADDR_SIZE = 1
 
 # raw translated REIL instruction parsing
-Insn_addr  = lambda insn: insn[0][0] # instruction virtual address
-Insn_size  = lambda insn: insn[0][1] # assembly code size
-Insn_inum  = lambda insn: insn[1]    # IR subinstruction number
-Insn_op    = lambda insn: insn[2]    # operation code
-Insn_args  = lambda insn: insn[3]    # tuple with 3 arguments
-Insn_attr  = lambda insn: insn[4]    # instruction attributes
+Insn_addr  = lambda insn: insn[INSN_ADDR][INSN_ADDR_ADDR]   # instruction virtual address
+Insn_size  = lambda insn: insn[INSN_ADDR][INSN_ADDR_SIZE]   # assembly code size
+Insn_inum  = lambda insn: insn[INSN_INUM]   # IR subinstruction number
+Insn_op    = lambda insn: insn[INSN_OP]     # operation code
+Insn_args  = lambda insn: insn[INSN_ARGS]   # tuple with 3 arguments
+Insn_attr  = lambda insn: insn[INSN_ATTR]   # instruction attributes
 
 class Insn(object):    
 
@@ -377,11 +486,9 @@ class Insn(object):
         self.size = 0 if size is None else size        
 
         self.addr, self.inum = 0L, 0
-        self.ir_addr = ()
 
         if ir_addr is not None:
 
-            self.ir_addr = ir_addr
             self.addr, self.inum = ir_addr
 
         self.a = Arg() if a is None else a
@@ -397,36 +504,39 @@ class Insn(object):
                (self.addr, self.inum, REIL_INSN[self.op], \
                 self.a, self.b, self.c)    
 
+    def ir_addr(self): 
+
+        return self.IRAddr(( self.addr, self.inum ))
+
     def serialize(self):
 
         info = ( self.addr, self.size )
         args = ( self.a.serialize(), self.b.serialize(), self.c.serialize() )
         
-        return ( info, self.inum, self.op, args, self.attr )
+        return ( info, self.inum, self.op, args, self.attr.copy() )
 
     def unserialize(self, data):
 
         self.init_attr(Insn_attr(data))
         self.addr, self.inum, self.size = Insn_addr(data), Insn_inum(data), Insn_size(data)
-        self.ir_addr = self.IRAddr(( self.addr, self.inum ))
 
         self.op = Insn_op(data)
         if self.op > len(REIL_INSN) - 1: 
 
-            raise(ParseError(self.addr))
+            raise ParseError(self.addr)
 
         args = Insn_args(data) 
         if len(args) != 3: 
 
-            raise(ParseError(self.addr))
+            raise ParseError(self.addr)
 
         if not self.a.unserialize(args[0]) or \
            not self.b.unserialize(args[1]) or \
            not self.c.unserialize(args[2]): 
 
-           raise(ParseError(self.addr))
+           raise ParseError(self.addr)
 
-        return self
+        return self    
 
     def init_attr(self, attr):
 
@@ -457,14 +567,21 @@ class Insn(object):
 
         return self.get_attr(IATTR_FLAGS) & val != 0    
 
-    def dst(self):
+    def args(self):
+
+        return self.src() + self.dst()
+
+    def dst(self, get_all = False):
 
         ret = []
 
         if self.op != I_NONE: 
 
+            if get_all: cond = lambda arg: arg.type != A_NONE 
+            else: cond = lambda arg: arg.is_var()
+
             if self.op != I_JCC and self.op != I_STM and \
-               self.c.is_var(): ret.append(self.c)
+               cond(self.c): ret.append(self.c)
 
         elif self.have_attr(IATTR_DST):
 
@@ -473,17 +590,20 @@ class Insn(object):
 
         return ret
 
-    def src(self):
+    def src(self, get_all = False):
 
         ret = []
 
-        if self.op != I_NONE: 
-        
-            if self.a.is_var(): ret.append(self.a)
-            if self.b.is_var(): ret.append(self.b)
+        if self.op != I_NONE:
+
+            if get_all: cond = lambda arg: arg.type != A_NONE 
+            else: cond = lambda arg: arg.is_var()
+
+            if cond(self.a): ret.append(self.a)
+            if cond(self.b): ret.append(self.b)
 
             if (self.op == I_JCC or self.op == I_STM) and \
-               self.c.is_var(): ret.append(self.c)
+               cond(self.c): ret.append(self.c)
 
         elif self.have_attr(IATTR_SRC):
 
@@ -541,6 +661,11 @@ class Insn(object):
 
     def next(self):
 
+        if self.have_attr(IATTR_NEXT):
+
+            # force to use next instruction that was set inattributes
+            return self.get_attr(IATTR_NEXT)
+
         if self.have_flag(IOPT_RET): 
 
             # end of function
@@ -568,6 +693,19 @@ class Insn(object):
         if self.op == I_JCC and self.c.type == A_CONST: return self.c.get_val(), 0
         return None
 
+    def clone(self):
+
+        return Insn(self.serialize())
+
+    def eliminate(self):
+
+        self.op, self.args = I_NONE, {}
+        self.a = Arg(A_NONE)
+        self.b = Arg(A_NONE)
+        self.c = Arg(A_NONE)        
+
+        self.set_flag(IOPT_ELIMINATED)
+
 
 class BasicBlock(object):
     
@@ -575,7 +713,7 @@ class BasicBlock(object):
 
         self.insn_list = insn_list
         self.first, self.last = insn_list[0], insn_list[-1]
-        self.ir_addr = self.first.ir_addr
+        self.ir_addr = self.first.ir_addr()
         self.size = self.last.addr + self.last.size - self.ir_addr[0]
 
     def __iter__(self):
@@ -841,7 +979,7 @@ class DFGraphNode(GraphNode):
 
     def key(self):
 
-        return self.item.ir_addr
+        return self.item.ir_addr()
 
 
 class DFGraphEntryNode(DFGraphNode): 
@@ -896,37 +1034,128 @@ class DFGraph(Graph):
         self.add_node(self.entry_node)
         self.add_node(self.exit_node)
 
-    def eliminate_dead_code(self):
+        self.deleted_nodes = Set()
+
+    def store(self, storage):
+
+        addr_list = Set()
+        for node in self.nodes.values() + list(self.deleted_nodes): 
+
+            insn = node.item
+            if insn is not None:                
+
+                # collect list of available machine instructions including deleted
+                addr_list = addr_list.union([ insn.addr ])
+
+        for addr in addr_list:
+
+            # delete all IR for collected instructions
+            try: storage.del_insn(addr)
+            except StorageError: pass
+
+        relink = False
+        for node in self.nodes.values():
+
+            insn = node.item
+            if insn is not None:                
+            
+                # put each node instruction into the storage
+                storage.put_insn(insn.serialize())
+                relink = True
+
+        # update inums and flags
+        if relink: storage.relink()
+
+        relink = False
+        for node in self.deleted_nodes:
+
+            insn = node.item
+
+            # For CFG consistence we need to insert I_NONE
+            # instructions instead eliminated ones.
+            try: storage.get_insn(( insn.addr, 0 ))
+            except StorageError: 
+
+                insn = insn.clone()
+                insn.inum = 0
+
+                insn.eliminate()
+                storage.put_insn(insn.serialize())
+                relink = True
+
+        # update inums and flags
+        if relink: storage.relink()
+        
+    def constant_folding(self, storage = None):
 
         deleted_nodes = []
 
-        # check for variables that live at the end of the function
-        for edge in list(self.exit_node.in_edges):
+        def evaluate(insn): 
 
-            arg = edge.node_from.item.dst()[0]
-            if (arg.type == A_TEMP) or \
-               (arg.type == A_REG and arg.name in x86.Registers.flags):
+            val = Math(insn.a, insn.b).eval(insn.op)
+            if val is not None:
 
-                print 'Eliminating %s that live at the end of the function...' % arg.name
-                self.del_edge(edge)
+                return Arg(A_CONST, insn.c.size, val = val)
+
+            else:
+
+                return None
+
+        def need_to_propagate(insn):
+
+            if insn.op == I_JCC: return False
+
+            for arg in insn.src(get_all = True):
+
+                if arg.type != A_CONST: return False
+
+            for arg in insn.dst(get_all = True):
+
+                if arg.type != A_TEMP: return False
+
+            return True
+
+        def propagate(node):
+
+            val = evaluate(node.item)
+            if val is None: 
+
+                return False
+
+            for edge in node.out_edges:
+
+                node = edge.node_to
+                insn = node.item
+
+                print 'Updating arg %s of DFG node "%s" to %s' % (edge, node, val)
+
+                if insn.a.name == edge.name: insn.a = val
+                if insn.b.name == edge.name: insn.b = val
+
+            return True        
+
+        print '*** Folding constants...'
 
         while True:
 
-            deleted = 0
+            deleted, pending = 0, []            
 
-            print 'Cleanup...'
-            
             for node in self.nodes.values():
 
-                if len(node.out_edges) == 0 and node != dfg.exit_node and \
-                   not node.item.op in [ I_JCC, I_STM, I_NONE ]:
+                if node != self.entry_node and len(node.in_edges) == 0 and need_to_propagate(node.item):
 
-                    print 'DFG node "%s" has no output edges' % node
+                    pending.append(node)
+
+            for node in pending:
+
+                print 'DFG node "%s" has no input edges' % node
+                
+                if propagate(node):
 
                     # delete node that has no output edges                    
                     self.del_node(node)
-                    
-                    deleted_nodes.append(node.item.ir_addr)
+
+                    deleted_nodes.append(node)
                     deleted += 1
 
             if deleted == 0: 
@@ -934,7 +1163,55 @@ class DFGraph(Graph):
                 # no more nodes to delete
                 break
 
-        return deleted_nodes
+        self.deleted_nodes = self.deleted_nodes.union(deleted_nodes)
+
+        if storage is not None: self.store(storage)
+
+    def eliminate_dead_code(self, storage = None):
+
+        deleted_nodes = []
+
+        print '*** Eliminating dead code...'
+
+        # check for variables that live at the end of the function
+        for edge in list(self.exit_node.in_edges):
+
+            dst = edge.node_from.item.dst()
+            arg = dst[0] if len(dst) > 0 else None
+
+            if arg is None: continue
+            
+            if (arg.type == A_TEMP) or \
+               (arg.type == A_REG and arg.name in x86.Registers.flags):
+
+                print 'Eliminating %s that live at the end of the function...' % arg.name
+                self.del_edge(edge)        
+
+        while True:
+
+            deleted = 0            
+            
+            for node in self.nodes.values():
+
+                if len(node.out_edges) == 0 and node != self.exit_node and \
+                   not node.item.op in [ I_JCC, I_STM, I_NONE ]:
+
+                    print 'DFG node "%s" has no output edges' % node
+
+                    # delete node that has no output edges                    
+                    self.del_node(node)
+                    
+                    deleted_nodes.append(node)
+                    deleted += 1
+
+            if deleted == 0: 
+
+                # no more nodes to delete
+                break
+
+        self.deleted_nodes = self.deleted_nodes.union(deleted_nodes)
+
+        if storage is not None: self.store(storage)
 
 
 class DFGraphBuilder(CFGraphBuilder):
@@ -947,6 +1224,8 @@ class DFGraphBuilder(CFGraphBuilder):
 
             src = [ arg.name for arg in insn.src() ]
             dst = [ arg.name for arg in insn.dst() ]
+
+            node = dfg.add_node(insn)
 
             if insn.have_flag(IOPT_CALL):
 
@@ -969,7 +1248,7 @@ class DFGraphBuilder(CFGraphBuilder):
                 try: node_from = dfg.add_node(state[arg])
                 except KeyError: node_from = dfg.entry_node                      
 
-                dfg.add_edge(node_from, dfg.add_node(insn), arg)
+                dfg.add_edge(node_from, node, arg)
 
             # update current state
             for arg in dst: state[arg] = insn
@@ -1028,14 +1307,28 @@ class CodeStorage(object):
 
     __metaclass__ = ABCMeta
 
+    reader = None
+
     @abstractmethod
     def get_insn(self, addr, inum = None): pass
 
     @abstractmethod
     def put_insn(self, insn_or_insn_list): pass
 
+    @abstractmethod
+    def size(self): pass
+
+    @abstractmethod
+    def clear(self): pass
+
 
 class CodeStorageMem(CodeStorage):
+
+    class InsnList(list):
+
+        def __str__(self):
+
+            return '\n'.join(map(lambda insn: str(insn), self))
 
     def __init__(self, arch, insn_list = None): 
 
@@ -1048,19 +1341,94 @@ class CodeStorageMem(CodeStorage):
         keys = self.items.keys()
         keys.sort()
 
-        for k in keys: yield Insn(self.items[k])    
+        for k in keys: yield Insn(self._get_insn(k))   
+
+    def __str__(self):
+
+        return '\n'.join(map(lambda insn: str(insn), self))
 
     def _get_key(self, insn):
 
         return Insn_addr(insn), Insn_inum(insn)
 
+    def _get_insn(self, ir_addr):
+        
+        try: return self.items[ir_addr]
+        except KeyError: raise StorageError(*ir_addr)    
+
+    def _del_insn(self, ir_addr):
+
+        try: return self.items.pop(ir_addr)
+        except KeyError: raise StorageError(*ir_addr)
+
     def _put_insn(self, insn):
 
-        self.items[self._get_key(insn)] = insn
-
-    def clear(self):
+        self.items[self._get_key(insn)] = insn        
+    
+    def clear(self): 
 
         self.items = {}
+
+    def size(self): 
+
+        return len(self.items)
+
+    def get_insn(self, ir_addr): 
+
+        ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)        
+        get_single, ret = True, self.InsnList()
+
+        addr, inum = ir_addr
+        if inum is None: 
+
+            # query all IR instructions for given machine instruction
+            inum = 0
+            get_single = False
+
+        while True:
+
+            # query single IR instruction
+            insn = Insn(self._get_insn(( addr, inum )))
+            if get_single: return insn
+
+            # build instructions list
+            ret.append(insn)
+
+            # stop on machine instruction end
+            if insn.have_flag(IOPT_ASM_END): break
+            inum += 1
+
+        return ret
+
+    def del_insn(self, ir_addr):
+
+        ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)        
+        del_single = True
+
+        addr, inum = ir_addr
+        if inum is None: 
+
+            # delete all IR instructions for given machine instruction
+            for insn in self.get_insn(addr): self._del_insn(insn.ir_addr())
+
+        else:
+
+            # delete single IR instruction
+            self._del_insn(ir_addr)
+
+    def put_insn(self, insn_or_insn_list): 
+
+        get_data = lambda insn: insn.serialize() if isinstance(insn, Insn) else insn
+
+        if isinstance(insn_or_insn_list, list):
+
+            # store instructions list
+            for insn in insn_or_insn_list: self._put_insn(get_data(insn))
+
+        else:
+
+            # store single IR instruction
+            self._put_insn(get_data(insn_or_insn_list))  
 
     def to_file(self, path):
 
@@ -1076,46 +1444,38 @@ class CodeStorageMem(CodeStorage):
             for line in fd:
 
                 line = eval(line.strip())
-                if isinstance(line, tuple): self._put_insn(line)
-    
-    def get_insn(self, ir_addr): 
+                if isinstance(line, tuple): self._put_insn(line)  
 
-        ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)
-        addr, inum = ir_addr
+    def relink(self):
 
-        query_single, ret = True, []
+        items = {}
+        addr, prev, inum = None, None, 0
 
-        if inum is None: 
+        for insn in self:
+            
+            if addr != insn.addr:
 
-            inum = 0
-            query_single = False
+                # end of machine instruction
+                addr, inum = insn.addr, 0
 
-        while True:
+                if prev is not None: 
 
-            # query single IR instruction
-            insn = Insn(self.items[(addr, inum)])
-            if query_single: return insn
+                    # set end of asm instruction flag for previous insn
+                    prev.set_flag(IOPT_ASM_END)
 
-            next = insn.next()
-            ret.append(insn)
+                    key_prev = ( prev.addr, prev.inum )
+                    items[key_prev] = prev.serialize()
 
-            # stop on assembly instruction end
-            if insn.have_flag(IOPT_ASM_END): break
+            # update inum value for each instruction
+            insn.inum = inum
+
+            key_insn = ( insn.addr, insn.inum )
+            items[key_insn] = insn.serialize()
+
             inum += 1
+            prev = insn
 
-        return ret
-
-    def put_insn(self, insn_or_insn_list): 
-
-        if isinstance(insn_or_insn_list, list):
-
-            # store instructions list
-            for insn in insn_or_insn_list: self._put_insn(insn)
-
-        else:
-
-            # store single IR instruction
-            self._put_insn(insn_or_insn_list)
+        self.items = items
 
 
 class CodeStorageTranslator(CodeStorage):
@@ -1179,6 +1539,14 @@ class CodeStorageTranslator(CodeStorage):
 
         return [ ret_insn.serialize() ]
 
+    def clear(self): 
+
+        self.storage.clear()
+
+    def size(self): 
+
+        return self.storage.size()
+
     def get_insn(self, ir_addr):
 
         ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)
@@ -1189,13 +1557,13 @@ class CodeStorageTranslator(CodeStorage):
             # query already translated IR instructions for this address
             return self.storage.get_insn(ir_addr)
 
-        except KeyError:
+        except StorageError:
 
-            if self.reader is None: raise(ReadError(ir_addr[0]))
+            if self.reader is None: raise ReadError(ir_addr[0])
 
             # read instruction bytes from memory
             data = self.reader.read_insn(ir_addr[0])
-            if data is None: raise(ReadError(ir_addr[0]))
+            if data is None: raise ReadError(ir_addr[0])
 
             # translate to REIL
             ret = self.translate_insn(data, ir_addr[0])

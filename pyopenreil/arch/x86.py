@@ -20,6 +20,9 @@ class Registers:
     # stack pointer
     sp = 'R_ESP'
 
+    # accumulator
+    accum = 'R_EAX'
+
     # all of the registers
     all = (( 'EFLAGS', U32 ),
            ( 'R_LDT', U32 ), 
