@@ -1,4 +1,5 @@
 import sys, os, struct, random
+import numpy
 
 from REIL import *
 
@@ -203,6 +204,83 @@ class Mem(object):
         self.dump_hex(self.read(addr, size), addr = addr)
 
 
+class Math(object):
+
+    type_u = { 
+
+        U1: numpy.uint8, 
+        U8: numpy.uint8, 
+        U16: numpy.uint16,
+        U32: numpy.uint32, 
+        U64: numpy.uint64 }
+
+    type_s = { 
+
+        U1: numpy.int8, 
+        U8: numpy.int8, 
+        U16: numpy.int16,
+        U32: numpy.int32, 
+        U64: numpy.int64 }
+
+    def __init__(self, a = None, b = None):
+
+        self.a, self.b = a, b    
+
+    def val(self, arg):
+
+        return None if arg is None else arg.get_val()
+
+    def val_u(self, arg):
+
+        # Arg to numpy unsigned integer
+        return None if arg is None else self.type_u[arg.size](self.val(arg))
+
+    def val_s(self, arg):
+
+        # Arg to numpy signed integer
+        return None if arg is None else self.type_s[arg.size](self.val_u(arg))
+
+    def eval(self, op, a = None, b = None):
+
+        a = self.a if a is None else a
+        b = self.b if b is None else b
+
+        eval_op = lambda fn_list: fn_list[op]()
+
+        # evaluale unsigned expression
+        eval_u = lambda fn: fn(self.val_u(a), self.val_u(b)).item()
+
+        # evaluate signed expression
+        eval_s = lambda fn: fn(self.val_s(a), self.val_s(b)).item()        
+
+        return eval_op({ 
+
+            I_STR: lambda: a.get_val(),            
+            I_ADD: lambda: eval_u(lambda a, b: a +  b ),
+            I_SUB: lambda: eval_u(lambda a, b: a -  b ),            
+            I_NEG: lambda: eval_u(lambda a, b: -a     ),
+            I_MUL: lambda: eval_u(lambda a, b: a *  b ),
+            I_DIV: lambda: eval_u(lambda a, b: a /  b ),
+            I_MOD: lambda: eval_u(lambda a, b: a %  b ),
+           I_SMUL: lambda: eval_s(lambda a, b: a *  b ),
+           I_SDIV: lambda: eval_s(lambda a, b: a /  b ),
+           I_SMOD: lambda: eval_s(lambda a, b: a %  b ),
+            I_SHL: lambda: eval_u(lambda a, b: a << b ),
+            I_SHR: lambda: eval_u(lambda a, b: a >> b ),
+            I_AND: lambda: eval_u(lambda a, b: a &  b ),
+             I_OR: lambda: eval_u(lambda a, b: a |  b ),
+            I_XOR: lambda: eval_u(lambda a, b: a ^  b ),            
+            I_NOT: lambda: eval_u(lambda a, b: ~a     ),
+             I_EQ: lambda: eval_u(lambda a, b: a == b ),
+            I_NEQ: lambda: eval_u(lambda a, b: a != b ),
+              I_L: lambda: eval_u(lambda a, b: a <  b ),
+             I_LE: lambda: eval_u(lambda a, b: a <= b ),
+             I_SL: lambda: eval_s(lambda a, b: a <  b ),
+            I_SLE: lambda: eval_s(lambda a, b: a <= b ) 
+
+        })
+
+
 class Reg(object):
 
     def __init__(self, name, val, is_temp = False):
@@ -212,12 +290,7 @@ class Reg(object):
 
 class Cpu(object):
 
-    DEF_REG_VAL = 0L    
-
-    VALID_OPS = [ I_NONE, I_JCC,  I_STR,  I_STM,  I_LDM, 
-                  I_ADD,  I_SUB,  I_NEG,  I_MUL,  I_DIV,  I_MOD, I_SMUL, I_SDIV, I_SMOD, 
-                  I_SHL,  I_SHR,  I_AND,  I_OR,   I_XOR,  I_NOT,
-                  I_EQ,   I_NEQ,  I_L,    I_LE,   I_SL,   I_SLE ]
+    DEF_REG_VAL = 0L
 
     def __init__(self, arch, mem = None, math = None):
 
@@ -324,7 +397,7 @@ class Cpu(object):
         elif insn.op == I_JCC: return e(self.insn_jcc)
         elif insn.op == I_STM: return e(self.insn_stm)
         elif insn.op == I_LDM: return e(self.insn_ldm)
-        elif insn.op in self.VALID_OPS: return e(self.insn_other)
+        elif insn.op < len(REIL_INSN): return e(self.insn_other)
         else:
 
             # invalid opcode

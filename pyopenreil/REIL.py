@@ -1,48 +1,14 @@
 from abc import ABCMeta, abstractmethod
 from sets import Set
 
-import numpy
+# REIL constants
+from IR import *
 
-IATTR_FLAGS  = 'F'
-IATTR_NEXT   = 'N'
-IATTR_SRC    = 'S'
-IATTR_DST    = 'D'
-
-IOPT_CALL       = 0x00000001
-IOPT_RET        = 0x00000002
-IOPT_BB_END     = 0x00000004
-IOPT_ASM_END    = 0x00000008
-IOPT_ELIMINATED = 0x00000010
-
-MAX_INST_LEN = 30
-
-def create_globals(items, prefix):
-
-    num = 0
-    for it in items:
-
-        globals()[prefix + str(it)] = num
-        num += 1
-
-REIL_INSN = [ 'NONE', 'UNK', 'JCC', 
-              'STR', 'STM', 'LDM', 
-              'ADD', 'SUB', 'NEG', 'MUL', 'DIV', 'MOD', 'SMUL', 'SDIV', 'SMOD', 
-              'SHL', 'SHR', 'AND', 'OR', 'XOR', 'NOT',
-              'EQ', 'NEQ', 'L', 'LE', 'SL', 'SLE' ]
-
-REIL_SIZE = [ '1', '8', '16', '32', '64' ]
-
-REIL_ARG = [ 'NONE', 'REG', 'TEMP', 'CONST' ]
-
-create_globals(REIL_INSN, 'I_')
-create_globals(REIL_SIZE, 'U')
-create_globals(REIL_ARG, 'A_')
-
-
-import translator
+# supported arhitectures
 from arch import x86
 
-class Error(translator.BaseError):
+
+class Error(Exception):
 
     pass
 
@@ -227,7 +193,7 @@ class SymExp(SymVal):
 
     def __str__(self):
 
-        items = [ 'I_' + REIL_INSN[self.op] ]
+        items = [ 'I_' + REIL_NAMES_INSN[self.op] ]
         if self.a is not None: items.append(str(self.a))
         if self.b is not None: items.append(str(self.b))
 
@@ -284,80 +250,6 @@ class SymState(object):
         return SymState(self)
 
 
-class Math(object):
-
-    type_u = { 
-
-        U1: numpy.uint8, 
-        U8: numpy.uint8, 
-        U16: numpy.uint16,
-        U32: numpy.uint32, 
-        U64: numpy.uint64 }
-
-    type_s = { 
-
-        U1: numpy.int8, 
-        U8: numpy.int8, 
-        U16: numpy.int16,
-        U32: numpy.int32, 
-        U64: numpy.int64 }
-
-    def __init__(self, a = None, b = None):
-
-        self.a, self.b = a, b    
-
-    def val(self, arg):
-
-        return None if arg is None else arg.get_val()
-
-    def val_u(self, arg):
-
-        # Arg to numpy unsigned integer
-        return None if arg is None else self.type_u[arg.size](self.val(arg))
-
-    def val_s(self, arg):
-
-        # Arg to numpy signed integer
-        return None if arg is None else self.type_s[arg.size](self.val_u(arg))
-
-    def eval(self, op, a = None, b = None):
-
-        a = self.a if a is None else a
-        b = self.b if b is None else b
-
-        # evaluale unsigned expression
-        eval_u = lambda fn: fn(self.val_u(a), self.val_u(b)).item()
-
-        # evaluate signed expression
-        eval_s = lambda fn: fn(self.val_s(a), self.val_s(b)).item()
-
-        eval_fn = { 
-
-            I_STR: lambda: a.get_val(),            
-            I_ADD: lambda: eval_u(lambda a, b: a + b),
-            I_SUB: lambda: eval_u(lambda a, b: a - b),            
-            I_NEG: lambda: eval_u(lambda a, b: -a),
-            I_MUL: lambda: eval_u(lambda a, b: a * b),
-            I_DIV: lambda: eval_u(lambda a, b: a / b),
-            I_MOD: lambda: eval_u(lambda a, b: a % b),
-           I_SMUL: lambda: eval_s(lambda a, b: a * b),
-           I_SDIV: lambda: eval_s(lambda a, b: a / b),
-           I_SMOD: lambda: eval_s(lambda a, b: a % b),
-            I_SHL: lambda: eval_u(lambda a, b: a << b),
-            I_SHR: lambda: eval_u(lambda a, b: a >> b),
-            I_AND: lambda: eval_u(lambda a, b: a & b),
-             I_OR: lambda: eval_u(lambda a, b: a | b),
-            I_XOR: lambda: eval_u(lambda a, b: a ^ b),            
-            I_NOT: lambda: eval_u(lambda a, b: ~a),
-             I_EQ: lambda: eval_u(lambda a, b: a == b),
-            I_NEQ: lambda: eval_u(lambda a, b: a != b),
-              I_L: lambda: eval_u(lambda a, b: a < b),
-             I_LE: lambda: eval_u(lambda a, b: a <= b),
-             I_SL: lambda: eval_s(lambda a, b: a < b),
-            I_SLE: lambda: eval_s(lambda a, b: a <= b) }
-
-        return eval_fn[op]()
-
 ARG_TYPE = 0
 ARG_SIZE = 1
 ARG_NAME = 2
@@ -396,9 +288,13 @@ class Arg(object):
         elif self.size == U32: return mkval(0xffffffff)
         elif self.size == U64: return mkval(0xffffffffffffffff)
 
+    def size_name(self):
+
+        return REIL_NAMES_SIZE[self.size]
+
     def __str__(self):
 
-        mkstr = lambda val: '%s:%s' % (val, REIL_SIZE[self.size])
+        mkstr = lambda val: '%s:%s' % (val, self.size_name())
 
         if self.type == A_NONE:    return ''
         elif self.type == A_REG:   return mkstr(self.name)
@@ -501,8 +397,12 @@ class Insn(object):
     def __str__(self):
 
         return '%.8x.%.2x %7s %16s, %16s, %16s' % \
-               (self.addr, self.inum, REIL_INSN[self.op], \
+               (self.addr, self.inum, self.op_name(), \
                 self.a, self.b, self.c)    
+
+    def op_name(self):
+
+        return REIL_NAMES_INSN[self.op]
 
     def ir_addr(self): 
 
@@ -705,6 +605,13 @@ class Insn(object):
         self.c = Arg(A_NONE)        
 
         self.set_flag(IOPT_ELIMINATED)
+
+
+class InsnList(list):
+
+    def __str__(self):
+
+        return '\n'.join(map(lambda insn: str(insn), self))
 
 
 class BasicBlock(object):
@@ -975,7 +882,7 @@ class DFGraphNode(GraphNode):
 
     def __str__(self):
 
-        return '%s %s' % (self.key(), REIL_INSN[self.item.op])
+        return '%s %s' % (self.key(), self.item.op_name())
 
     def key(self):
 
@@ -1089,6 +996,8 @@ class DFGraph(Graph):
     def constant_folding(self, storage = None):
 
         deleted_nodes = []
+
+        from VM import Math
 
         def evaluate(insn): 
 
@@ -1322,13 +1231,7 @@ class CodeStorage(object):
     def clear(self): pass
 
 
-class CodeStorageMem(CodeStorage):
-
-    class InsnList(list):
-
-        def __str__(self):
-
-            return '\n'.join(map(lambda insn: str(insn), self))
+class CodeStorageMem(CodeStorage):    
 
     def __init__(self, arch, insn_list = None): 
 
@@ -1376,7 +1279,7 @@ class CodeStorageMem(CodeStorage):
     def get_insn(self, ir_addr): 
 
         ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)        
-        get_single, ret = True, self.InsnList()
+        get_single, ret = True, InsnList()
 
         addr, inum = ir_addr
         if inum is None: 
@@ -1498,6 +1401,8 @@ class CodeStorageTranslator(CodeStorage):
             return True
 
     def __init__(self, arch, reader = None, storage = None):
+
+        import translator
         
         self.arch = get_arch(arch)
         self.translator = translator.Translator(arch)
@@ -1550,7 +1455,7 @@ class CodeStorageTranslator(CodeStorage):
     def get_insn(self, ir_addr):
 
         ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)
-        ret = []
+        ret = InsnList()
 
         try: 
 
@@ -1580,14 +1485,14 @@ class CodeStorageTranslator(CodeStorage):
 
         cfg = CFGraphBuilder(self)
         
-        return cfg.get_bb(ir_addr).insn_list
+        return InsnList(cfg.get_bb(ir_addr).insn_list)
 
     def get_func(self, ir_addr):
 
         cfg = self._CFGraphBuilder(self)
         cfg.traverse(ir_addr)
 
-        return cfg.insn_list
+        return InsnList(cfg.insn_list)
 #
 # EoF
 #

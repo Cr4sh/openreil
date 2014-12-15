@@ -24,7 +24,7 @@ cdef int inst_handler(libopenreil.reil_inst_t* inst, object context):
     return 1
     
 
-class BaseError(Exception):
+class Error(Exception):
 
     def __init__(self, msg):
 
@@ -35,7 +35,7 @@ class BaseError(Exception):
         return self.msg
 
 
-class TranslationError(BaseError):
+class TranslationError(Error):
 
     def __init__(self, addr):
 

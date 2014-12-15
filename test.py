@@ -28,9 +28,9 @@ def test_0(argv):
 
     addr = 0x004016B0
     reader = Bin_PE.Reader('../_tests/fib/fib.exe')
-    storage = CodeStorageTranslator('x86', reader)
+    tr = CodeStorageTranslator('x86', reader)
 
-    print storage.get_insn(addr)
+    print tr.get_insn(addr)
 
 
 def test_0_1(argv):
@@ -43,12 +43,13 @@ def test_0_1(argv):
     )
 
     reader = Asm_x86.Reader(ADDR, *code)
-    storage = CodeStorageTranslator('x86', reader)
+    tr = CodeStorageTranslator('x86', reader)
 
-    print storage.get_insn(ADDR + ENTRY)
+    print tr.get_func(ADDR + ENTRY)
+    tr.storage.to_file('test_0_1.ir')
 
     cpu = Cpu('x86')
-    abi = Abi(cpu, storage)
+    abi = Abi(cpu, tr)
 
     abi.fastcall(ADDR, 1, 2)
     cpu.dump()
@@ -64,12 +65,12 @@ def test_0_2(argv):
     )
 
     reader = Asm_x86.Reader(ADDR, *code)
-    storage = CodeStorageTranslator('x86', reader)
+    tr = CodeStorageTranslator('x86', reader)
 
-    print storage.get_insn(ADDR + ENTRY)
+    print tr.get_insn(ADDR + ENTRY)
 
     cpu = Cpu('x86')
-    abi = Abi(cpu, storage)
+    abi = Abi(cpu, tr)
 
     val = abi.stdcall(ADDR)
     cpu.dump()
@@ -81,9 +82,9 @@ def test_1(argv):
     ''' Function translation test. '''
 
     reader = ReaderRaw(CODE, addr = ADDR)
-    storage = CodeStorageTranslator('x86', reader)
+    tr = CodeStorageTranslator('x86', reader)
 
-    cfg = CFGraphBuilder(storage).traverse(ADDR + ENTRY)
+    cfg = CFGraphBuilder(tr).traverse(ADDR + ENTRY)
     for node in cfg.nodes.values(): print str(node.item) + '\n'
 
 
@@ -209,5 +210,5 @@ def test_4(argv):
 
 if __name__ == '__main__':  
 
-    exit(test_4(sys.argv))
+    exit(test_0_1(sys.argv))
 
