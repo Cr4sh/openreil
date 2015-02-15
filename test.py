@@ -1,9 +1,7 @@
-import sys, os
-from sets import Set
+import sys, os, unittest
 
-from pyopenreil.utils import Bin_PE
-from pyopenreil.utils import Asm_x86
-from pyopenreil.utils.pyasm2.x86 import *
+from pyopenreil.utils import bin_PE, bin_BFD
+from pyopenreil.utils import asm
 
 from pyopenreil.VM import *
 from pyopenreil.REIL import *
@@ -27,7 +25,7 @@ def test_0(argv):
     ''' Instruction tarnslation test. '''
 
     addr = 0x004016B0
-    reader = Bin_PE.Reader('../_tests/fib/fib.exe')
+    reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
     tr = CodeStorageTranslator('x86', reader)
 
     print tr.get_insn(addr)
@@ -36,13 +34,12 @@ def test_0(argv):
 def test_0_1(argv):
     ''' Instruction tarnslation test. '''    
 
-    code = ( mov(eax, ecx),
-             add(eax, edx), 
-             shl(eax, 12),
-             ret()
-    )
+    code = ( 'mov eax, ecx',
+             'add eax, edx', 
+             'shl eax, 12',
+             'ret' )
 
-    reader = Asm_x86.Reader(ADDR, *code)
+    reader = asm.Reader('x86', ADDR, code)
     tr = CodeStorageTranslator('x86', reader)
 
     print tr.get_func(ADDR + ENTRY)
@@ -51,20 +48,28 @@ def test_0_1(argv):
     cpu = Cpu('x86')
     abi = Abi(cpu, tr)
 
-    abi.fastcall(ADDR, 1, 2)
+    abi.ms_fastcall(ADDR, 1, 2)
+    cpu.dump()
+
+    storage = CodeStorageMem('x86')
+    storage.from_file('test_0_1.ir')
+
+    print storage
+
+    abi.reset()
+    abi.ms_fastcall(ADDR, 1, 2)
     cpu.dump()
 
 
 def test_0_2(argv):
     ''' Instruction tarnslation test. '''    
 
-    code = ( nop(), nop(),
-             nop(), nop(),
-             mov(eax, dword [ADDR]), 
-             ret()
-    )
+    code = ( 'nop', 'nop', 
+             'nop', 'nop', 
+             'mov eax, dword [%Xh]' % ADDR, 
+             'ret' )
 
-    reader = Asm_x86.Reader(ADDR, *code)
+    reader = asm.Reader('x86', ADDR, code)
     tr = CodeStorageTranslator('x86', reader)
 
     print tr.get_insn(ADDR + ENTRY)
@@ -121,18 +126,21 @@ def test_3(argv):
     ''' Execution test. '''
     
     addr = 0x004016B0
-    reader = Bin_PE.Reader('../_tests/fib/fib.exe')
+    reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
     tr = CodeStorageTranslator('x86', reader)
 
+    cfg = CFGraphBuilder(tr).traverse(addr)
+    cfg.to_dot_file('fib_cfg.dot')
+
     dfg = DFGraphBuilder(tr).traverse(addr)  
-    dfg.to_dot_file('fib.dot')
+    dfg.to_dot_file('fib_dfg.dot')
     insn_before = tr.size()
 
     dfg.eliminate_dead_code()
     dfg.constant_folding()
 
     dfg.store(tr.storage)
-    dfg.to_dot_file('fib_o.dot')
+    dfg.to_dot_file('fib_dfg_o.dot')
     insn_after = tr.size()
 
     print tr.storage
@@ -163,7 +171,7 @@ def test_4(argv):
     test_val = 'bar'
 
     # load PE image
-    reader = Bin_PE.Reader('../_tests/rc4/rc4.exe')
+    reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/rc4/rc4.exe')
     tr = CodeStorageTranslator('x86', reader)
 
     def code_optimization(addr):
@@ -208,7 +216,50 @@ def test_4(argv):
     print 'PASSED' if val_1 == val_2 else 'FAILS'
 
 
+def test_5(argv):
+    ''' bb/func test '''
+    
+    addr = 0x004016B0
+    reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
+    tr = CodeStorageTranslator('x86', reader)
+
+    bb = tr.get_bb(addr)
+
+    print '%s - %s' % (bb.first.ir_addr(), bb.last.ir_addr())
+    print '--------------------------'
+    print bb, '\n'
+
+    func = tr.get_func(addr)
+
+    print '%s [ %s ]' % (func.name(), ', '.join(map(lambda c: str(c), func.chunks)))
+    print '--------------------------'
+    print func, '\n'
+
+
+def test_6(argv):
+    ''' Instruction tarnslation test. '''
+
+    addr = 0x08048434
+    reader = bin_BFD.Reader(os.getenv('HOME') + '/data/_tests/fib/fib')
+    tr = CodeStorageTranslator('x86', reader)
+
+    print tr.get_func(addr)
+
+
+def test_7(argv):
+    ''' DFG test. '''
+
+    reader = ReaderRaw('\xF3\xA4\xC3')
+    tr = CodeStorageTranslator('x86', reader)
+
+    dfg = DFGraphBuilder(tr).traverse(0)
+    dfg.to_dot_file('dfg_2.dot')
+
+
 if __name__ == '__main__':  
 
-    exit(test_0_1(sys.argv))
+    unittest.main(verbosity = 2)
+    
+    #exit(test_0_2(sys.argv))
+
 

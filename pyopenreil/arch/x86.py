@@ -1,4 +1,4 @@
-from pyopenreil.REIL import *
+from pyopenreil.IR import *
 
 # architecture name
 name = 'x86'

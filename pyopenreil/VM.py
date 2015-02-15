@@ -204,23 +204,28 @@ class Mem(object):
         self.dump_hex(self.read(addr, size), addr = addr)
 
 
+class TestMem(unittest.TestCase):
+
+    def test(self):     
+
+        mem = Mem(strict = False)
+        val = 0x1111111122224488
+
+        mem.store(0, U64, 0x1111111111111111)
+        mem.store(0, U32, 0x22222222)
+        mem.store(0, U16, 0x4444)
+        mem.store(0, U8, 0x88)
+        
+        assert mem.data == { 0: chr(0x88), 1: chr(0x44), 2: chr(0x22), 3: chr(0x22),
+                             4: chr(0x11), 5: chr(0x11), 6: chr(0x11), 7: chr(0x11) }
+        
+        assert mem.load(0, U64) == val and \
+               mem.load(0, U32) == val & 0xffffffff and \
+               mem.load(0, U16) == val & 0xffff and \
+               mem.load(0, U8) == val & 0xff
+
+
 class Math(object):
-
-    type_u = { 
-
-        U1: numpy.uint8, 
-        U8: numpy.uint8, 
-        U16: numpy.uint16,
-        U32: numpy.uint32, 
-        U64: numpy.uint64 }
-
-    type_s = { 
-
-        U1: numpy.int8, 
-        U8: numpy.int8, 
-        U16: numpy.int16,
-        U32: numpy.int32, 
-        U64: numpy.int64 }
 
     def __init__(self, a = None, b = None):
 
@@ -233,32 +238,44 @@ class Math(object):
     def val_u(self, arg):
 
         # Arg to numpy unsigned integer
-        return None if arg is None else self.type_u[arg.size](self.val(arg))
+        return None if arg is None else {
+            
+             U1: numpy.uint8, 
+             U8: numpy.uint8, 
+            U16: numpy.uint16,
+            U32: numpy.uint32, 
+            U64: numpy.uint64  
+
+        }[arg.size](self.val(arg))
 
     def val_s(self, arg):
 
         # Arg to numpy signed integer
-        return None if arg is None else self.type_s[arg.size](self.val_u(arg))
+        return None if arg is None else { 
+
+             U1: numpy.int8, 
+             U8: numpy.int8, 
+            U16: numpy.int16,
+            U32: numpy.int32, 
+            U64: numpy.int64  
+
+        }[arg.size](self.val_u(arg))
 
     def eval(self, op, a = None, b = None):
 
         a = self.a if a is None else a
         b = self.b if b is None else b
 
-        eval_op = lambda fn_list: fn_list[op]()
-
-        # evaluale unsigned expression
+        # evaluale unsigned/unsigned expressions
         eval_u = lambda fn: fn(self.val_u(a), self.val_u(b)).item()
-
-        # evaluate signed expression
         eval_s = lambda fn: fn(self.val_s(a), self.val_s(b)).item()        
 
-        return eval_op({ 
+        return { 
 
             I_STR: lambda: a.get_val(),            
             I_ADD: lambda: eval_u(lambda a, b: a +  b ),
             I_SUB: lambda: eval_u(lambda a, b: a -  b ),            
-            I_NEG: lambda: eval_u(lambda a, b: -a     ),
+            I_NEG: lambda: eval_u(lambda a, b:     -a ),
             I_MUL: lambda: eval_u(lambda a, b: a *  b ),
             I_DIV: lambda: eval_u(lambda a, b: a /  b ),
             I_MOD: lambda: eval_u(lambda a, b: a %  b ),
@@ -270,7 +287,7 @@ class Math(object):
             I_AND: lambda: eval_u(lambda a, b: a &  b ),
              I_OR: lambda: eval_u(lambda a, b: a |  b ),
             I_XOR: lambda: eval_u(lambda a, b: a ^  b ),            
-            I_NOT: lambda: eval_u(lambda a, b: ~a     ),
+            I_NOT: lambda: eval_u(lambda a, b:     ~a ),
              I_EQ: lambda: eval_u(lambda a, b: a == b ),
             I_NEQ: lambda: eval_u(lambda a, b: a != b ),
               I_L: lambda: eval_u(lambda a, b: a <  b ),
@@ -278,7 +295,14 @@ class Math(object):
              I_SL: lambda: eval_s(lambda a, b: a <  b ),
             I_SLE: lambda: eval_s(lambda a, b: a <= b ) 
 
-        })
+        }[op]()
+
+
+class TestMath(unittest.TestCase):
+
+    def test(self):     
+
+        pass
 
 
 class Reg(object):
@@ -393,7 +417,7 @@ class Cpu(object):
         # call opcode-specific handlers
         e = lambda handler: handler(insn, a, b, c)
         
-        if insn.op == I_NONE:  return e(self.insn_none)
+        if insn.op == I_NONE: return e(self.insn_none)
         elif insn.op == I_JCC: return e(self.insn_jcc)
         elif insn.op == I_STM: return e(self.insn_stm)
         elif insn.op == I_LDM: return e(self.insn_ldm)
@@ -474,6 +498,43 @@ class Cpu(object):
         self.mem.dump(addr, size)
 
 
+class TestCpu(unittest.TestCase):
+
+    arch = 'x86'
+
+    def test(self):     
+
+        code = ( 'mov eax, edx',
+                 'add eax, ecx', 
+                 'ret' )
+
+        addr, stack = 0x41414141, 0x42424242
+
+        # create reader and translator
+        from pyopenreil.utils import asm
+        tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code, addr = addr))
+        
+        cpu = Cpu(self.arch)
+
+        # set up stack pointer and input args
+        cpu.reg('esp').val = stack
+        cpu.reg('ecx').val = 1
+        cpu.reg('edx').val = 2
+
+        try:
+
+            # run untill ret
+            cpu.run(tr, addr)
+
+        except MemReadError as e: 
+
+            # exception on accessing to the stack
+            if e.addr != stack: raise
+
+        # check for correct return value
+        cpu.reg('eax').val == 3
+
+
 class Stack(object):
 
     # start address of stack memory
@@ -498,6 +559,46 @@ class Stack(object):
         self.top += self.item_size
 
         return val
+
+
+class TestStack(unittest.TestCase):
+
+    arch = 'x86'
+
+    def test(self):     
+
+        code = ( 'pop ecx', 
+                 'pop eax', 
+                 'jmp ecx'  )
+
+        addr, arg, ret = 0x41414141, 0x42424242, 0x43434343        
+
+        # create reader and translator        
+        from pyopenreil.utils import asm
+        tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code, addr = addr))
+
+        cpu = Cpu(self.arch)
+
+        from pyopenreil.arch import x86
+        stack = Stack(cpu.mem, x86.ptr_len)
+
+        # set up stack arg and return address
+        stack.push(arg)
+        stack.push(ret)
+        cpu.reg(x86.Registers.sp, stack.top)
+
+        try:
+
+            # run untill ret
+            cpu.run(tr, addr)
+
+        except CpuReadError as e: 
+
+            # exception on accessing to the stack
+            if e.addr != ret: raise
+
+        # check for correct return value
+        cpu.reg('eax').val == arg
 
 
 class Abi(object):
@@ -613,7 +714,7 @@ class Abi(object):
         # we never need to care about stack cleanup
         return self.stdcall(addr, *args)
 
-    def fastcall(self, addr, *args):
+    def ms_fastcall(self, addr, *args):
 
         if len(args) > 0:
 
@@ -632,3 +733,28 @@ class Abi(object):
         return self.stdcall(addr, *args)
 
 
+class TestAbi(unittest.TestCase):
+
+    arch = 'x86'
+
+    def test(self):     
+
+        code = ( 'pop ecx', 
+                 'pop eax', 
+                 'jmp ecx'  )   
+
+        addr, arg = 0x41414141, 0x42424242
+
+        # create reader and translator        
+        from pyopenreil.utils import asm
+        tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code, addr = addr))
+
+        cpu = Cpu(self.arch)
+        abi = Abi(cpu, tr)
+
+        # check for correct return value
+        assert abi.stdcall(addr, arg) == arg
+
+#
+# EoF
+#

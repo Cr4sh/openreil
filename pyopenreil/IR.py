@@ -1,9 +1,11 @@
 
-IATTR_FLAGS  = 'F'
-IATTR_NEXT   = 'N'
-IATTR_SRC    = 'S'
-IATTR_DST    = 'D'
+# IR instruction attributes
+IATTR_FLAGS = 'F'
+IATTR_NEXT  = 'N'
+IATTR_SRC   = 'S'
+IATTR_DST   = 'D'
 
+# IR instruction flags
 IOPT_CALL       = 0x00000001
 IOPT_RET        = 0x00000002
 IOPT_BB_END     = 0x00000004
@@ -12,11 +14,11 @@ IOPT_ELIMINATED = 0x00000010
 
 MAX_INST_LEN = 30
 
-REIL_NAMES_INSN = [ 'NONE', 'UNK', 'JCC', 
-                    'STR', 'STM', 'LDM', 
-                    'ADD', 'SUB', 'NEG', 'MUL', 'DIV', 'MOD', 'SMUL', 'SDIV', 'SMOD', 
-                    'SHL', 'SHR', 'AND', 'OR', 'XOR', 'NOT',
-                    'EQ', 'NEQ', 'L', 'LE', 'SL', 'SLE' ]
+REIL_NAMES_INSN = [ 'NONE', 'UNK',  'JCC', 
+                    'STR',  'STM',  'LDM', 
+                    'ADD',  'SUB',  'NEG', 'MUL', 'DIV', 'MOD', 'SMUL', 'SDIV', 'SMOD', 
+                    'SHL',  'SHR',  'AND', 'OR',  'XOR', 'NOT',
+                    'EQ',   'NEQ',  'L',   'LE',  'SL',  'SLE' ]
 
 REIL_NAMES_SIZE = [ '1', '8', '16', '32', '64' ]
 
@@ -38,6 +40,36 @@ def create_globals(items, list_name, prefix):
 create_globals(REIL_NAMES_INSN, 'REIL_INSN', 'I_')
 create_globals(REIL_NAMES_SIZE, 'REIL_SIZE', 'U')
 create_globals(REIL_NAMES_ARG, 'REIL_ARG', 'A_')
+
+
+ARG_TYPE = 0
+ARG_SIZE = 1
+ARG_NAME = 2
+ARG_VAL  = 2
+
+# raw IR arguments helpers
+Arg_type = lambda arg: arg[ARG_TYPE] # argument type (see REIL_ARG)
+Arg_size = lambda arg: arg[ARG_SIZE] # argument size (see REIL_SIZE)
+Arg_name = lambda arg: arg[ARG_NAME] # argument name (for A_REG and A_TEMP)
+Arg_val  = lambda arg: arg[ARG_VAL]  # argument value (for A_CONST)
+
+
+INSN_ADDR = 0
+INSN_INUM = 1
+INSN_OP   = 2
+INSN_ARGS = 3
+INSN_ATTR = 4
+
+INSN_ADDR_ADDR = 0
+INSN_ADDR_SIZE = 1
+
+# raw IR instruction helpers
+Insn_addr  = lambda insn: insn[INSN_ADDR][INSN_ADDR_ADDR]   # instruction virtual address
+Insn_size  = lambda insn: insn[INSN_ADDR][INSN_ADDR_SIZE]   # assembly code size
+Insn_inum  = lambda insn: insn[INSN_INUM]   # IR subinstruction number
+Insn_op    = lambda insn: insn[INSN_OP]     # operation code
+Insn_args  = lambda insn: insn[INSN_ARGS]   # tuple with 3 arguments
+Insn_attr  = lambda insn: insn[INSN_ATTR]   # instruction attributes
 
 #
 # EoF

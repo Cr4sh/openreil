@@ -1,3 +1,4 @@
+import json, unittest
 from abc import ABCMeta, abstractmethod
 from sets import Set
 
@@ -53,71 +54,95 @@ def get_arch(arch):
         raise translator.BaseError('Architecture %s is unknown' % arch)
 
 
-class SymVal(object):
+class Sym(object):
 
-    def __init__(self, val, size):
+    def __init__(self):
 
-        self.val = val
-        self.size = size
-
-    def __str__(self):
-
-        return str(self.val)
-
-    def __eq__(self, other):
-
-        if type(other) == SymAny: return True
-        if type(other) != SymVal: return False
-
-        return self.val == other.val
+        pass    
 
     def __ne__(self, other):
 
         return not self == other
 
-    def __hash__(self):
-
-        return hash(self.val)
-
     def __add__(self, other): 
 
-        return self.to_exp(I_ADD, other)    
+        return self.to_exp(I_ADD, other)
+
+    def __radd__(self, other): 
+
+        return other.to_exp(I_ADD, self)
 
     def __sub__(self, other): 
 
         return self.to_exp(I_SUB, other)    
 
+    def __rsub__(self, other): 
+
+        return other.to_exp(I_SUB, self)    
+
     def __mul__(self, other): 
 
         return self.to_exp(I_MUL, other)
+
+    def __rmul__(self, other): 
+
+        return other.to_exp(I_MUL, self)
 
     def __mod__(self, other): 
 
         return self.to_exp(I_MOD, other)    
 
+    def __rmod__(self, other): 
+
+        return other.to_exp(I_MOD, self)
+
     def __div__(self, other): 
 
         return self.to_exp(I_DIV, other)        
+
+    def __rdiv__(self, other): 
+
+        return other.to_exp(I_DIV, self)   
 
     def __and__(self, other): 
 
         return self.to_exp(I_AND, other)    
 
+    def __rand__(self, other): 
+
+        return other.to_exp(I_AND, self)   
+
     def __xor__(self, other): 
 
         return self.to_exp(I_XOR, other)    
+
+    def __rxor__(self, other): 
+
+        return other.to_exp(I_XOR, self)    
 
     def __or__(self, other): 
 
         return self.to_exp(I_OR, other)  
 
+    def __ror__(self, other): 
+
+        return other.to_exp(I_OR, self)  
+
     def __lshift__(self, other): 
 
         return self.to_exp(I_SHL, other)    
 
+    def __rlshift__(self, other): 
+
+        return other.to_exp(I_SHL, self) 
+
     def __rshift__(self, other): 
 
         return self.to_exp(I_SHR, other) 
+
+    def __rrshift__(self, other): 
+
+        return other.to_exp(I_SHR, self) 
 
     def __invert__(self): 
 
@@ -129,14 +154,14 @@ class SymVal(object):
 
     def to_exp(self, op, arg = None):
 
-        return SymExp(op, self, arg)  
+        return SymExp(op, self, arg)      
+
+    def parse(self, visitor):
+
+        return visitor(self)
 
 
-class SymAny(SymVal):
-
-    def __init__(self): 
-
-        pass
+class SymAny(Sym):
 
     def __str__(self):
 
@@ -146,12 +171,39 @@ class SymAny(SymVal):
 
         return True
 
+    def __ne__(self, other):
 
-class SymPtr(SymVal):
+        return False
 
-    def __init__(self, val): 
 
-        self.val = val
+class SymVal(Sym):
+
+    def __init__(self, name, size = None, is_temp = False):
+
+        self.name, self.size = name, size
+        self.is_temp = is_temp
+
+    def __str__(self):        
+
+        return self.name
+
+    def __eq__(self, other):
+
+        if type(other) == SymAny: return True
+        if type(other) != SymVal: return False
+
+        return self.name == other.name
+
+    def __hash__(self):
+
+        return hash(self.name)
+
+
+class SymPtr(Sym):
+
+    def __init__(self, val, size = None):
+
+        self.val, self.size = val, size
 
     def __str__(self):
 
@@ -168,8 +220,18 @@ class SymPtr(SymVal):
 
         return ~hash(self.val)
 
+    def parse(self, visitor):
 
-class SymConst(SymVal):
+        self.val = self.val.parse(visitor)
+
+        return visitor(self)
+
+
+class SymConst(Sym):
+
+    def __init__(self, val, size = None):
+
+        self.val, self.size = val, size
 
     def __str__(self):
 
@@ -182,22 +244,36 @@ class SymConst(SymVal):
 
         return self.val == other.val
 
+    def __hash__(self):
 
-class SymExp(SymVal):
+        return hash(self.val)
+
+
+class SymExp(Sym):
 
     commutative = ( I_ADD, I_SUB, I_AND, I_XOR, I_OR )
 
     def __init__(self, op, a, b = None):
-
+        
         self.op, self.a, self.b = op, a, b
 
     def __str__(self):
 
-        items = [ 'I_' + REIL_NAMES_INSN[self.op] ]
-        if self.a is not None: items.append(str(self.a))
-        if self.b is not None: items.append(str(self.b))
+        op_str = { I_ADD:   '+', I_SUB:   '-', I_NEG:   '-', 
+                   I_MUL:   '*', I_DIV:   '/', I_MOD:   '%', 
+                   I_SMUL: '@*', I_SDIV: '@/', I_SMOD: '@%', 
+                   I_SHL:  '<<', I_SHR:  '>>', I_AND:   '&',
+                   I_OR:    '|', I_XOR:   '^', I_NOT:   '~',
+                   I_EQ:   '==', I_NEQ:  '!=', I_L:     '<',    
+                   I_LE:   '<=', I_SL:   '@<', I_SLE: '@<=' }[self.op]
 
-        return '(%s)' % ' '.join(items)
+        if self.b is not None:
+
+            return '(' + str(self.a) + ' ' + op_str + ' ' + str(self.b) + ')'
+
+        else:
+
+            return op_str + str(self.a)
 
     def __eq__(self, other):
 
@@ -215,7 +291,39 @@ class SymExp(SymVal):
 
     def __hash__(self):
 
-        return hash(self.op) + hash(self.a) + hash(self.a)
+        return hash(self.op) ^ hash(self.a) ^ hash(self.b)
+
+    def parse(self, visitor):        
+        
+        if self.a is not None: self.a = self.a.parse(visitor)
+        if self.b is not None: self.b = self.b.parse(visitor)
+
+        return visitor(self)
+
+
+class TestSymExp(unittest.TestCase):    
+
+    def test(self):             
+
+        a, b = SymVal('R_EAX', U32), SymVal('R_ECX', U32)
+
+        assert a != b
+        assert a == SymAny()
+        assert a == SymVal('R_EAX', U32)
+
+        # check commutative operands equation
+        assert a + b == b + a
+        assert a - b == b - a
+        assert a & b == b & a
+        assert a | b == b | a
+        assert a ^ b == b ^ a
+
+        # check non-commutative operands equation
+        assert a * b != b * a
+        assert a % b != b % a
+        assert a / b != b / a
+        assert a << b != b << a
+        assert a >> b != b >> a
 
 
 class SymState(object):
@@ -225,58 +333,88 @@ class SymState(object):
         if other is None: self.clear()
         else: self.items = other.items.copy()
 
-    def __getitem__(self, n):
+    def __getitem__(self, val):
 
-        return self.items[n]
+        return self.items[val]
+
+    def __setitem__(self, val, exp):
+
+        self.items[val] = exp
+
+    def __iter__(self):
+
+        for val, exp in self.items.items(): yield val, exp
 
     def __str__(self):
 
-        return '\n'.join(map(lambda k: '%s: %s' % (k, self.items[k]), self.items))
+        return '\n'.join(map(lambda item: '%s = %s' % item, self.items.items()))
 
-    def clear(self):
+    def clear(self, val = None):
 
-        self.items = {}
+        if val is not None:
+
+            # remove single variable from state
+            if self.items.has_key(val): self.items.pop(val)
+
+        else:
+
+            # clear state
+            self.items = {}
+
+    def query(self, val):
+
+        try: return self.items[val]
+        except KeyError: return val    
 
     def update(self, val, exp):
 
         self.items[val] = exp
 
-    def update_mem(self, val, exp):
+    def update_mem_r(self, val, exp, size):
 
-        self.update(SymPtr(self.items[val]), exp)
+        self.update(val, SymPtr(exp, size))
+
+    def update_mem_w(self, val, exp, size):
+
+        self.update(SymPtr(self.query(val), size), exp)
 
     def clone(self):
 
         return SymState(self)
 
+    def remove_temp_regs(self):
 
-ARG_TYPE = 0
-ARG_SIZE = 1
-ARG_NAME = 2
-ARG_VAL  = 2
+        for val, exp in self:
 
-Arg_type = lambda arg: arg[ARG_TYPE] # argument type (see REIL_ARG)
-Arg_size = lambda arg: arg[ARG_SIZE] # argument size (see REIL_SIZE)
-Arg_name = lambda arg: arg[ARG_NAME] # argument name (for A_REG and A_TEMP)
-Arg_val  = lambda arg: arg[ARG_VAL]  # argument value (for A_CONST)
+            if isinstance(val, SymVal) and val.is_temp: self.clear(val)
+
 
 class Arg(object):
 
     def __init__(self, t = None, size = None, name = None, val = None):
 
-        serialized = None
+        serialized = None        
         if isinstance(t, tuple): 
             
-            serialized = t
-            t = None
+            # tuple with raw data from translator
+            serialized, t = t, None        
 
         self.type = A_NONE if t is None else t
         self.size = None if size is None else size
         self.name = None if name is None else name
         self.val = 0L if val is None else long(val)
 
-        # unserialize raw IR instruction argument structure
+        # unserialize argument data
         if serialized: self.unserialize(serialized)
+
+    def __str__(self):
+
+        mkstr = lambda val: '%s:%s' % (val, self.size_name())
+
+        if self.type == A_NONE:    return ''
+        elif self.type == A_REG:   return mkstr(self.name)
+        elif self.type == A_TEMP:  return mkstr(self.name)
+        elif self.type == A_CONST: return mkstr('%x' % self.get_val())
 
     def get_val(self):
 
@@ -288,24 +426,20 @@ class Arg(object):
         elif self.size == U32: return mkval(0xffffffff)
         elif self.size == U64: return mkval(0xffffffffffffffff)
 
+    def is_var(self):
+
+        # check for temporary or target architecture register
+        return self.type == A_REG or self.type == A_TEMP
+
     def size_name(self):
 
-        return REIL_NAMES_SIZE[self.size]
-
-    def __str__(self):
-
-        mkstr = lambda val: '%s:%s' % (val, self.size_name())
-
-        if self.type == A_NONE:    return ''
-        elif self.type == A_REG:   return mkstr(self.name)
-        elif self.type == A_TEMP:  return mkstr(self.name)
-        elif self.type == A_CONST: return mkstr('%x' % self.get_val())
+        return REIL_NAMES_SIZE[self.size]    
 
     def serialize(self):
 
-        if self.type in [ A_REG, A_TEMP ]: return self.type, self.size, self.name
-        elif self.type == A_NONE: return ()
-        else: return self.type, self.size, self.val
+        if self.type == A_NONE:              return ()
+        elif self.type == A_CONST:           return self.type, self.size, self.val
+        elif self.type in [ A_REG, A_TEMP ]: return self.type, self.size, self.name        
 
     def unserialize(self, data):
 
@@ -334,27 +468,34 @@ class Arg(object):
 
         return True
 
-    def is_var(self):
+    def to_symbolic(self, insn, in_state = None):
 
-        # check for temporary or target architecture register
-        return self.type == A_REG or self.type == A_TEMP
+        if self.type == A_REG or self.type == A_TEMP:
 
-INSN_ADDR = 0
-INSN_INUM = 1
-INSN_OP   = 2
-INSN_ARGS = 3
-INSN_ATTR = 4
+            name = self.name
+            if self.type == A_TEMP:
 
-INSN_ADDR_ADDR = 0
-INSN_ADDR_SIZE = 1
+                # use uniqe names for temp registers of each machine instruction
+                name += '_%x' % insn.addr
 
-# raw translated REIL instruction parsing
-Insn_addr  = lambda insn: insn[INSN_ADDR][INSN_ADDR_ADDR]   # instruction virtual address
-Insn_size  = lambda insn: insn[INSN_ADDR][INSN_ADDR_SIZE]   # assembly code size
-Insn_inum  = lambda insn: insn[INSN_INUM]   # IR subinstruction number
-Insn_op    = lambda insn: insn[INSN_OP]     # operation code
-Insn_args  = lambda insn: insn[INSN_ARGS]   # tuple with 3 arguments
-Insn_attr  = lambda insn: insn[INSN_ATTR]   # instruction attributes
+            # register value
+            arg = SymVal(name, self.size, is_temp = self.type == A_TEMP)
+
+            if in_state is not None:
+
+                # return expression for this register if state is available
+                try: arg = in_state[arg]
+                except KeyError: pass
+
+            return arg
+
+        elif self.type == A_CONST:
+
+            # constant value
+            return SymConst(self.get_val(), self.size)
+
+        else: return None
+
 
 class Insn(object):    
 
@@ -370,11 +511,18 @@ class Insn(object):
     def __init__(self, op = None, attr = None, size = None, ir_addr = None, 
                        a = None, b = None, c = None):
 
-        serialized = None
-        if isinstance(op, tuple): 
+        json = serialized = None
+        if isinstance(op, basestring): 
+
+            # json string            
+            json = op
+            op = None
+
+        elif isinstance(op, tuple): 
             
+            # tuple with raw data from translator
             serialized = op
-            op = None                
+            op = None
 
         self.init_attr(attr)
 
@@ -391,14 +539,15 @@ class Insn(object):
         self.b = Arg() if b is None else b
         self.c = Arg() if c is None else c        
 
-        # unserialize raw IR instruction structure
+        # unserialize instruction data
+        if json: serialized = InsnJson().from_json(json)
         if serialized: self.unserialize(serialized)
 
     def __str__(self):
 
         return '%.8x.%.2x %7s %16s, %16s, %16s' % \
                (self.addr, self.inum, self.op_name(), \
-                self.a, self.b, self.c)    
+                self.a, self.b, self.c)
 
     def op_name(self):
 
@@ -518,44 +667,22 @@ class Insn(object):
         out_state = SymState() if in_state is None else in_state.clone()
 
         # skip instructions that doesn't update output state
-        if self.op in [ I_JCC, I_NONE ]: return out_state
+        if not self.op in [ I_JCC, I_NONE ]:
 
-        def _to_symbolic_arg(arg):
+            # convert instruction arguments to symbolic expressions
+            a = self.a.to_symbolic(self, out_state)
+            b = self.b.to_symbolic(self, out_state)
+            c = self.c.to_symbolic(self)
 
-            if arg.type == A_REG or arg.type == A_TEMP:
+            # move a value to the register
+            if self.op == I_STR: out_state.update(c, a)
 
-                # register value
-                arg = SymVal(arg.name, arg.size)
+            # memory read/write
+            elif self.op == I_STM: out_state.update_mem_w(c, a, self.a.size)
+            elif self.op == I_LDM: out_state.update_mem_r(c, a, self.c.size)            
 
-                try: return out_state[arg]
-                except KeyError: return arg
-
-            elif arg.type == A_CONST:
-
-                # constant value
-                return SymConst(arg.get_val(), arg.size)
-
-            else: return None
-
-        # convert source arguments to symbolic expressions
-        a = _to_symbolic_arg(self.a)
-        b = _to_symbolic_arg(self.b)
-        c = SymVal(self.c.name, self.c.size)
-
-        # constant argument should always be second
-        if type(a) == SymConst and type(b) == SymVal: a, b = b, a
-
-        # move from one register to another
-        if self.op == I_STR: out_state.update(c, a)
-
-        # memory read
-        elif self.op == I_LDM: out_state.update(c, SymPtr(a))
-
-        # memory write
-        elif self.op == I_STM: out_state.update_mem(c, a)
-
-        # expression
-        else: out_state.update(c, a.to_exp(self.op, b))
+            # other instructions
+            else: out_state.update(c, a.to_exp(self.op, b))
 
         return out_state
 
@@ -563,7 +690,7 @@ class Insn(object):
 
         if self.have_attr(IATTR_NEXT):
 
-            # force to use next instruction that was set inattributes
+            # force to use next instruction that was set in attributes
             return self.get_attr(IATTR_NEXT)
 
         if self.have_flag(IOPT_RET): 
@@ -604,7 +731,160 @@ class Insn(object):
         self.b = Arg(A_NONE)
         self.c = Arg(A_NONE)        
 
-        self.set_flag(IOPT_ELIMINATED)
+        self.set_flag(IOPT_ELIMINATED)   
+
+
+class TestInsn(unittest.TestCase):
+
+    def setUp(self):
+
+        attr = { IATTR_FLAGS: IOPT_ASM_END }
+
+        # raw representation of the test instruction
+        self.test_data = ((0, 2), 0, I_STR, ((A_REG, U32, 'R_ECX'), (), 
+                                             (A_REG, U32, 'R_EAX')), attr)
+
+        # make test instruction
+        self.test_insn = Insn(op = I_STR, size = 2, ir_addr = ( 0, 0 ), \
+                              a = Arg(A_REG, U32, 'R_ECX'), c = Arg(A_REG, U32, 'R_EAX'), \
+                              attr = attr)
+
+    def test_serialize(self):          
+
+        # check instruction serialization
+        data = self.test_insn.serialize()
+        assert self.test_data == data
+
+        # check instruction unserialization
+        insn_1, insn_2 = Insn(), Insn(self.test_data)
+        insn_1.unserialize(data)
+        assert insn_1.serialize() == self.test_data and insn_2.serialize() == self.test_data
+
+    def test_clone(self):
+
+        # check instruction cloning
+        insn_1 = self.test_insn.clone()
+        assert insn_1.serialize() == self.test_data
+
+    def test_src_dst(self):  
+
+        # check source and destination args
+        assert self.test_insn.src() == [ self.test_insn.a ] and \
+               self.test_insn.dst() == [ self.test_insn.c ]
+
+    def test_next(self):  
+
+        # check next instruction address
+        insn_1 = Insn(size = 4, ir_addr = (10, 0))
+        insn_2 = Insn(size = 4, ir_addr = (10, 1), attr = { IATTR_FLAGS: IOPT_ASM_END })
+        assert insn_1.next() == (10, 1) and insn_2.next() == (14, 0)
+
+        insn_2.set_attr(IATTR_NEXT, (10, 2))
+        assert insn_2.next() == (10, 2)
+
+    def test_to_symbolic(self):
+
+        sym = Insn(op = I_STR, \
+                   a = Arg(A_REG, U32, 'R_ECX'), \
+                   c = Arg(A_REG, U32, 'R_EAX')).to_symbolic()
+
+        eax = sym[SymVal('R_EAX', U32)]
+
+        # check for valid store
+        assert eax == SymAny() == SymVal('R_ECX', U32)
+
+        sym = Insn(op = I_ADD, \
+                   a = Arg(A_REG, U32, 'R_ECX'), \
+                   b = Arg(A_REG, U32, 'R_EAX'), \
+                   c = Arg(A_REG, U32, 'R_EAX')).to_symbolic()
+
+        eax = sym[SymVal('R_EAX', U32)]
+
+        # check for valid arythmetic expression        
+        assert eax == SymAny() \
+                   == SymAny() + SymAny() \
+                   == SymVal('R_EAX', U32) + SymAny() \
+                   == SymVal('R_ECX', U32) + SymAny() \
+                   == SymVal('R_EAX', U32) + SymVal('R_ECX', U32)
+
+        sym = Insn(op = I_STM, \
+                   a = Arg(A_REG, U32, 'R_EAX'), \
+                   c = Arg(A_REG, U32, 'R_ECX')).to_symbolic()
+
+        ecx = sym[SymPtr(SymVal('R_ECX', U32))]
+
+        # check for valid memory write expression
+        assert ecx == SymAny() == SymVal('R_EAX', U32)
+
+        sym = Insn(op = I_LDM, \
+                   a = Arg(A_REG, U32, 'R_ECX'), \
+                   c = Arg(A_REG, U32, 'R_EAX')).to_symbolic()
+
+        eax = sym[SymVal('R_EAX', U32)]
+
+        # check for valid memory read expression
+        assert eax == SymAny() \
+                   == SymPtr(SymAny()) \
+                   == SymPtr(SymVal('R_ECX', U32))
+
+
+class InsnJson(): 
+
+    def to_json(self, insn):
+
+        insn = insn.serialize() if isinstance(insn, Insn) else insn
+        return json.dumps(insn)
+
+    def from_json(self, data):                
+
+        # make serialized argument from json data
+        arg = lambda a: ( Arg_type(a), \
+                          Arg_size(a), \
+                          Arg_val(a) if Arg_type(a) == A_CONST else Arg_name(a) ) if len(a) > 0 else ()
+        
+        insn = json.loads(data)
+        args = ( arg(Insn_args(insn)[0]), \
+                 arg(Insn_args(insn)[1]), \
+                 arg(Insn_args(insn)[2]) )
+
+        # return raw instruction data
+        return ( ( Insn_addr(insn), Insn_size(insn) ), \
+                 Insn_inum(insn), \
+                 Insn_op(insn), \
+                 args, \
+                 Insn_attr(insn) ) 
+
+
+class TestInsnJson(unittest.TestCase):
+
+    def setUp(self):
+
+        attr = { IATTR_FLAGS: IOPT_ASM_END }
+
+        # raw representation of the test instruction
+        self.test_data = ((0, 2), 0, I_STR, ((A_REG, U32, 'R_ECX'), (), 
+                                             (A_REG, U32, 'R_EAX')), attr)
+
+        # json representation of the test instruction
+        self.json_data = '[[0, 2], 0, %d, [[%d, %d, "%s"], [], [%d, %d, "%s"]], {"%s": %d}]' % \
+                         (I_STR, A_REG, U32, 'R_ECX', \
+                                 A_REG, U32, 'R_EAX', IATTR_FLAGS, IOPT_ASM_END)
+
+        # make test instruction
+        self.test_insn = Insn(op = I_STR, size = 2, ir_addr = ( 0, 0 ), \
+                              a = Arg(A_REG, U32, 'R_ECX'), c = Arg(A_REG, U32, 'R_EAX'), \
+                              attr = attr)
+
+    def test(self):
+
+        js = InsnJson()
+
+        # check json producing
+        assert json.loads(self.json_data) == json.loads(js.to_json(self.test_insn))
+        assert json.loads(self.json_data) == json.loads(js.to_json(self.test_data))
+
+        # check json parsing
+        assert js.from_json(self.json_data) == self.test_data
 
 
 class InsnList(list):
@@ -613,27 +893,292 @@ class InsnList(list):
 
         return '\n'.join(map(lambda insn: str(insn), self))
 
+    def get_range(self, first, last = None):
 
-class BasicBlock(object):
+        if len(self) == 0: return InsnList()
+
+        # use first instruction by default
+        first = self[0].ir_addr() if first is None else first
+        first = first if isinstance(first, tuple) else ( first, None )
+
+        # query one machine instruction if last wasn't specified
+        last = last if last is None else last
+        last = last if isinstance(last, tuple) else ( last, None )        
+
+        ret, start = [], False
+        first = ( first[0], 0 ) if first[1] is None else first
+
+        for insn in self:
+
+            addr = insn.ir_addr()
+
+            # check for start of the range
+            if addr == first: start = True
+
+            if start: ret.append(insn)
+
+            if addr == last or \
+               (last[1] is None and addr[0] == last[0] and insn.have_flag(IOPT_ASM_END)):
+
+                # end of the range
+                break
+
+        return InsnList(ret)
+
+    def to_symbolic(self, in_state = None):
+
+        out_state = in_state
+
+        # update symbolic state with each instruction
+        for insn in self: out_state = insn.to_symbolic(out_state)
+
+        return out_state
+
+
+class TestInsnList(unittest.TestCase):
+
+    arch = 'x86'
+
+    def setUp(self):
+
+        import translator
+        self.tr = translator.Translator(self.arch)
+
+        from pyopenreil.utils import asm
+        self.asm = asm.Compiler(self.arch)
+        
+        self.storage = CodeStorageMem(self.arch)        
+
+    def test_get_range(self):        
+
+        # add test data to the storage
+        self.storage.clear()
+        self.storage.put_insn(self.tr.to_reil(self.asm.compile('add eax, ecx'), addr = 0L))
+        
+        # get InsnList instance
+        insn = self.storage.get_insn(0)
+
+        a = insn.get_range(None, last = None)        
+        b = insn.get_range(None, last = 0)
+        c = insn.get_range(0,    last = None)
+        d = insn.get_range(0,    last = 0)               
+        
+        # check get_range with different combinations of None args
+        assert a == b == c == d
+
+        b = insn.get_range((0, 1), last = None)
+        c = insn.get_range(None,   last = (0, 4))        
+        d = insn.get_range((0, 1), last = (0, 4))
+
+        # check get_range with different ranges
+        assert a[1:] == b and a[:5] == c and a[1:5] == d
+
+    def test_to_symbolic(self):
+
+        # add test data to the storage
+        self.storage.clear()
+        self.storage.put_insn(self.tr.to_reil(self.asm.compile('add eax, ecx'), addr = 0L))
+        self.storage.put_insn(self.tr.to_reil(self.asm.compile('inc eax'), addr = 2L))
+
+        # get InsnList instance with both machine instructions
+        insn = InsnList(self.storage.get_insn(0) + self.storage.get_insn(2))
+
+        # get symbolic representation of EAX value
+        sym = insn.to_symbolic()
+        eax = sym[SymVal('R_EAX', U32)]
+
+        # check for valid expression
+        assert eax == SymVal('R_EAX', U32) + SymVal('R_ECX', U32) + SymConst(1, U32)        
+
+        # expressions fuzzy matching
+        assert eax == SymVal('R_EAX', U32) + SymAny() + SymAny() \
+                   == SymVal('R_EAX', U32) + SymVal('R_ECX', U32) + SymAny()
+
+
+class BasicBlock(InsnList):
     
     def __init__(self, insn_list):
 
-        self.insn_list = insn_list
+        super(BasicBlock, self).__init__(insn_list)
+
         self.first, self.last = insn_list[0], insn_list[-1]
         self.ir_addr = self.first.ir_addr()
         self.size = self.last.addr + self.last.size - self.ir_addr[0]
 
-    def __iter__(self):
-
-        for insn in self.insn_list: yield insn
-
-    def __str__(self):
-
-        return '\n'.join(map(lambda insn: str(insn), self))
-
     def get_successors(self):
 
-        return self.last.next(), self.last.jcc_loc()
+        return self.last.next(), self.last.jcc_loc()    
+
+
+class TestBasicBlock(unittest.TestCase):
+
+    arch = 'x86'
+
+    def test(self):       
+
+        code = ( 'jne _l', 
+                 'nop',
+                 '_l: ret' )        
+        
+        # create translator
+        from pyopenreil.utils import asm
+        tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code))
+
+        # translate basic block
+        bb = tr.get_bb(0)
+
+        # get successors
+        lhs, rhs = bb.get_successors()
+
+        # check for valid next instructions of JNE
+        assert lhs == Insn.IRAddr(( 0, 3 ))
+        assert rhs == Insn.IRAddr(( 2, 0 ))
+
+
+class Func(InsnList):
+
+    class Chunk(object):
+
+        def __init__(self, addr, size):
+
+            self.addr, self.size = addr, size
+
+        def __str__(self):        
+
+            return '%x:%d' % (self.addr, self.size)
+
+        def __eq__(self, other):
+
+            return type(self) == type(other) and \
+                   self.addr == other.addr and \
+                   self.size == other.size 
+
+        def __hash__(self):
+
+            return hash(( self.addr, self.size ))
+
+    def __init__(self, arch, ir_addr):
+
+        self.arch, self.first, self.last = arch, None, []
+        self.addr = ir_addr[0] if isinstance(ir_addr, tuple) else ir_addr        
+        self.bb_list, self.chunks = [], []
+        self.stack_args = None
+
+    def _add_chunk(self, addr, size):
+
+        last = addr + size
+
+        for chunk in self.chunks:
+            
+            last_cur = chunk.addr + chunk.size
+
+            # check for overlapping chunks
+            if (addr >= chunk.addr and addr <= last_cur) or \
+               (last >= chunk.addr and last <= last_cur):
+
+                # merge two chunks
+                chunk.addr = min(addr, chunk.addr)
+                chunk.size = max(last, last_cur) - chunk.addr
+
+                return
+
+        # add a new chunk
+        self.chunks.append(self.Chunk(addr, size))
+
+    def add_chunk(self, addr, size):
+
+        # add/update chunk
+        self._add_chunk(addr, size)
+
+        while True:
+
+            chunks, self.chunks = self.chunks, []
+
+            # merge existing chunks
+            for chunk in chunks:
+
+                self._add_chunk(chunk.addr, chunk.size)
+
+            if len(chunks) == len(self.chunks): 
+
+                break
+
+    def _get_stack_args_count(self, insn):
+
+        state = insn.to_symbolic()   
+
+        reg = SymVal(self.arch.Registers.sp)
+        exp = state.query(reg)
+
+        # check for (R_ESP + X)
+        if exp == SymExp(I_ADD, SymAny(), reg):
+
+            arg = 0
+            if isinstance(exp.a, SymConst): arg = exp.a.val
+            if isinstance(exp.b, SymConst): arg = exp.b.val
+
+            if arg >= self.arch.ptr_len and arg % self.arch.ptr_len == 0:
+
+                return arg / self.arch.ptr_len - 1
+
+        return None
+
+    def add_bb(self, bb):
+
+        if not bb in self:
+
+            if bb.ir_addr == ( self.addr, 0 ):
+
+                # set first instructin of the func
+                self.first = bb.first
+
+            if bb.last.have_flag(IOPT_RET):
+
+                # set last instruction of the func
+                if not bb in self.last: self.last.append(bb.last)    
+
+                # update number of stack arguments
+                insn_list = bb.get_range(bb.last.addr)
+                self.stack_args = self._get_stack_args_count(insn_list)
+
+            # update func code chunks information
+            self.add_chunk(bb.first.addr, bb.size)
+
+            self += bb
+            self.bb_list.append(bb) 
+
+    def name(self):
+
+        name = 'sub_%x' % self.addr
+        if self.stack_args is not None: name += '@%x' % self.stack_args
+
+        return name
+
+    def to_symbolic(self, in_state = None):
+
+        raise Exception('Not available at function level')
+
+
+class TestFunc(unittest.TestCase):
+
+    arch = 'x86'
+
+    def test(self):        
+
+        from pyopenreil.utils import asm       
+        
+        # dummy stdcall function
+        code = ( 'xor eax, eax', 'ret 8' )
+
+        # create translator
+        tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code))
+
+        # get function
+        fn = tr.get_func(0)
+
+        # check for the number of chunks and stack arguments count
+        assert len(fn.chunks) == 1
+        assert fn.stack_args == 2
 
 
 class GraphNode(object):
@@ -642,6 +1187,14 @@ class GraphNode(object):
 
         self.item = item
         self.in_edges, self.out_edges = Set(), Set()
+
+    def key(self):
+
+        return id(self)
+
+    def text(self):
+
+        return str(self)
 
 
 class GraphEdge(object):
@@ -671,6 +1224,9 @@ class Graph(object):
 
     NODE = GraphNode
     EDGE = GraphEdge
+
+    # for to_dot_file()
+    SHAPE = 'box'
 
     def __init__(self):
 
@@ -734,21 +1290,65 @@ class Graph(object):
 
         with open(path, 'w') as fd:
 
-            fd.write('digraph pyopenreil {\n')
+            fd.write('digraph pyopenreil {\n' + \
+                     'node [shape=%s]\n' % self.SHAPE)
 
+            nodes = self.nodes.values()
+            nodes = sorted(nodes, key = lambda node: node.key())
+
+            # write nodes
+            for n in range(0, len(nodes)):
+
+                fd.write('%d [label="%s"];\n' % (n, nodes[n].text()))
+
+            # write edges
             for edge in self.edges:
 
                 name, attr = str(edge), {}
-                if len(name) > 0: 
-
-                    attr['label'] = '"%s"' % name
+                if len(name) > 0: attr['label'] = '"%s"' % name
 
                 attr = ' '.join(map(lambda a: '%s=%s' % a, attr.items()))
-                data = '"%s" -> "%s" [%s];\n' % (str(edge.node_from), str(edge.node_to), attr)
 
-                fd.write(data)
+                fd.write('%d -> %d [%s];\n' % (nodes.index(edge.node_from),
+                                               nodes.index(edge.node_to), attr))
 
             fd.write('}\n')
+
+
+class TestGraph(unittest.TestCase):
+
+    def test(self):        
+
+    	# create test graph
+    	graph = Graph()
+
+    	a = graph.add_node('A')
+    	b = graph.add_node('B')
+    	c = graph.add_node('C')
+
+    	graph.add_edge(a, b, name = 'one')
+    	graph.add_edge(b, c, name = 'two')
+    	graph.add_edge(c, a, name = 'three')
+
+    	# check for added edges
+    	assert len(graph.nodes) == 3 and len(graph.edges) == 3
+    	assert a.out_edges == b.in_edges and len(b.in_edges) == 1
+    	assert b.out_edges == c.in_edges and len(c.in_edges) == 1
+    	assert c.out_edges == a.in_edges and len(a.in_edges) == 1
+
+    	# check edge deletion
+    	graph.del_edge(list(b.in_edges)[0])
+    	graph.del_edge(list(b.out_edges)[0])
+
+    	assert len(graph.nodes) == 3 and len(graph.edges) == 1
+    	assert len(a.out_edges) == 0 and len(b.in_edges) == 0 
+    	assert len(b.out_edges) == 0 and len(c.in_edges) == 0 
+
+    	# check node deletion
+    	graph.del_node(c)
+
+    	assert len(graph.nodes) == 2 and len(graph.edges) == 0
+    	assert len(c.out_edges) == 0 and len(a.in_edges) == 0
 
 
 class CFGraphNode(GraphNode):    
@@ -760,6 +1360,10 @@ class CFGraphNode(GraphNode):
     def key(self):
 
         return self.item.ir_addr
+
+    def text(self):
+
+        return "%s - %s" % (self.item.first.ir_addr(), self.item.last.ir_addr())
 
 
 class CFGraphEdge(GraphEdge):
@@ -776,7 +1380,7 @@ class CFGraph(Graph):
 
     def eliminate_dead_code(self):
 
-        pass
+        pass    
 
 
 class CFGraphBuilder(object):
@@ -788,7 +1392,7 @@ class CFGraphBuilder(object):
 
     def process_node(self, bb, state, context): 
 
-        return True
+        pass
 
     def get_insn(self, ir_addr):
 
@@ -796,7 +1400,7 @@ class CFGraphBuilder(object):
 
     def _get_bb(self, addr):
 
-        insn_list = []
+        insn_list = InsnList()
         
         while True:
 
@@ -840,9 +1444,10 @@ class CFGraphBuilder(object):
 
         def _process_node(bb, state, context):
 
-            if bb.ir_addr not in nodes: nodes.append(bb.ir_addr)
-            
-            return self.process_node(bb, state, context)
+            if bb.ir_addr not in nodes: 
+
+                nodes.append(bb.ir_addr)
+                self.process_node(bb, state, context)
 
         def _process_edge(edge):
 
@@ -855,14 +1460,17 @@ class CFGraphBuilder(object):
             bb = self.get_bb(ir_addr)
             cfg.add_node(bb)
 
-            if not _process_node(bb, state, context): return False
+            _process_node(bb, state, context)
 
             # process immediate postdominators
             lhs, rhs = bb.last.next(), bb.last.jcc_loc()
-            if rhs is not None and not rhs in nodes: 
+            if rhs is not None: 
 
                 _process_edge(( bb.ir_addr, rhs ))
-                stack.append(( rhs, state.copy() ))
+
+                if not rhs in nodes:
+                    
+                    stack.append(( rhs, state.copy() ))
 
             if lhs is not None: 
 
@@ -876,6 +1484,45 @@ class CFGraphBuilder(object):
         for edge in edges: cfg.add_edge(*edge)
             
         return cfg
+
+
+class TestCFGraphBuilder(unittest.TestCase):
+
+    arch = 'x86'
+
+    def setUp(self):
+
+        import translator
+        self.tr = translator.Translator(self.arch)
+
+        from pyopenreil.utils import asm
+        self.asm = asm.Compiler(self.arch)
+        
+        self.storage = CodeStorageMem(self.arch)        
+
+    def test(self):        
+
+        # add test data to the storage
+        self.storage.clear()
+        self.storage.put_insn(self.tr.to_reil(self.asm.compile('rep movsb'), addr = 0L))
+        self.storage.put_insn(self.tr.to_reil(self.asm.compile('ret'), addr = 2L))
+
+        print '\n', self.storage
+
+        # translate basic block
+        bb = CFGraphBuilder(self.storage).get_bb(0)
+        
+        assert len(bb) == 3
+        assert bb.get_successors() == (( 0, 3 ), ( 2, 0 ))
+
+        assert bb.last.op == I_JCC and bb.last.ir_addr() == ( 0, 2 )
+        assert bb.first.op == I_STR and bb.first.ir_addr() == ( 0, 0 )                
+
+        # construct CFG
+        cfg = CFGraphBuilder(self.storage).traverse(0)
+
+        assert len(cfg.nodes) == 3
+        assert len(cfg.edges) == 3
 
 
 class DFGraphNode(GraphNode):    
@@ -893,7 +1540,9 @@ class DFGraphEntryNode(DFGraphNode):
 
     class Label(tuple): 
 
-        def __str__(self): return 'ENTRY'
+        def __str__(self): 
+
+            return 'ENTRY'
 
     def __str__(self):
 
@@ -908,7 +1557,9 @@ class DFGraphExitNode(DFGraphNode):
 
     class Label(tuple): 
 
-        def __str__(self): return 'EXIT'
+        def __str__(self): 
+
+            return 'EXIT'
 
     def __str__(self):
 
@@ -1123,60 +1774,171 @@ class DFGraph(Graph):
         if storage is not None: self.store(storage)
 
 
-class DFGraphBuilder(CFGraphBuilder):
+class DFGraphBuilder(object):
 
-    def process_node(self, bb, state, context):
+    def __init__(self, storage):
 
-        dfg = context
+        self.arch = storage.arch
+        self.storage = storage    
 
-        for insn in bb:
+    def traverse(self, ir_addr, state = None):
 
-            src = [ arg.name for arg in insn.src() ]
-            dst = [ arg.name for arg in insn.dst() ]
-
-            node = dfg.add_node(insn)
-
-            if insn.have_flag(IOPT_CALL):
-
-                #
-                # Function call instruction.
-                #
-                # To make all the things a bit more simpler we assuming that:
-                #
-                #   - target function can read and write all general purpose registers;
-                #   - target function is not using any flag values that was set in current function;
-                #
-                # Normally this approach will works fine for code that was generated by high level
-                # language compiler, but some handwritten assembly junk can break it.
-                #
-                src = dst = self.arch.Registers.general
-
-            for arg in src:
-
-                # propagate register usage information to immediate dominator
-                try: node_from = dfg.add_node(state[arg])
-                except KeyError: node_from = dfg.entry_node                      
-
-                dfg.add_edge(node_from, node, arg)
-
-            # update current state
-            for arg in dst: state[arg] = insn
-
-        if bb.get_successors() == ( None, None ):
-
-            # end of the function, make exit edges for current state
-            for arg_name, insn in state.items():
-
-                dfg.add_edge(dfg.add_node(insn), dfg.exit_node.key(), arg_name)
-
-        return True
-    
-    def traverse(self, ir_addr):        
+        stack = []
+        
+        ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, 0)        
+        state = {} if state is None else state
 
         dfg = DFGraph()
-        super(DFGraphBuilder, self).traverse(ir_addr, state = {}, context = dfg)
+        cfg = CFGraphBuilder(self.storage).traverse(ir_addr)
+
+        def _update_state(bb, state):
+
+            if hasattr(bb, 'state'):
+
+                # check if basic block input state was updated
+                updated = bb.state != state
+
+            else: 
+
+                updated = True
+
+            # remember input state for basic block
+            bb.state = state.copy()
+
+            for insn in bb:
+
+                src = [ arg.name for arg in insn.src() ]
+                dst = [ arg.name for arg in insn.dst() ]
+
+                node = dfg.add_node(insn)
+
+                if insn.have_flag(IOPT_CALL):
+
+                    #
+                    # Function call instruction.
+                    #
+                    # To make all the things a bit more simpler we assuming that:
+                    #
+                    #   - target function can read and write all general purpose registers;
+                    #   - target function is not using any flag values that was set in current function;
+                    #
+                    # Normally this approach will works fine for code that was generated by high level
+                    # language compiler, but some handwritten assembly junk can break it.
+                    #
+                    src = dst = self.arch.Registers.general
+
+                for arg in src:
+                    
+                    try: node_from = dfg.add_node(state[arg])
+                    except KeyError: node_from = dfg.entry_node                      
+
+                    # propagate register usage information to immediate dominator
+                    dfg.add_edge(node_from, node, arg)
+                
+                for arg in dst: 
+
+                    # update current state with the registers that was changed by this insn
+                    state[arg] = insn
+
+            if bb.get_successors() == ( None, None ):
+
+                # end of the function, make exit edges for current state
+                for arg_name, insn in state.items():
+
+                    dfg.add_edge(dfg.add_node(insn), dfg.exit_node.key(), arg_name)
+
+            return updated
+
+        # traverse CFG untill the state keeps updating
+        while True:
+
+            bb = cfg.node(ir_addr).item                        
+
+            # generate output state of the basic block
+            updated = _update_state(bb, state) 
+
+            #
+            # If basic block input state was updated -- it's immediate
+            # postdominators will be (re)processed.
+            #
+            if updated:
+
+                lhs, rhs = bb.last.next(), bb.last.jcc_loc()
+                if rhs is not None: 
+                        
+                    stack.append(( rhs, state ))
+
+                if lhs is not None: 
+
+                    stack.append(( lhs, state ))            
+            
+            try: ir_addr, state = stack.pop()
+            except IndexError: break            
 
         return dfg
+
+
+class TestDFGraphBuilder(unittest.TestCase):
+
+    arch = 'x86'
+
+    def setUp(self):
+
+        import translator
+        self.tr = translator.Translator(self.arch)
+
+        from pyopenreil.utils import asm
+        self.asm = asm.Compiler(self.arch)
+        
+        self.storage = CodeStorageMem(self.arch)
+
+    def test_traverse(self):
+
+        # add test data to the storage
+        self.storage.clear()
+        self.storage.put_insn(self.tr.to_reil(self.asm.compile('rep movsb'), addr = 0L))
+        self.storage.put_insn(self.tr.to_reil(self.asm.compile('ret'), addr = 2L))
+
+        print '\n', self.storage
+
+        # construct DFG 
+        dfg = DFGraphBuilder(self.storage).traverse(0)
+
+        edges = Set(map(lambda e: str(e), dfg.entry_node.out_edges))
+        assert edges == Set([ 'R_ESP', 'R_EDI', 'R_ESI', 'R_ECX', 'R_DFLAG' ])
+
+        edges = Set(map(lambda e: str(e), dfg.exit_node.in_edges))
+        assert edges.issuperset(Set([ 'R_ESP', 'R_EDI', 'R_ESI', 'R_ECX' ]))        
+
+    def test_optimizations(self):
+
+        # add test data to the storage
+        self.storage.clear()
+        self.storage.put_insn(self.tr.to_reil(self.asm.compile('mov edx, 1'), addr = 0L))
+        self.storage.put_insn(self.tr.to_reil(self.asm.compile('add ecx, edx'), addr = 5L))
+        self.storage.put_insn(self.tr.to_reil(self.asm.compile('ret'), addr = 7L))
+
+        print '\n', self.storage, '\n'
+
+        # construct DFG 
+        dfg = DFGraphBuilder(self.storage).traverse(0)
+
+        edges = Set(map(lambda e: str(e), dfg.exit_node.in_edges))
+        assert edges.issuperset(Set([ 'R_OF', 'R_ZF', 'R_CF', 'R_AF', 'R_PF', 'R_SF', \
+                                      'R_ECX', 'R_EDX', 'R_ESP' ]))
+
+        # run optimizations
+        dfg.eliminate_dead_code()
+        dfg.constant_folding()
+
+        edges = Set(map(lambda e: str(e), dfg.exit_node.in_edges))
+        assert edges == Set([ 'R_ECX', 'R_EDX', 'R_ESP' ])
+
+        # update storage
+        storage = CodeStorageMem(self.arch)
+        dfg.store(storage)
+
+        print '\n', storage
 
 
 class Reader(object):
@@ -1219,7 +1981,7 @@ class CodeStorage(object):
     reader = None
 
     @abstractmethod
-    def get_insn(self, addr, inum = None): pass
+    def get_insn(self, ir_addr): pass
 
     @abstractmethod
     def put_insn(self, insn_or_insn_list): pass
@@ -1331,23 +2093,21 @@ class CodeStorageMem(CodeStorage):
         else:
 
             # store single IR instruction
-            self._put_insn(get_data(insn_or_insn_list))  
+            self._put_insn(get_data(insn_or_insn_list))      
 
     def to_file(self, path):
 
         with open(path, 'w') as fd:
 
-            # dump all instructions to the text file
-            for insn in self: fd.write(str(insn.serialize()) + '\n')
+            # dump all instructions as json
+            for insn in self: fd.write(InsnJson().to_json(insn) + '\n')
 
     def from_file(self, path):
 
         with open(path) as fd:        
         
-            for line in fd:
-
-                line = eval(line.strip())
-                if isinstance(line, tuple): self._put_insn(line)  
+            # load instructions from json
+            for data in fd: self._put_insn(InsnJson().from_json(data))
 
     def relink(self):
 
@@ -1381,24 +2141,68 @@ class CodeStorageMem(CodeStorage):
         self.items = items
 
 
+class TestCodeStorageMem(unittest.TestCase):
+
+    arch = 'x86'
+
+    def setUp(self):
+
+        import translator
+        self.tr = translator.Translator(self.arch)
+
+        from pyopenreil.utils import asm
+        self.asm = asm.Compiler(self.arch)
+        
+        self.storage = CodeStorageMem(self.arch)        
+
+    def test(self):            
+
+        # add test data to the storage
+        self.storage.put_insn(self.tr.to_reil(self.asm.compile('nop'), addr = 0L))
+        self.storage.put_insn(self.tr.to_reil(self.asm.compile('ret'), addr = 1L))
+
+        assert self.storage.size() == 6
+        assert len(self.storage.get_insn(0)) == 1
+        assert len(self.storage.get_insn(1)) == 5
+
+        assert self.storage.get_insn(( 0, 0 )).op == I_NONE
+        assert self.storage.get_insn(( 1, 0 )).op == I_STR
+
+        # delete IR instruction
+        self.storage.del_insn(( 1, 0 ))
+        self.storage.relink()
+
+        assert self.storage.size() == 5
+        assert len(self.storage.get_insn(1)) == 4
+
+        # delete machine instruction
+        self.storage.del_insn(1)
+        self.storage.relink()
+
+        assert self.storage.size() == 1
+        
+        try: self.storage.get_insn(1)
+        except StorageError as e: assert e.addr == 1
+
+        # delete all
+        self.storage.clear()
+
+        assert self.storage.size() == 0
+
+
 class CodeStorageTranslator(CodeStorage):
 
-    class _CFGraphBuilder(CFGraphBuilder):
-
-        def __init__(self, storage):
-
-            self.insn_list, self.visited = [], [] 
-
-            CFGraphBuilder.__init__(self, storage)
+    class CFGraphBuilderFunc(CFGraphBuilder):
 
         def process_node(self, bb, state, context):
-
-            if bb.ir_addr not in self.visited:
             
-                self.insn_list += bb.insn_list
-                self.visited.append(bb.ir_addr)
+            self.func.add_bb(bb)
 
-            return True
+        def traverse(self, arch, ir_addr):
+
+            self.func = Func(arch, ir_addr)
+
+            CFGraphBuilder.traverse(self, ir_addr)
 
     def __init__(self, arch, reader = None, storage = None):
 
@@ -1412,8 +2216,8 @@ class CodeStorageTranslator(CodeStorage):
     def translate_insn(self, data, addr):                
 
         src, dst = [], []
-        ret_insn = Insn(I_NONE, ir_addr = ( addr, 0 ))
-        ret_insn.set_flag(IOPT_ASM_END)        
+        unk_insn = Insn(I_UNK, ir_addr = ( addr, 0 ))
+        unk_insn.set_flag(IOPT_ASM_END)        
 
         # generate IR instructions
         ret = self.translator.to_reil(data, addr = addr)
@@ -1425,7 +2229,7 @@ class CodeStorageTranslator(CodeStorage):
         #
         for insn in ret:
 
-            if Insn_op(insn) == I_NONE:
+            if Insn_op(insn) == I_UNK:
 
                 args = Insn_args(insn)
                 a, c = Arg(args[0]), Arg(args[2])
@@ -1433,16 +2237,16 @@ class CodeStorageTranslator(CodeStorage):
                 if a.type != A_NONE: src.append(a.serialize())
                 if c.type != A_NONE: dst.append(c.serialize())
 
-                ret_insn.size = Insn_size(insn)
+                unk_insn.size = Insn_size(insn)
 
             else:
 
                 return ret
 
-        if len(src) > 0: ret_insn.set_attr(IATTR_SRC, src)
-        if len(dst) > 0: ret_insn.set_attr(IATTR_DST, dst)
+        if len(src) > 0: unk_insn.set_attr(IATTR_SRC, src)
+        if len(dst) > 0: unk_insn.set_attr(IATTR_DST, dst)
 
-        return [ ret_insn.serialize() ]
+        return [ unk_insn.serialize() ]
 
     def clear(self): 
 
@@ -1482,17 +2286,46 @@ class CodeStorageTranslator(CodeStorage):
         self.storage.put_insn(insn_or_insn_list)
 
     def get_bb(self, ir_addr):
-
-        cfg = CFGraphBuilder(self)
         
-        return InsnList(cfg.get_bb(ir_addr).insn_list)
+        return CFGraphBuilder(self).get_bb(ir_addr)
 
     def get_func(self, ir_addr):
 
-        cfg = self._CFGraphBuilder(self)
-        cfg.traverse(ir_addr)
+        cfg = self.CFGraphBuilderFunc(self)
+        cfg.traverse(self.arch, ir_addr)
 
-        return InsnList(cfg.insn_list)
+        return cfg.func
+
+
+class TestCodeStorageTranslator(unittest.TestCase):
+
+    arch = 'x86'
+
+    def setUp(self):        
+
+        # test assembly code
+        code = ( 'xor eax, eax', 'ret' )
+        
+        from pyopenreil.utils import asm
+        self.tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code))
+
+    def test_get_insn(self):
+
+        print '\n', self.tr.get_insn(0)
+
+    def test_get_bb(self):
+
+        print '\n', self.tr.get_bb(0)
+
+    def test_get_func(self):
+
+        print '\n', self.tr.get_func(0)
+
+ 
+if __name__ == '__main__':
+
+    unittest.main(verbosity = 2)
+
 #
 # EoF
 #
