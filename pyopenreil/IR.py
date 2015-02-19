@@ -71,6 +71,9 @@ Insn_op    = lambda insn: insn[INSN_OP]     # operation code
 Insn_args  = lambda insn: insn[INSN_ARGS]   # tuple with 3 arguments
 Insn_attr  = lambda insn: insn[INSN_ATTR]   # instruction attributes
 
+# get IR instruction address
+Insn_ir_addr = lambda insn: ( Insn_addr(insn), Insn_inum(insn) )
+
 #
 # EoF
 #

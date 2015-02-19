@@ -7,22 +7,11 @@ from pyopenreil.VM import *
 from pyopenreil.REIL import *
 from pyopenreil.arch import x86
 
-CODE  = '\x0f\x32\x0f\x30' # rdmsr, wrmsr
-CODE += '\x0f\x01\x08\x0f\x01\x00\x0f\x00\x00' # sidt, sgdt, sldt
-CODE += '\x0f\x01\x10\x0f\x01\x18\x0f\x00\x10' # lidt, lgdt, lldt
-CODE += '\x0f\x31' # rdtsc
-CODE += '\x0f\xa2' # cupid
-CODE += '\xcc' # int 3
-CODE += '\x90' # nop
-CODE += '\xf4' # hlt
-CODE += '\xc3\x68\x00\x00\x00\x00\xF3\xA4\xE8\x00\x00\x00\x00\xC2\x04\x00'
-
 ADDR = 0x1337L
 ENTRY = 0        
 
-
-def test_0(argv):
-    ''' Instruction tarnslation test. '''
+def test_1(argv):
+    ''' PE reader test '''
 
     addr = 0x004016B0
     reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
@@ -31,70 +20,56 @@ def test_0(argv):
     print tr.get_insn(addr)
 
 
-def test_0_1(argv):
-    ''' Instruction tarnslation test. '''    
+def test_2(argv):
+    ''' BFD reader test '''
 
-    code = ( 'mov eax, ecx',
-             'add eax, edx', 
-             'shl eax, 12',
-             'ret' )
-
-    reader = asm.Reader('x86', ADDR, code)
+    addr = 0x08048434
+    reader = bin_BFD.Reader(os.getenv('HOME') + '/data/_tests/fib/fib')
     tr = CodeStorageTranslator('x86', reader)
 
-    print tr.get_func(ADDR + ENTRY)
-    tr.storage.to_file('test_0_1.ir')
-
-    cpu = Cpu('x86')
-    abi = Abi(cpu, tr)
-
-    abi.ms_fastcall(ADDR, 1, 2)
-    cpu.dump()
-
-    storage = CodeStorageMem('x86')
-    storage.from_file('test_0_1.ir')
-
-    print storage
-
-    abi.reset()
-    abi.ms_fastcall(ADDR, 1, 2)
-    cpu.dump()
+    print tr.get_func(addr)
 
 
-def test_0_2(argv):
-    ''' Instruction tarnslation test. '''    
-
-    code = ( 'nop', 'nop', 
-             'nop', 'nop', 
-             'mov eax, dword [%Xh]' % ADDR, 
-             'ret' )
-
-    reader = asm.Reader('x86', ADDR, code)
+def test_3(argv):
+    ''' bb/func translation test '''
+    
+    addr = 0x004016B0
+    reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
     tr = CodeStorageTranslator('x86', reader)
 
-    print tr.get_insn(ADDR + ENTRY)
+    bb = tr.get_bb(addr)
 
-    cpu = Cpu('x86')
-    abi = Abi(cpu, tr)
+    print '%s - %s' % (bb.first.ir_addr(), bb.last.ir_addr())
+    print '--------------------------'
+    print bb, '\n'
 
-    val = abi.stdcall(ADDR)
-    cpu.dump()
+    func = tr.get_func(addr)
 
-    print 'Returned vale is %s' % hex(val)     
+    print '%s [ %s ]' % (func.name(), ', '.join(map(lambda c: str(c), func.chunks)))
+    print '--------------------------'
+    print func, '\n'
 
 
-def test_1(argv):
-    ''' Function translation test. '''
+def test_4(argv):
+    ''' bogus instructions translation test '''
 
-    reader = ReaderRaw(CODE, addr = ADDR)
-    tr = CodeStorageTranslator('x86', reader)
+    code  = '\xCC\x90\xF4'                          # int 3, nop, hlt
+    code += '\x0F\x32\x0F\x30'                      # rdmsr, wrmsr
+    code += '\x0F\x01\x08\x0F\x01\x00\x0F\x00\x00'  # sidt, sgdt, sldt
+    code += '\x0F\x01\x10\x0F\x01\x18\x0F\x00\x10'  # lidt, lgdt, lldt
+    code += '\x0F\x31'                              # rdtsc
+    code += '\x0F\xA2'                              # cupid
+    code += '\xC3'                                  # ret
 
-    cfg = CFGraphBuilder(tr).traverse(ADDR + ENTRY)
+    reader = ReaderRaw(code, addr = ADDR)
+    storage = CodeStorageTranslator('x86', reader)
+
+    cfg = CFGraphBuilder(storage).traverse(ADDR + ENTRY)
     for node in cfg.nodes.values(): print str(node.item) + '\n'
 
 
-def test_2(argv):
-    ''' Code elimination test. '''
+def test_5(argv):
+    ''' code elimination test '''
 
     addr = 0x004010EC
     storage = CodeStorageMem('x86')
@@ -119,11 +94,33 @@ def test_2(argv):
     dfg.store(storage)
 
     print storage
-    print '%d instructions' % storage.size()    
+    print '%d instructions' % storage.size() 
+
+
+def test_6(argv):
+    ''' exeution of code that reads itself test '''    
+
+    code = ( 'nop', 'nop', 
+             'nop', 'nop', 
+             'mov eax, dword [%Xh]' % ADDR, 
+             'ret' )
+
+    reader = asm.Reader('x86', ADDR, code)
+    tr = CodeStorageTranslator('x86', reader)
+
+    print tr.get_insn(ADDR + ENTRY)
+
+    cpu = Cpu('x86')
+    abi = Abi(cpu, tr)
+
+    val = abi.stdcall(ADDR)
+    cpu.dump()
+
+    print 'Returned vale is %s' % hex(val)        
     
 
-def test_3(argv):
-    ''' Execution test. '''
+def test_7(argv):
+    ''' execution of fib testcase '''
     
     addr = 0x004016B0
     reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
@@ -160,7 +157,8 @@ def test_3(argv):
     print '%d number in Fibonacci sequence is %d' % (testval + 1, ret)    
 
 
-def test_4(argv):
+def test_8(argv):
+    ''' execution of rc4 testcase '''
     
     # rc4.exe VA's of the rc4_set_key() and rc4_crypt()
     rc4_set_key = 0x004016D5
@@ -177,14 +175,14 @@ def test_4(argv):
     def code_optimization(addr):
  
         # construct dataflow graph for given function
-        dfg = DFGraphBuilder(tr).traverse(addr)  
+        dfg = DFGraphBuilder(tr).traverse(addr)
         
         # run some basic IR optimizations
         dfg.eliminate_dead_code()
-        dfg.constant_folding()
+        dfg.constant_folding()        
 
         # store resulting instructions
-        dfg.store(tr.storage)
+        dfg.store(tr.storage)  
 
     code_optimization(rc4_set_key)
     code_optimization(rc4_crypt)
@@ -212,54 +210,18 @@ def test_4(argv):
     rc4 = ARC4.new(test_key)
     val_2 = rc4.encrypt(test_val)
 
-    print
-    print 'PASSED' if val_1 == val_2 else 'FAILS'
+    return val_1 == val_2
 
 
-def test_5(argv):
-    ''' bb/func test '''
-    
-    addr = 0x004016B0
-    reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
-    tr = CodeStorageTranslator('x86', reader)
+class TestAll(unittest.TestCase):
 
-    bb = tr.get_bb(addr)
+    def test(self):
 
-    print '%s - %s' % (bb.first.ir_addr(), bb.last.ir_addr())
-    print '--------------------------'
-    print bb, '\n'
-
-    func = tr.get_func(addr)
-
-    print '%s [ %s ]' % (func.name(), ', '.join(map(lambda c: str(c), func.chunks)))
-    print '--------------------------'
-    print func, '\n'
-
-
-def test_6(argv):
-    ''' Instruction tarnslation test. '''
-
-    addr = 0x08048434
-    reader = bin_BFD.Reader(os.getenv('HOME') + '/data/_tests/fib/fib')
-    tr = CodeStorageTranslator('x86', reader)
-
-    print tr.get_func(addr)
-
-
-def test_7(argv):
-    ''' DFG test. '''
-
-    reader = ReaderRaw('\xF3\xA4\xC3')
-    tr = CodeStorageTranslator('x86', reader)
-
-    dfg = DFGraphBuilder(tr).traverse(0)
-    dfg.to_dot_file('dfg_2.dot')
+        assert test_8(sys.argv)
 
 
 if __name__ == '__main__':  
 
     unittest.main(verbosity = 2)
-    
-    #exit(test_0_2(sys.argv))
 
 
