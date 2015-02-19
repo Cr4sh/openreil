@@ -10,22 +10,36 @@ from pyopenreil.arch import x86
 ADDR = 0x1337L
 ENTRY = 0        
 
-def test_1(argv):
-    ''' PE reader test '''
+def test_0(argv):
+    ''' PE reader test '''    
 
     addr = 0x004016B0
     reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
     tr = CodeStorageTranslator('x86', reader)
 
-    print tr.get_insn(addr)
+    print tr.get_func(addr)
 
 
-def test_2(argv):
+def test_1(argv):
     ''' BFD reader test '''
 
     addr = 0x08048434
     reader = bin_BFD.Reader(os.getenv('HOME') + '/data/_tests/fib/fib')
     tr = CodeStorageTranslator('x86', reader)
+
+    print tr.get_func(addr)
+
+
+def test_2(argv):
+    ''' mongodb storage test '''
+
+    from pyopenreil.utils import mongodb
+    storage = mongodb.CodeStorageMongo('x86', 'test_fib') 
+    storage.clear()
+
+    addr = 0x004016B0
+    reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
+    tr = CodeStorageTranslator('x86', reader, storage)
 
     print tr.get_func(addr)
 
@@ -121,6 +135,10 @@ def test_6(argv):
 
 def test_7(argv):
     ''' execution of fib testcase '''
+
+    from pyopenreil.utils import mongodb
+    storage = mongodb.CodeStorageMongo('x86', 'test_fib')        
+    storage.clear()
     
     addr = 0x004016B0
     reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
@@ -224,4 +242,6 @@ if __name__ == '__main__':
 
     unittest.main(verbosity = 2)
 
-
+#
+# EoF
+#

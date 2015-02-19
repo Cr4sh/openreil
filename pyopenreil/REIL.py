@@ -1802,11 +1802,11 @@ class DFGraphBuilder(object):
             # we visiting this basic block first time
             bb.input = {}
 
+        # create/update basic block input state information
         for var, insn in state.items():
 
             ir_addr = insn.ir_addr()
-
-            # copy information from current state
+            
             if not bb.input.has_key(var): 
 
                 bb.input[var] = Set()
@@ -1854,7 +1854,7 @@ class DFGraphBuilder(object):
             for arg in dst: 
 
                 # Update current state with information about registers
-                # that was changed by this insn.
+                # that was changed by this instruction.
                 state[arg] = insn
 
         # check for end of the function
@@ -1862,7 +1862,7 @@ class DFGraphBuilder(object):
 
             for arg_name, insn in state.items():
 
-                # add input edge for exit node of DFG
+                # edge from last instruction that changed register to DFG exit node
                 dfg.add_edge(dfg.add_node(insn), dfg.exit_node.key(), arg_name)
 
         return self._process_state(bb, state)
@@ -1886,7 +1886,7 @@ class DFGraphBuilder(object):
 
             #
             # Process immediate postdominators of basic block if it's
-            # input values information was updated.
+            # input state information was updated.
             #
             if updated:
 
