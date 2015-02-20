@@ -31,6 +31,17 @@ def test_1(argv):
 
 
 def test_2(argv):
+    ''' bb/func translation test '''
+    
+    addr = 0x004016B0
+    reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
+    tr = CodeStorageTranslator('x86', reader)
+
+    print tr.get_bb(addr)
+    print tr.get_func(addr)
+
+
+def test_3(argv):
     ''' mongodb storage test '''
 
     from pyopenreil.utils import mongodb
@@ -42,26 +53,6 @@ def test_2(argv):
     tr = CodeStorageTranslator('x86', reader, storage)
 
     print tr.get_func(addr)
-
-
-def test_3(argv):
-    ''' bb/func translation test '''
-    
-    addr = 0x004016B0
-    reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
-    tr = CodeStorageTranslator('x86', reader)
-
-    bb = tr.get_bb(addr)
-
-    print '%s - %s' % (bb.first.ir_addr(), bb.last.ir_addr())
-    print '--------------------------'
-    print bb, '\n'
-
-    func = tr.get_func(addr)
-
-    print '%s [ %s ]' % (func.name(), ', '.join(map(lambda c: str(c), func.chunks)))
-    print '--------------------------'
-    print func, '\n'
 
 
 def test_4(argv):
@@ -83,7 +74,7 @@ def test_4(argv):
 
 
 def test_5(argv):
-    ''' code elimination test '''
+    ''' code optimizations test '''
 
     addr = 0x004010EC
     storage = CodeStorageMem('x86')
@@ -112,7 +103,7 @@ def test_5(argv):
 
 
 def test_6(argv):
-    ''' exeution of code that reads itself test '''    
+    ''' execution of code that reads itself '''    
 
     code = ( 'nop', 'nop', 
              'nop', 'nop', 
@@ -235,10 +226,12 @@ class TestAll(unittest.TestCase):
 
     def test(self):
 
-        assert test_8(sys.argv)
+        assert test_8([])
 
 
 if __name__ == '__main__':  
+
+    #exit(test_2([]))
 
     unittest.main(verbosity = 2)
 

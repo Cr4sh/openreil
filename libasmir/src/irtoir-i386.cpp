@@ -1564,9 +1564,9 @@ void del_get_thunk(bap_block_t *block)
 
     vector<Stmt *> rv;
     vector<Stmt *> *ir = block->bap_ir;
-    string op = block->op_str;
+    string mnemonic = block->str_mnem;
 
-    if (i386_op_is_very_broken(op)) 
+    if (i386_op_is_very_broken(mnemonic)) 
     {       
         return;
     }
@@ -2605,7 +2605,7 @@ vector<Stmt *> mod_eflags_smul(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-int del_put_thunk(vector<Stmt *> *ir, string op_string, int opi, int dep1, int dep2, int ndep, int mux0x)
+int del_put_thunk(vector<Stmt *> *ir, string mnemonic, int opi, int dep1, int dep2, int ndep, int mux0x)
 {
     assert(ir);
     assert(opi >= 0 && dep1 >= 0 && dep2 >= 0 && ndep >= 0);
@@ -2622,7 +2622,7 @@ int del_put_thunk(vector<Stmt *> *ir, string op_string, int opi, int dep1, int d
 
         len++;
 
-        if (i386_op_is_very_broken(op_string))
+        if (i386_op_is_very_broken(mnemonic))
         {
             // ...
         }
@@ -2736,10 +2736,10 @@ static void modify_eflags_helper(string op, reg_t type, vector<Stmt *> *ir, int 
  * Or, put another way, a list of operations for which the eflags code
  * is COMPLETELY BROKEN.
  */
-bool i386_op_is_very_broken(string op_string)
+bool i386_op_is_very_broken(string mnemonic)
 {
-    if (op_string.find("shr", 0) == 0 || 
-        op_string.find("sar", 0) == 0)
+    if (mnemonic.find("shr", 0) == 0 || 
+        mnemonic.find("sar", 0) == 0)
     {
         return true;
     }
@@ -3000,7 +3000,7 @@ void i386_modify_flags(bap_block_t *block)
     }
     else 
     {
-        string op = block->op_str;
+        string op = block->str_mnem;
       
         // FIXME: how to figure out types?
         if (op.find("rol", 0) == 0)

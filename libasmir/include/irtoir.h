@@ -38,7 +38,8 @@ struct bap_block_s
 {
   address_t       inst;
   int             inst_size;
-  string          op_str;
+  string          str_mnem;
+  string          str_op;
   IRSB            *vex_ir;
   vector<Stmt *>  *bap_ir;
 };

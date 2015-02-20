@@ -1,5 +1,7 @@
 
 # IR instruction attributes
+IATTR_ASM   = 'A'
+IATTR_BIN   = 'B'
 IATTR_FLAGS = 'F'
 IATTR_NEXT  = 'N'
 IATTR_SRC   = 'S'

@@ -415,13 +415,13 @@ class Cpu(object):
         a, b, c = self.arg(insn.a), self.arg(insn.b), self.arg(insn.c)
 
         # call opcode-specific handlers
-        e = lambda handler: handler(insn, a, b, c)
+        _e = lambda handler: handler(insn, a, b, c)
         
-        if insn.op == I_NONE: return e(self.insn_none)
-        elif insn.op == I_JCC: return e(self.insn_jcc)
-        elif insn.op == I_STM: return e(self.insn_stm)
-        elif insn.op == I_LDM: return e(self.insn_ldm)
-        elif insn.op < len(REIL_INSN): return e(self.insn_other)
+        if insn.op == I_NONE: return _e(self.insn_none)
+        elif insn.op == I_JCC: return _e(self.insn_jcc)
+        elif insn.op == I_STM: return _e(self.insn_stm)
+        elif insn.op == I_LDM: return _e(self.insn_ldm)
+        elif insn.op < len(REIL_INSN): return _e(self.insn_other)
         else:
 
             # invalid opcode

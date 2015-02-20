@@ -353,6 +353,14 @@ void CReilFromBilTranslator::process_reil_inst(reil_inst_t *reil_inst)
 {
     if (inst_handler)
     {
+        if (reil_inst->inum == 0 && current_raw_info)
+        {
+            // first IR instruction must contain extended information about machine code
+            reil_inst->raw_info.data = current_raw_info->data;
+            reil_inst->raw_info.str_mnem = current_raw_info->str_mnem;
+            reil_inst->raw_info.str_op = current_raw_info->str_op;
+        }
+
         // call user-specified REIL instruction handler
         inst_handler(reil_inst, inst_handler_context);
     }
@@ -724,7 +732,6 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     reil_inst.op = inst;
     reil_inst.raw_info.addr = current_raw_info->addr;
     reil_inst.raw_info.size = current_raw_info->size;
-    reil_inst.raw_info.data = NULL;
     reil_inst.flags = inst_flags;
 
     if (c && c->exp_type == MEM)
@@ -1122,7 +1129,6 @@ void CReilFromBilTranslator::process_empty_insn(reil_raw_t *raw_info)
     reil_inst.op = I_NONE;
     reil_inst.raw_info.addr = raw_info->addr;
     reil_inst.raw_info.size = raw_info->size;
-    reil_inst.raw_info.data = NULL;
 
     reil_inst.flags = IOPT_ASM_END;
     process_reil_inst(&reil_inst);
@@ -1193,7 +1199,6 @@ void CReilFromBilTranslator::process_unknown_insn(reil_raw_t *raw_info)
     reil_inst.op = I_UNK;
     reil_inst.raw_info.addr = raw_info->addr;
     reil_inst.raw_info.size = raw_info->size;
-    reil_inst.raw_info.data = NULL;
 
     if (arg_all.size() == 0)
     {
@@ -1427,6 +1432,7 @@ int CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
 {
     int ret = 0;
     reil_raw_t raw_info;
+    memset(&raw_info, 0, sizeof(raw_info));
     
     // translate to VEX
     bap_block_t *block = generate_vex_ir(guest, data, addr);
@@ -1441,13 +1447,21 @@ int CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
 
 #ifdef DBG_BAP
 
-    printf("// %s: addr = 0x%llx, len = %d\n", block->op_str.c_str(), addr, block->inst_size);              
+    printf(
+        "// %.8llx: %s %s ; len = %d\n",
+        addr, block->str_mnem.c_str(), block->str_op.c_str(), 
+        block->inst_size
+    );              
     
 #endif
 
     raw_info.addr = addr;
     raw_info.size = ret;
     raw_info.data = data;
+
+    // cast to char* is needed for successful work with cython
+    raw_info.str_mnem = (char *)block->str_mnem.c_str();
+    raw_info.str_op = (char *)block->str_op.c_str();
 
     // generate REIL
     translator->process_bil(&raw_info, block);

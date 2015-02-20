@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-int disasm_insn(VexArch guest, uint8_t *data, string &op_str);
+int disasm_insn(VexArch guest, uint8_t *data, string &mnemonic, string &op);
 
 int disasm_arg_src(VexArch guest, uint8_t *data, vector<Temp *> &args);
 int disasm_arg_dst(VexArch guest, uint8_t *data, vector<Temp *> &args);

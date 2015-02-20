@@ -545,7 +545,30 @@ class Insn(object):
 
     def __str__(self):
 
-        return '%.8x.%.2x %7s %16s, %16s, %16s' % \
+        return self.to_str(show_bin = False, show_asm = False)        
+
+    def to_str(self, show_bin = False, show_asm = True):
+
+        ret = ''
+        show_asm = show_asm and self.have_attr(IATTR_ASM)
+        show_bin = show_bin and self.have_attr(IATTR_BIN)
+        show_hdr = show_asm or show_bin
+
+        if show_hdr: ret += ';\n'
+
+        if show_asm:
+
+            ret += ('; asm: %s %s' % self.get_attr(IATTR_ASM)).strip() + '\n'
+            if not show_bin: ret += '; len: %d\n' % self.size
+
+        if show_bin:
+
+            ret += '; data (%d): %s\n' % (self.size,
+                   ' '.join(map(lambda b: '%.2x' % ord(b), self.get_attr(IATTR_BIN))))
+
+        if show_hdr: ret += ';\n'
+
+        return ret + '%.8x.%.2x %7s %16s, %16s, %16s' % \
                (self.addr, self.inum, self.op_name(), \
                 self.a, self.b, self.c)
 
@@ -667,7 +690,7 @@ class Insn(object):
         out_state = SymState() if in_state is None else in_state.clone()
 
         # skip instructions that doesn't update output state
-        if not self.op in [ I_JCC, I_NONE ]:
+        if not self.op in [ I_JCC, I_NONE, I_UNK ]:
 
             # convert instruction arguments to symbolic expressions
             a = self.a.to_symbolic(self, out_state)
@@ -891,7 +914,7 @@ class InsnList(list):
 
     def __str__(self):
 
-        return '\n'.join(map(lambda insn: str(insn), self))
+        return '\n'.join(map(lambda insn: insn.to_str(show_asm = True), self)) + '\n'
 
     def get_range(self, first, last = None):
 
@@ -925,12 +948,15 @@ class InsnList(list):
 
         return InsnList(ret)
 
-    def to_symbolic(self, in_state = None):
+    def to_symbolic(self, in_state = None, skip_temp = False):
 
-        out_state = in_state
+        out_state = None if in_state is None else in_state.copy()
 
         # update symbolic state with each instruction
         for insn in self: out_state = insn.to_symbolic(out_state)
+
+        # remove temp registers from output state
+        if skip_temp: out_state.remove_temp_regs()
 
         return out_state
 
@@ -1005,6 +1031,29 @@ class BasicBlock(InsnList):
         self.ir_addr = self.first.ir_addr()
         self.size = self.last.addr + self.last.size - self.ir_addr[0]
 
+    def __str__(self):
+
+        return self.to_str(show_header = True, show_symbolic = True)
+
+    def to_str(self, show_header = True, show_symbolic = False):
+
+        ret = InsnList.__str__(self)
+
+        if show_header:
+
+            ret = '; BB %s : %s\n' % (self.first.ir_addr(), self.last.ir_addr()) + \
+                  '; ' + '-' * 32 + '\n' + ret
+
+        if show_symbolic:
+
+            ret += '; ' + '-' * 32 + '\n'
+
+            for item in str(self.to_symbolic(skip_temp = True)).strip().split('\n'):
+
+                ret += '; %s\n' % item
+
+        return ret
+
     def get_successors(self):
 
         return self.last.next(), self.last.jcc_loc()    
@@ -1045,7 +1094,7 @@ class Func(InsnList):
 
         def __str__(self):        
 
-            return '%x:%d' % (self.addr, self.size)
+            return '0x%x-0x%x' % (self.addr, self.addr + self.size - 1)
 
         def __eq__(self, other):
 
@@ -1063,6 +1112,30 @@ class Func(InsnList):
         self.addr = ir_addr[0] if isinstance(ir_addr, tuple) else ir_addr        
         self.bb_list, self.chunks = [], []
         self.stack_args = None
+
+    def __str__(self):
+
+        return self.to_str(show_header = True, show_chunks = True)
+
+    def to_str(self, show_header = True, show_chunks = False):        
+
+        ret = ''
+
+        if show_header or show_chunks:
+
+            ret += '; sub_%.8x()\n' % self.addr
+
+            if self.stack_args is not None: 
+                  
+                ret += '; Stack args size: 0x%x\n' % self.stack_args
+
+            if show_chunks:
+
+                ret += '; Code chunks: %s\n' % ', '.join(map(lambda c: str(c), self.chunks))
+
+            ret += '; ' + '-' * 32 + '\n'
+
+        return ret + InsnList.__str__(self)
 
     def _add_chunk(self, addr, size):
 
@@ -2252,6 +2325,12 @@ class CodeStorageTranslator(CodeStorage):
         # into it's attributes.
         #
         for insn in ret:
+
+            if Insn_inum(insn) == 0:
+
+                attr = Insn_attr(insn)
+                if attr.has_key(IATTR_ASM): unk_insn.set_attr(IATTR_ASM, attr[IATTR_ASM])
+                if attr.has_key(IATTR_BIN): unk_insn.set_attr(IATTR_BIN, attr[IATTR_BIN])
 
             if Insn_op(insn) == I_UNK:
 

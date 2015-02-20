@@ -315,7 +315,7 @@ void disasm_open(VexArch guest, csh *handle)
     }    
 }
 
-int disasm_insn(VexArch guest, uint8_t *data, string &op_str)
+int disasm_insn(VexArch guest, uint8_t *data, string &mnemonic, string &op)
 {
     int ret = -1;
     
@@ -328,7 +328,8 @@ int disasm_insn(VexArch guest, uint8_t *data, string &op_str)
     if (count > 0) 
     {
         ret = (int)insn[0].size;
-        op_str = string(cs_insn_name(handle, insn[0].id));
+        mnemonic = string(insn[0].mnemonic);
+        op = string(insn[0].op_str);
         cs_free(insn, count);
     } 
     else

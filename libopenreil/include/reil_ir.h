@@ -73,6 +73,10 @@ typedef struct _reil_raw_t
     // pointer to the instruction bytes
     unsigned char *data;
 
+    // instruction mnemonic and operands
+    char *str_mnem;
+    char *str_op;
+
 } reil_raw_t;
 
 typedef struct _reil_inst_t

@@ -79,9 +79,9 @@ class CodeStorageMongo(REIL.CodeStorageMem):
 
                 return ()
 
-            elif arg[0] == REIL.A_CONST:
+            elif REIL.Arg_type(arg) == REIL.A_CONST:
 
-                arg = ( arg[0], arg[1], _U64OUT(arg[2]) )
+                arg = ( REIL.Arg_type(arg), REIL.Arg_size(arg), _U64OUT(REIL.Arg_val(arg)) )
 
             return arg
 
