@@ -228,10 +228,12 @@ class TestAll(unittest.TestCase):
 
     def test(self):
 
-        assert test_8([])
+        test_8([])
 
 
 if __name__ == '__main__':  
+
+    #exit(test_2([]))
 
     unittest.main(verbosity = 2)
 

@@ -440,6 +440,75 @@ class SymState(object):
 
             if isinstance(val, SymVal) and val.is_temp: self.clear(val)
 
+    def slice(self, val_in = None, val_out = None):
+
+        prepare_val = lambda val: SymVal(val) if isinstance(val, basestring) else val
+
+        val_in = [] if val_in is None else val_in
+        val_out = [] if val_out is None else val_out        
+
+        val_in = map(prepare_val, val_in)
+        val_out = map(prepare_val, val_out)
+
+        for val, exp in self:
+
+            if len(val_out) > 0 and not val in val_out: 
+
+                # remove expression of unnecessary output value
+                self.clear(val)
+                continue
+
+            if len(val_in) > 0:
+
+                class ValueFound(Exception): pass
+
+                def _visitor(e):
+
+                    if e in val_in: raise ValueFound()
+
+                try: 
+
+                    exp.parse(_visitor)
+
+                    # Expression is not using given input values, 
+                    # remove it from state.
+                    self.clear(val)
+
+                except ValueFound: pass                
+
+
+class TestSymState(unittest.TestCase):   
+
+    def test_remove_temp_regs(self): 
+
+        sym = Insn(op = I_STR, \
+                   a = Arg(A_REG, U32, 'R_EAX'), \
+                   c = Arg(A_REG, U32, 'R_ECX')).to_symbolic()
+
+        sym = Insn(op = I_ADD, \
+                   a = Arg(A_REG, U32, 'R_EAX'), \
+                   c = Arg(A_TEMP, U32, 'V_01')).to_symbolic(sym)
+
+        sym.remove_temp_regs()  
+        assert sym.items.keys() == [ SymVal('R_ECX') ]      
+
+    def test_slice(self):             
+
+        sym = Insn(op = I_STR, \
+                   a = Arg(A_REG, U32, 'R_EAX'), \
+                   c = Arg(A_REG, U32, 'R_ECX')).to_symbolic()
+
+        sym = Insn(op = I_ADD, \
+                   a = Arg(A_REG, U32, 'R_EBX'), \
+                   b = Arg(A_CONST, U32, val = 1), \
+                   c = Arg(A_REG, U32, 'R_EDX')).to_symbolic(sym)
+
+        sym.slice(val_out = [ 'R_ECX' ])  
+        assert sym.items.keys() == [ SymVal('R_ECX') ]      
+
+        sym.slice(val_in = [ 'R_EBX' ])
+        assert sym.items.keys() == []      
+
 
 class Arg(object):
 
