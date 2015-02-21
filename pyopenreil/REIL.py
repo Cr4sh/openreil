@@ -175,6 +175,10 @@ class SymAny(Sym):
 
         return False
 
+    def __hash__(self):
+
+        return hash(str(self))
+
 
 class SymVal(Sym):
 
@@ -247,6 +251,54 @@ class SymConst(Sym):
     def __hash__(self):
 
         return hash(self.val)
+
+
+class SymIP(Sym):
+
+    def __str__(self):
+
+        return '@IP'
+
+    def __eq__(self, other):
+
+        return type(other) == SymAny or type(other) == SymIP
+
+    def __hash__(self):
+
+        return hash(str(self))
+
+
+class SymCond(Sym):
+
+    def __init__(self, cond, true, false):
+
+        self.cond, self.true, self.false = cond, true, false
+
+    def __str__(self):
+
+        return '(%s) ? %s : %s' % (str(self.cond), \
+               str(self.true), str(self.false))
+
+    def __eq__(self, other):
+
+        if type(other) == SymAny: return True
+        if type(other) != SymCond: return False
+
+        return self.cond == other.cond and \
+               self.true == other.true and \
+               self.false == other.false
+
+    def __hash__(self):
+
+        return hash(self.cond) ^ hash(self.true) ^ hash(self.false)
+
+    def parse(self, visitor):        
+        
+        self.cond = self.cond.parse(visitor)
+        self.true = self.true.parse(visitor)
+        self.false = self.false.parse(visitor)
+
+        return visitor(self)
 
 
 class SymExp(Sym):
@@ -690,7 +742,7 @@ class Insn(object):
         out_state = SymState() if in_state is None else in_state.clone()
 
         # skip instructions that doesn't update output state
-        if not self.op in [ I_JCC, I_NONE, I_UNK ]:
+        if not self.op in [ I_NONE, I_UNK ]:
 
             # convert instruction arguments to symbolic expressions
             a = self.a.to_symbolic(self, out_state)
@@ -703,6 +755,32 @@ class Insn(object):
             # memory read/write
             elif self.op == I_STM: out_state.update_mem_w(c, a, self.a.size)
             elif self.op == I_LDM: out_state.update_mem_r(c, a, self.c.size)            
+
+            # jump
+            elif self.op == I_JCC:
+
+                c = c if self.c.type == A_CONST else out_state[c]
+
+                if self.a.type == A_CONST:
+
+                    # unconditional
+                    if self.a.get_val() != 0: out_state.update(SymIP(), c)
+
+                else:
+
+                    if self.have_attr(IATTR_NEXT):
+
+                        next = self.get_attr(IATTR_NEXT)[0]
+
+                    else:
+
+                        next = self.addr + self.size
+
+                    true, false = c, SymConst(next, U32)
+                    assert true is not None and false is not None
+
+                    # conditional
+                    out_state.update(SymIP(), SymCond(a, true, false))
 
             # other instructions
             else: out_state.update(c, a.to_exp(self.op, b))
@@ -914,7 +992,7 @@ class InsnList(list):
 
     def __str__(self):
 
-        return '\n'.join(map(lambda insn: insn.to_str(show_asm = True), self)) + '\n'
+        return '\n'.join(map(lambda insn: insn.to_str(show_asm = True, show_bin = True), self)) + '\n'
 
     def get_range(self, first, last = None):
 

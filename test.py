@@ -67,9 +67,9 @@ def test_4(argv):
     code += '\xC3'                                  # ret
 
     reader = ReaderRaw(code, addr = ADDR)
-    storage = CodeStorageTranslator('x86', reader)
+    tr = CodeStorageTranslator('x86', reader)
 
-    cfg = CFGraphBuilder(storage).traverse(ADDR + ENTRY)
+    cfg = CFGraphBuilder(tr).traverse(ADDR + ENTRY)
     for node in cfg.nodes.values(): print str(node.item) + '\n'
 
 
@@ -157,13 +157,15 @@ def test_7(argv):
     cpu = Cpu('x86')
     abi = Abi(cpu, tr)
 
-    testval = 5
+    testval = 11
 
     # int fib(int n);
     ret = abi.cdecl(addr, testval)
     cpu.dump()
 
     print '%d number in Fibonacci sequence is %d' % (testval + 1, ret)    
+
+    assert ret == 144
 
 
 def test_8(argv):
@@ -219,7 +221,7 @@ def test_8(argv):
     rc4 = ARC4.new(test_key)
     val_2 = rc4.encrypt(test_val)
 
-    return val_1 == val_2
+    assert val_1 == val_2
 
 
 class TestAll(unittest.TestCase):
@@ -230,8 +232,6 @@ class TestAll(unittest.TestCase):
 
 
 if __name__ == '__main__':  
-
-    #exit(test_2([]))
 
     unittest.main(verbosity = 2)
 
