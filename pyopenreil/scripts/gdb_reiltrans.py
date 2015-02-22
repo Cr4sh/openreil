@@ -7,9 +7,9 @@ class CommandREILTranslate(gdb.Command):
 
     DEF_ARCH = 'x86'
 
-    translate = {  'insn': lambda t, a: t.get_insn(a), \
-                  'block': lambda t, a: t.get_bb(a),   \
-                   'func': lambda t, a: t.get_func(a)  }
+    translate = {  'insn': lambda tr, addr: tr.get_insn(addr), \
+                  'block': lambda tr, addr: tr.get_bb(addr),   \
+                   'func': lambda tr, addr: tr.get_func(addr) }
 
     def __init__(self):
 
@@ -24,23 +24,23 @@ class CommandREILTranslate(gdb.Command):
     def invoke(self, arg, from_tty):
 
         args = arg.split(' ')
+
         if len(arg.strip()) == 0 or len(args) < 2:
 
             return self.usage()
 
-        mode = args[0]
-        addr = int(args[1], 16)        
+        mode, addr = args[0], int(args[1], 16)        
+        arch = self.DEF_ARCH
+        path = None
 
         if not mode in self.translate.keys():
 
-            return self.usage()
-
-        arch = self.DEF_ARCH
-        path = None
+            return self.usage()        
 
         for i in range(2, len(args)):
 
             val = args[i]
+            
             if (val == '-a' or val == '--arch') and len(args) >= i + 1:
 
                 arch = args[i + 1]
@@ -50,26 +50,27 @@ class CommandREILTranslate(gdb.Command):
                 path = args[i + 1]
 
         # initialize OpenREIL stuff        
-        storage = CodeStorageMem(arch)
         reader = GDB.Reader(gdb.selected_inferior())
-        translator = CodeStorageTranslator(arch, reader, storage)        
+        tr = CodeStorageTranslator(arch, reader)
 
         # translate function and enumerate it's basic blocks
-        insn_list = self.translate[mode](translator, addr)
+        insn_list = self.translate[mode](tr, addr)
         
         if path is not None: 
 
             # save serialized function IR
-            storage.to_file(path)
+            tr.storage.to_file(path)
 
             print '%d instructions saved to %s' % (len(insn_list), path)
 
         else:
 
             # print translated instructions
-            for insn in insn_list: print str(insn)
+            print insn_list
 
-        
 
 CommandREILTranslate()
 
+#
+# EoF
+#

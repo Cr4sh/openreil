@@ -1,11 +1,10 @@
 import sys, os, unittest
 
-from pyopenreil.utils import bin_PE, bin_BFD
-from pyopenreil.utils import asm
-
-from pyopenreil.VM import *
 from pyopenreil.REIL import *
+from pyopenreil.VM import *
+
 from pyopenreil.arch import x86
+from pyopenreil.utils import asm
 
 ADDR = 0x1337L
 ENTRY = 0        
@@ -23,6 +22,8 @@ def test_0(argv):
 def test_1(argv):
     ''' BFD reader test '''
 
+    from pyopenreil.utils import bin_PE
+
     addr = 0x08048434
     reader = bin_BFD.Reader(os.getenv('HOME') + '/data/_tests/fib/fib')
     tr = CodeStorageTranslator('x86', reader)
@@ -32,6 +33,8 @@ def test_1(argv):
 
 def test_2(argv):
     ''' bb/func translation test '''
+
+    from pyopenreil.utils import bin_BFD
     
     addr = 0x004016B0
     reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
@@ -44,7 +47,9 @@ def test_2(argv):
 def test_3(argv):
     ''' mongodb storage test '''
 
+    from pyopenreil.utils import bin_PE
     from pyopenreil.utils import mongodb
+
     storage = mongodb.CodeStorageMongo('x86', 'test_fib') 
     storage.clear()
 
@@ -127,9 +132,7 @@ def test_6(argv):
 def test_7(argv):
     ''' execution of fib testcase '''
 
-    from pyopenreil.utils import mongodb
-    storage = mongodb.CodeStorageMongo('x86', 'test_fib')        
-    storage.clear()
+    from pyopenreil.utils import bin_PE
     
     addr = 0x004016B0
     reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
@@ -170,6 +173,8 @@ def test_7(argv):
 
 def test_8(argv):
     ''' execution of rc4 testcase '''
+
+    from pyopenreil.utils import bin_PE
     
     # rc4.exe VA's of the rc4_set_key() and rc4_crypt()
     rc4_set_key = 0x004016D5
@@ -232,8 +237,6 @@ class TestAll(unittest.TestCase):
 
 
 if __name__ == '__main__':  
-
-    #exit(test_2([]))
 
     unittest.main(verbosity = 2)
 
