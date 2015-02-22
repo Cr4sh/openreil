@@ -19,15 +19,15 @@ def main(argv):
 
         return usage(argv)
 
-    mode, addr = argv[0], int(argv[1], 16)        
+    mode, addr = argv[1], int(argv[2], 16)        
     arch = DEF_ARCH
     path = None
 
-    if not mode in self.translate.keys():
+    if not mode in translate.keys():
 
         return usage(argv)    
 
-    for val in range(2, len(argv)):
+    for val in range(3, len(argv)):
 
         val = argv[i]
 
