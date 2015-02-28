@@ -327,7 +327,7 @@ class Cpu(object):
 
         self.mem.reader = None if storage is None else storage.reader
 
-    def reset(self, regs = None):
+    def reset(self, regs = None, mem = None):
 
         if regs is not None:
 
@@ -335,6 +335,10 @@ class Cpu(object):
             for name, val in regs.items(): self.reg(name, val = val)
 
         else: self.regs = {}
+
+        if mem is not None:
+
+            self.mem = mem
 
     def reset_temp(self):
 
@@ -378,9 +382,9 @@ class Cpu(object):
 
             return None
 
-    def evaluate(self, op, res_size, a, b):
+    def evaluate(self, op, size, a, b):
 
-        return Arg(A_CONST, res_size, val = self.math.eval(op, a, b))
+        return Arg(A_CONST, size, val = self.math.eval(op, a, b))
 
     def insn_none(self, insn, a, b, c):
 
@@ -409,25 +413,39 @@ class Cpu(object):
         self.reg(insn.c.name).val = self.evaluate(insn.op, insn.c.size, a, b).get_val()        
         return None
 
-    def execute(self, insn):        
+    def execute(self, insn):
 
         # get arguments values
         a, b, c = self.arg(insn.a), self.arg(insn.b), self.arg(insn.c)
-
-        # call opcode-specific handlers
-        _e = lambda handler: handler(insn, a, b, c)
         
-        if insn.op == I_NONE: return _e(self.insn_none)
-        elif insn.op == I_JCC: return _e(self.insn_jcc)
-        elif insn.op == I_STM: return _e(self.insn_stm)
-        elif insn.op == I_LDM: return _e(self.insn_ldm)
-        elif insn.op < len(REIL_INSN): return _e(self.insn_other)
-        else:
+        if not insn.op in REIL_INSN:
 
             # invalid opcode
             raise CpuInstructionError(insn.addr, insn.inum)
-        
-        return None    
+
+        try:
+            
+            return {
+
+                I_NONE: self.insn_none,
+                 I_JCC: self.insn_jcc,
+                 I_STM: self.insn_stm,
+                 I_LDM: self.insn_ldm
+
+            # call opcode-specific handler
+            }[insn.op](insn, a, b, c)
+
+        except KeyError:
+
+            return self.insn_other(insn, a, b, c)
+
+    def get_ip(self):
+
+        return self.reg(self.arch.Registers.ip).get_val()
+
+    def set_ip(self, val):
+
+        self.reg(self.arch.Registers.ip).val = val
 
     def run(self, storage, addr = 0L):
 
@@ -435,6 +453,7 @@ class Cpu(object):
 
         # use specified storage instance
         self.set_storage(storage)        
+        self.set_ip(next)
 
         while True:
             
@@ -450,16 +469,13 @@ class Cpu(object):
             for insn in insn_list:
 
                 # execute single instruction
-                ret = self.execute(insn)
-                if ret is not None: 
+                next = self.execute(insn)
 
-                    # JCC was taken
-                    next = ret
-                    break
+                # check if JCC was taken
+                if next is not None: break
+                else: next, _ = insn.next()
 
-                else:
-
-                    next, _ = insn.next()
+                self.set_ip(next)
 
             # remove temp registers
             self.reset_temp()

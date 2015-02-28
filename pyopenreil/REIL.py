@@ -383,44 +383,69 @@ class SymState(object):
     def __init__(self, other = None):
 
         if other is None: self.clear()
-        else: self.items = other.items.copy()
+        else: self.state = [] + other.state
 
-    def __getitem__(self, val):
+    def __getitem__(self, target_val):
 
-        return self.items[val]
+        try:
+
+            # get expression by value name
+            return next(exp for val, exp in self.state if val == target_val)
+
+        except StopIteration:
+
+            raise KeyError()
 
     def __setitem__(self, val, exp):
 
-        self.items[val] = exp
+        for i in range(len(self.state)):
+
+            current_val, current_exp = self.state[i]
+            if current_val == val:
+
+                self.state[i] = ( val, exp )
+                return
+
+        self.state.append(( val, exp ))
 
     def __iter__(self):
 
-        for val, exp in self.items.items(): yield val, exp
+        for val, exp in self.state: yield val, exp
 
     def __str__(self):
 
-        return '\n'.join(map(lambda item: '%s = %s' % item, self.items.items()))
+        return '\n'.join(map(lambda item: '%s = %s' % item, self.state))
 
     def clear(self, val = None):
 
         if val is not None:
 
-            # remove single variable from state
-            if self.items.has_key(val): self.items.pop(val)
+            for i in range(len(self.state)):
+
+                current_val, current_exp = self.state[i]
+                if current_val == val:
+
+                    # remove single variable from state
+                    self.state.pop(i)
+                    return
 
         else:
 
             # clear state
-            self.items = {}
+            self.state = []
 
     def query(self, val):
 
-        try: return self.items[val]
+        try: return self[val]
         except KeyError: return val    
+
+    def list_vals(self):
+
+        return [ val for val, _ in self.state ]
 
     def update(self, val, exp):
 
-        self.items[val] = exp
+        self[val] = exp
 
     def update_mem_r(self, val, exp, size):
 
@@ -436,9 +461,11 @@ class SymState(object):
 
     def remove_temp_regs(self):
 
-        for val, exp in self:
+        for val in self.list_vals():
 
-            if isinstance(val, SymVal) and val.is_temp: self.clear(val)
+            if isinstance(val, SymVal) and val.is_temp: 
+
+                self.clear(val)
 
     def slice(self, val_in = None, val_out = None):
 
@@ -490,7 +517,7 @@ class TestSymState(unittest.TestCase):
                    c = Arg(A_TEMP, U32, 'V_01')).to_symbolic(sym)
 
         sym.remove_temp_regs()  
-        assert sym.items.keys() == [ SymVal('R_ECX') ]      
+        assert sym.list_vals() == [ SymVal('R_ECX') ]      
 
     def test_slice(self):             
 
@@ -504,10 +531,10 @@ class TestSymState(unittest.TestCase):
                    c = Arg(A_REG, U32, 'R_EDX')).to_symbolic(sym)
 
         sym.slice(val_out = [ 'R_ECX' ])  
-        assert sym.items.keys() == [ SymVal('R_ECX') ]      
+        assert sym.list_vals() == [ SymVal('R_ECX') ]      
 
         sym.slice(val_in = [ 'R_EBX' ])
-        assert sym.items.keys() == []      
+        assert sym.list_vals() == []      
 
 
 class Arg(object):

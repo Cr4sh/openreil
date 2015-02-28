@@ -22,7 +22,7 @@ def test_0(argv):
 def test_1(argv):
     ''' BFD reader test '''
 
-    from pyopenreil.utils import bin_PE
+    from pyopenreil.utils import bin_BFD
 
     addr = 0x08048434
     reader = bin_BFD.Reader(os.getenv('HOME') + '/data/_tests/fib/fib')
@@ -34,7 +34,7 @@ def test_1(argv):
 def test_2(argv):
     ''' bb/func translation test '''
 
-    from pyopenreil.utils import bin_BFD
+    from pyopenreil.utils import bin_PE
     
     addr = 0x004016B0
     reader = bin_PE.Reader(os.getenv('HOME') + '/data/_tests/fib/fib.exe')
@@ -237,6 +237,9 @@ class TestAll(unittest.TestCase):
 
 
 if __name__ == '__main__':  
+
+    #test_2([])
+    #exit()
 
     unittest.main(verbosity = 2)
 
