@@ -115,7 +115,7 @@ def test_6(argv):
              'mov eax, dword [%Xh]' % ADDR, 
              'ret' )
 
-    reader = asm.Reader('x86', ADDR, code)
+    reader = asm.Reader('x86', code, ADDR)
     tr = CodeStorageTranslator('x86', reader)
 
     print tr.get_insn(ADDR + ENTRY)

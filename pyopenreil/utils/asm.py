@@ -34,7 +34,7 @@ class Compiler(object):
 
     def compile_file(self, path):
         
-        code = os.system('"%s" "%s" -o "%s"' % \
+        code = os.system('%s %s -o %s' % \
                (self.nasm_path, path, self.prog_dst))        
 
         if code != 0: raise Exception('nasm error %d' % code)
