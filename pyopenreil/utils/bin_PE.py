@@ -1,3 +1,8 @@
+import sys, os, unittest
+
+file_dir = os.path.abspath(os.path.dirname(__file__))
+test_dir = os.path.abspath(os.path.join(file_dir, '..', '..', 'tests'))
+
 from pyopenreil import REIL
 import pefile
 
@@ -28,6 +33,19 @@ class Reader(REIL.Reader):
     def read_insn(self, addr): 
 
         return self.read(addr, MAX_INST_LEN)
+
+
+class TestPE(unittest.TestCase):
+
+    BIN_PATH = os.path.join(test_dir, 'fib.exe')
+    PROC_ADDR = 0x004016B0 
+
+    def test_reader(self): 
+
+        reader = Reader(self.BIN_PATH)
+        tr = REIL.CodeStorageTranslator('x86', reader)
+
+        print tr.get_func(self.PROC_ADDR)
 
 #
 # EoF

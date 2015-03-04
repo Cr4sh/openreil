@@ -1,6 +1,6 @@
 import sys, os, unittest
 
-file_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
+file_dir = os.path.abspath(os.path.dirname(__file__))
 reil_dir = os.path.abspath(os.path.join(file_dir, '..'))
 if not reil_dir in sys.path: sys.path.append(reil_dir)
 
@@ -11,14 +11,14 @@ from pyopenreil.utils import bin_PE
 class TestFib(unittest.TestCase):
 
     BIN_PATH = os.path.join(file_dir, 'fib.exe')
+    PROC_ADDR = 0x004016B0
 
     def test(self):        
     
-        addr = 0x004016B0
         reader = bin_PE.Reader(self.BIN_PATH)
         tr = CodeStorageTranslator('x86', reader)
 
-        dfg = DFGraphBuilder(tr).traverse(addr)  
+        dfg = DFGraphBuilder(tr).traverse(self.PROC_ADDR)  
         insn_before = tr.size()
 
         dfg.eliminate_dead_code()
@@ -38,7 +38,7 @@ class TestFib(unittest.TestCase):
         testval = 11
 
         # int fib(int n);
-        ret = abi.cdecl(addr, testval)
+        ret = abi.cdecl(self.PROC_ADDR, testval)
         cpu.dump()
 
         print '%d number in Fibonacci sequence is %d' % (testval + 1, ret)    

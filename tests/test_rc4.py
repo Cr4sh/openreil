@@ -1,6 +1,6 @@
 import sys, os, unittest
 
-file_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
+file_dir = os.path.abspath(os.path.dirname(__file__))
 reil_dir = os.path.abspath(os.path.join(file_dir, '..'))
 if not reil_dir in sys.path: sys.path.append(reil_dir)
 
@@ -12,11 +12,11 @@ class TestRC4(unittest.TestCase):
 
     BIN_PATH = os.path.join(file_dir, 'rc4.exe')
 
+    # VA's of the test rc4.exe procedures
+    RC4_SET_KEY = 0x004016D5 
+    RC4_CRYPT = 0x004017B5
+
     def test(self):        
-    
-        # rc4.exe VA's of the rc4_set_key() and rc4_crypt() functions
-        rc4_set_key = 0x004016D5
-        rc4_crypt = 0x004017B5
 
         # test input data for RC4 encryption
         test_key = 'somekey'
@@ -38,8 +38,8 @@ class TestRC4(unittest.TestCase):
             # store resulting instructions
             dfg.store(tr.storage)  
 
-        code_optimization(rc4_set_key)
-        code_optimization(rc4_crypt)
+        code_optimization(self.RC4_SET_KEY)
+        code_optimization(self.RC4_CRYPT)
 
         # create CPU and ABI
         cpu = Cpu('x86')
@@ -50,10 +50,10 @@ class TestRC4(unittest.TestCase):
         val = abi.buff(test_val)
 
         # emulate rc4_set_key() function call
-        abi.cdecl(rc4_set_key, ctx, test_key, len(test_key))
+        abi.cdecl(self.RC4_SET_KEY, ctx, test_key, len(test_key))
 
         # emulate rc4_crypt() function call
-        abi.cdecl(rc4_crypt, ctx, val, len(test_val))
+        abi.cdecl(self.RC4_CRYPT, ctx, val, len(test_val))
         
         # read results of RC4 encryption
         val_1 = abi.read(val, len(test_val))

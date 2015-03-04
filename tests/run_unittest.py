@@ -10,15 +10,25 @@ from pyopenreil.VM import *
 
 try:
 
-    # check for pefile module (required for loading test binaries)
+    # check for pefile module (required for loading test PE binaries)
     import pefile
 
+    # load unit tests that depends on pefile
+    from pyopenreil.utils.bin_PE import *
     from test_fib import *
     from test_rc4 import *
     
-except ImportError, why:
+except ImportError, why: print '[!]', str(why)
 
-    print '[!]', str(why)
+try:
+
+    # check for BFD python module (required for loading ELF binaries)
+    import pybfd
+
+    # load unit tests that depends on pybfd
+    from pyopenreil.utils.bin_BFD import *
+
+except ImportError, why: print '[!]', str(why)
 
 def check_nasm():
 
