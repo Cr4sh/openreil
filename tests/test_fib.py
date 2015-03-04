@@ -6,8 +6,6 @@ if not reil_dir in sys.path: sys.path.append(reil_dir)
 
 from pyopenreil.REIL import *
 from pyopenreil.VM import *
-
-from pyopenreil.arch import x86
 from pyopenreil.utils import bin_PE
 
 class TestFib(unittest.TestCase):

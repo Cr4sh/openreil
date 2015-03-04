@@ -5,8 +5,8 @@ AM_CFLAGS = -I@VEX_DIR@/pub -I@DISASM_INC@ -I../include -fPIC -DGET_OPERANDS
 AM_CXXFLAGS = $(AM_CFLAGS)
 
 libasmir_a_SOURCES = \
-    ./old_ir/stmt.cpp \
-    ./old_ir/exp.cpp \
+    stmt.cpp \
+    exp.cpp \
     disasm-@DISASM_NAME@.cpp \
     irtoir.cpp \
     irtoir-i386.cpp \

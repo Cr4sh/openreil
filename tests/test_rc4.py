@@ -6,8 +6,6 @@ if not reil_dir in sys.path: sys.path.append(reil_dir)
 
 from pyopenreil.REIL import *
 from pyopenreil.VM import *
-
-from pyopenreil.arch import x86
 from pyopenreil.utils import bin_PE
 
 class TestRC4(unittest.TestCase):
@@ -16,15 +14,15 @@ class TestRC4(unittest.TestCase):
 
     def test(self):        
     
-        # rc4.exe VA's of the rc4_set_key() and rc4_crypt()
+        # rc4.exe VA's of the rc4_set_key() and rc4_crypt() functions
         rc4_set_key = 0x004016D5
         rc4_crypt = 0x004017B5
 
-        # test input data for encryption
+        # test input data for RC4 encryption
         test_key = 'somekey'
         test_val = 'bar'
 
-        # load PE image
+        # load PE image of test program
         reader = bin_PE.Reader(self.BIN_PATH)
         tr = CodeStorageTranslator('x86', reader)
 
@@ -33,7 +31,7 @@ class TestRC4(unittest.TestCase):
             # construct dataflow graph for given function
             dfg = DFGraphBuilder(tr).traverse(addr)
             
-            # run some basic IR optimizations
+            # run some basic dataflow optimizations
             dfg.eliminate_dead_code()
             dfg.constant_folding()        
 
@@ -47,17 +45,17 @@ class TestRC4(unittest.TestCase):
         cpu = Cpu('x86')
         abi = Abi(cpu, tr)
 
-        # allocate arguments for IR calls
+        # allocate buffers for arguments of emulated functions
         ctx = abi.buff(256 + 4 * 2)
         val = abi.buff(test_val)
 
-        # set RC4 key
+        # emulate rc4_set_key() function call
         abi.cdecl(rc4_set_key, ctx, test_key, len(test_key))
 
-        # encryption
+        # emulate rc4_crypt() function call
         abi.cdecl(rc4_crypt, ctx, val, len(test_val))
         
-        # read result
+        # read results of RC4 encryption
         val_1 = abi.read(val, len(test_val))
         print 'Encrypted value:', repr(val_1)
 
