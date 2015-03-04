@@ -537,18 +537,44 @@ class TestCpu(unittest.TestCase):
         cpu.reg('ecx').val = 1
         cpu.reg('edx').val = 2
 
-        try:
-
-            # run untill ret
-            cpu.run(tr, addr)
-
+        # run untill ret
+        try: cpu.run(tr, addr)
         except MemReadError as e: 
 
             # exception on accessing to the stack
             if e.addr != stack: raise
 
         # check for correct return value
-        cpu.reg('eax').val == 3
+        assert cpu.reg('eax').val == 3
+
+    def test_code_read(self):
+
+        addr, stack = 0x41414141, 0x42424242
+    
+        # test code that reads itself
+        code = ( 'nop', 'nop', 
+                 'nop', 'nop', 
+                 'mov eax, dword [%Xh]' % addr, 
+                 'ret' )
+
+        # create reader and translator
+        from pyopenreil.utils import asm
+        tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code, addr = addr))
+
+        cpu = Cpu('x86')
+
+        # set up stack pointer
+        cpu.reg('esp').val = stack
+        
+        # run untill ret
+        try: cpu.run(tr, addr)
+        except MemReadError as e: 
+
+            # exception on accessing to the stack
+            if e.addr != stack: raise
+
+        # check for correct return value
+        assert cpu.reg('eax').val == 0x90909090
 
 
 class Stack(object):

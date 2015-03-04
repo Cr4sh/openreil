@@ -2,9 +2,9 @@ import sys, os, time
 
 from pyopenreil import REIL
 
-class Compiler(object):
+NASM_PATH = 'nasm'
 
-    NASM_PATH = 'nasm'
+class Compiler(object):    
 
     def __init__(self, arch = None, path = None):
 
@@ -14,7 +14,7 @@ class Compiler(object):
         self.prog_dst = temp_name('bin')
 
         self.bits = 32 if arch is None else self.get_bits(arch)
-        self.nasm_path = self.NASM_PATH if path is None else path  
+        self.nasm_path = NASM_PATH if path is None else path  
 
     def get_bits(self, arch):
 
