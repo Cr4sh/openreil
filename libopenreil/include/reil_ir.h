@@ -50,9 +50,9 @@ typedef enum _reil_type_t
 
 } reil_type_t;
 
-typedef uint64_t reil_const_t;
-typedef uint64_t reil_addr_t;
-typedef uint16_t reil_inum_t;
+typedef unsigned long long reil_const_t;
+typedef unsigned long long reil_addr_t;
+typedef unsigned short reil_inum_t;
 
 typedef enum _reil_size_t { U1, U8, U16, U32, U64 } reil_size_t;
 
@@ -83,10 +83,10 @@ typedef struct _reil_inst_t
 {
     reil_raw_t raw_info;    
 
-    reil_inum_t inum;   // number of the IR subinstruction
-    reil_op_t op;       // operation code
-    reil_arg_t a, b, c; // arguments
-    uint64_t flags;     // options
+    reil_inum_t inum;           // IR instruction number
+    reil_op_t op;               // opcode
+    reil_arg_t a, b, c;         // arguments
+    unsigned long long flags;   // optional instruction information flags
 
 } reil_inst_t;
 

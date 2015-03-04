@@ -79,7 +79,7 @@ string to_string_inst_code(reil_op_t inst_code)
     return string(reil_inst_name[inst_code]);
 }
 
-void reil_inst_print(reil_inst_t *inst)
+extern "C" void reil_inst_print(reil_inst_t *inst)
 {
     printf("%.8llx.%.2x ", inst->raw_info.addr, inst->inum);  
     printf("%7s ", to_string_inst_code(inst->op).c_str());
@@ -89,7 +89,7 @@ void reil_inst_print(reil_inst_t *inst)
     printf("\n");
 }
 
-reil_t reil_init(reil_arch_t arch, reil_inst_handler_t handler, void *context)
+extern "C" reil_t reil_init(reil_arch_t arch, reil_inst_handler_t handler, void *context)
 {
     VexArch guest;
 
@@ -110,7 +110,7 @@ reil_t reil_init(reil_arch_t arch, reil_inst_handler_t handler, void *context)
     return c;
 }
 
-void reil_close(reil_t reil)
+extern "C" void reil_close(reil_t reil)
 {
     reil_context *c = (reil_context *)reil;
     assert(c);
@@ -129,7 +129,7 @@ int reil_translate_report_error(reil_addr_t addr, const char *reason)
     return REIL_ERROR;
 }
 
-int reil_translate_insn(reil_t reil, reil_addr_t addr, unsigned char *buff, int len)
+extern "C" int reil_translate_insn(reil_t reil, reil_addr_t addr, unsigned char *buff, int len)
 {
     int inst_len = 0;
     reil_context *c = (reil_context *)reil;
@@ -154,7 +154,7 @@ int reil_translate_insn(reil_t reil, reil_addr_t addr, unsigned char *buff, int 
     return inst_len;
 }
 
-int reil_translate(reil_t reil, reil_addr_t addr, unsigned char *buff, int len)
+extern "C" int reil_translate(reil_t reil, reil_addr_t addr, unsigned char *buff, int len)
 {
     int p = 0, translated = 0;    
 
