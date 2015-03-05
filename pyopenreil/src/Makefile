@@ -4,13 +4,11 @@ PYTHON := python
 PYVERSION := $(shell $(PYTHON) -c "import sys; print(sys.version[ : 3])")
 PYEXT := $(shell $(PYTHON) -c "import sys; print 'pyd' if sys.platform == 'win32' else 'so'")
 
-include makefile.inc
-
 # get python libraries and headers directories
 INCDIR := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_python_inc())")
 PLATINCDIR := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_python_inc(plat_specific = True))")
 
-../translator.$(PYEXT): translator.o ../../libopenreil/src/libopenreil.a ../../libasmir/src/libasmir.a $(LDADD)
+../translator.$(PYEXT): translator.o ../../libopenreil/src/libopenreil.a
 	$(CXX) -pthread -shared -o $@ $^ -lpython$(PYVERSION)
 
 translator.o: translator.cpp translator.pyx libopenreil.pxd

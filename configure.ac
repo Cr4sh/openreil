@@ -61,9 +61,6 @@ AC_SUBST(VEX_DIR)
 VEX_DIR=`pwd`/'VEX'
 VEX_VERSION=2201
 
-AC_SUBST(LDADD)
-LDADD="${VEX_DIR}/libvex.a ${CAPSTONE_DIR}/libcapstone.a" 
-
 AC_SUBST(INCDIRS)
 
 rm -f libasmir/makefile.inc
@@ -80,9 +77,6 @@ BAP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 AC_SUBST(OPENREIL_DIR)
 OPENREIL_DIR="`pwd`/libopenreil"
-
-rm -f pyopenreil/src/makefile.inc
-echo "LDADD=${LDADD}" >> pyopenreil/src/makefile.inc
 
 # Checks for header files.
 AC_HEADER_STDC

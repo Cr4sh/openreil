@@ -78,6 +78,6 @@ cdef extern from "libopenreil.h":
     ctypedef _reil_inst_t reil_inst_t
     ctypedef _reil_arch_t reil_arch_t
 
-    extern 'C' int reil_translate_insn(reil_t reil, reil_addr_t addr, unsigned char *buff, int len)
-    extern 'C' reil_t reil_init(reil_arch_t arch, reil_inst_handler_t handler, void *context)
-    extern 'C' void reil_close(reil_t reil)    
+    int reil_translate_insn(reil_t reil, reil_addr_t addr, unsigned char *buff, int len)
+    reil_t reil_init(reil_arch_t arch, reil_inst_handler_t handler, void *context)
+    void reil_close(reil_t reil)    
