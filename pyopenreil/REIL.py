@@ -224,8 +224,29 @@ class Insn(object):
 
         if show_asm:
 
-            ret += ('; asm: %s %s' % self.get_attr(IATTR_ASM)).strip() + '\n'
-            if not show_bin: ret += '; len: %d\n' % self.size
+            ret += ('; asm: %s %s' % self.get_attr(IATTR_ASM)).strip()
+
+            if self.op == I_UNK:
+
+                # print source and destination register arguments for unknown instruction
+                src = self.get_attr(IATTR_SRC) if self.have_attr(IATTR_SRC) else []
+                dst = self.get_attr(IATTR_DST) if self.have_attr(IATTR_DST) else []
+
+                if len(src) > 0 or len(dst) > 0:
+
+                    info = []
+                    to_str = lambda arg: Arg_name(arg)
+
+                    if len(src) > 0: info.append('reads: ' + ', '.join(map(to_str, src)))
+                    if len(dst) > 0: info.append('writes: ' + ', '.join(map(to_str, dst)))
+
+                    ret += ' -- %s' % '; '.join(info)
+
+            ret += '\n'
+
+            if not show_bin: 
+
+                ret += '; len: %d\n' % self.size
 
         if show_bin:
 
@@ -2137,6 +2158,22 @@ class TestCodeStorageTranslator(unittest.TestCase):
         from pyopenreil.utils import asm
         self.tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code))
 
+    def test_unknown_insn_x86(self):
+
+        # test machine code
+        code  = '\xCC\x90\xF4'                          # int 3, nop, hlt
+        code += '\x0F\x32\x0F\x30'                      # rdmsr, wrmsr
+        code += '\x0F\x01\x08\x0F\x01\x00\x0F\x00\x00'  # sidt, sgdt, sldt
+        code += '\x0F\x01\x10\x0F\x01\x18\x0F\x00\x10'  # lidt, lgdt, lldt
+        code += '\x0F\x31'                              # rdtsc
+        code += '\x0F\xA2'                              # cupid
+        code += '\xC3'                                  # ret
+
+        reader = ReaderRaw(code)
+        self.tr = CodeStorageTranslator('x86', reader)
+
+        print '\n', self.tr.get_func(0)  
+
     def test_get_insn(self):
 
         print '\n', self.tr.get_insn(0)
@@ -2147,7 +2184,7 @@ class TestCodeStorageTranslator(unittest.TestCase):
 
     def test_get_func(self):
 
-        print '\n', self.tr.get_func(0)
+        print '\n', self.tr.get_func(0)    
 
  
 if __name__ == '__main__':
