@@ -334,7 +334,7 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
         // enumerate expressions that sets EFLAGS value        
         for (it = set_eflags_stmt.begin(); it != set_eflags_stmt.end(); ++it)
         {
-            process_bil(NULL, 0, *it);
+            process_bil_stmt(*it, 0);
         }
 
         skip_eflags = false;
@@ -962,13 +962,8 @@ void CReilFromBilTranslator::check_cjmp_false_target(Exp *target)
     }
 }
 
-void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, uint64_t inst_flags, Stmt *s)
+void CReilFromBilTranslator::process_bil_stmt(Stmt *s, uint64_t inst_flags)
 {
-    if (raw_info)
-    {
-        current_raw_info = raw_info;
-    }
-
     switch (s->stmt_type)
     {
     case LABEL:
@@ -1121,27 +1116,27 @@ bool CReilFromBilTranslator::is_unknown_insn(bap_block_t *block)
     return false;
 }
 
-void CReilFromBilTranslator::process_empty_insn(reil_raw_t *raw_info)
+void CReilFromBilTranslator::process_empty_insn(void)
 {
     reil_inst_t reil_inst;
     memset(&reil_inst, 0, sizeof(reil_inst));                
 
     reil_inst.op = I_NONE;
-    reil_inst.raw_info.addr = raw_info->addr;
-    reil_inst.raw_info.size = raw_info->size;
+    reil_inst.raw_info.addr = current_raw_info->addr;
+    reil_inst.raw_info.size = current_raw_info->size;
 
     reil_inst.flags = IOPT_ASM_END;
     process_reil_inst(&reil_inst);
 }
 
-void CReilFromBilTranslator::process_unknown_insn(reil_raw_t *raw_info)
+void CReilFromBilTranslator::process_unknown_insn(void)
 {  
     vector<Temp *>::iterator it;
     vector<Temp *> arg_src, arg_dst, arg_all;    
 
     // get instruction arguments
-    disasm_arg_src(guest, raw_info->data, arg_src);
-    disasm_arg_dst(guest, raw_info->data, arg_dst);   
+    disasm_arg_src(guest, current_raw_info->data, arg_src);
+    disasm_arg_dst(guest, current_raw_info->data, arg_dst);   
 
     if (arg_src.size() > 0)
     {
@@ -1197,8 +1192,8 @@ void CReilFromBilTranslator::process_unknown_insn(reil_raw_t *raw_info)
     memset(&reil_inst, 0, sizeof(reil_inst));                
 
     reil_inst.op = I_UNK;
-    reil_inst.raw_info.addr = raw_info->addr;
-    reil_inst.raw_info.size = raw_info->size;
+    reil_inst.raw_info.addr = current_raw_info->addr;
+    reil_inst.raw_info.size = current_raw_info->size;
 
     if (arg_all.size() == 0)
     {
@@ -1232,8 +1227,13 @@ void CReilFromBilTranslator::process_unknown_insn(reil_raw_t *raw_info)
         }
 
         reil_inst.inum += 1;
+    }   
+
+    for (it = arg_all.begin(); it != arg_all.end(); ++it)
+    {
+        Temp *temp = *it;        
         delete temp;
-    }    
+    }
 }
 
 bool CReilFromBilTranslator::get_bil_label(string name, reil_addr_t *addr)
@@ -1343,12 +1343,17 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
 
     reset_state(block);
 
+    if (raw_info)
+    {
+        current_raw_info = raw_info;
+    }
+
     if (is_unknown_insn(block))
     {
         fprintf(stderr, "WARNING: 0x%llx was not translated\n", raw_info->addr);
 
         // add metainformation about unknown instruction into the code
-        process_unknown_insn(raw_info);
+        process_unknown_insn();
 
         goto _end;
     }
@@ -1394,13 +1399,13 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
 #endif     
 
         // convert statement to REIL code
-        process_bil(raw_info, inst_flags, s);
+        process_bil_stmt(s, inst_flags);
     }
 
     if (inst_count == 0)
     {
         // add I_NONE
-        process_empty_insn(raw_info);
+        process_empty_insn();
     }
 
 _end:

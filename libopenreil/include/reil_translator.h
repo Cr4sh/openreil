@@ -28,7 +28,7 @@ public:
 
     void reset_state(bap_block_t *block);    
 
-    void process_bil(reil_raw_t *raw_info, uint64_t inst_flags, Stmt *s);
+    void process_bil_stmt(Stmt *s, uint64_t inst_flags);
     void process_bil(reil_raw_t *raw_info, bap_block_t *block);
 
 private:        
@@ -46,8 +46,8 @@ private:
     Exp *temp_operand(reg_t typ, reil_inum_t inum);
 
     bool is_unknown_insn(bap_block_t *block);
-    void process_unknown_insn(reil_raw_t *raw_info);
-    void process_empty_insn(reil_raw_t *raw_info);
+    void process_unknown_insn(void);
+    void process_empty_insn(void);
 
     void process_reil_inst(reil_inst_t *reil_inst);
 

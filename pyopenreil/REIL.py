@@ -2160,19 +2160,88 @@ class TestCodeStorageTranslator(unittest.TestCase):
 
     def test_unknown_insn_x86(self):
 
-        # test machine code
-        code  = '\xCC\x90\xF4'                          # int 3, nop, hlt
-        code += '\x0F\x32\x0F\x30'                      # rdmsr, wrmsr
-        code += '\x0F\x01\x08\x0F\x01\x00\x0F\x00\x00'  # sidt, sgdt, sldt
-        code += '\x0F\x01\x10\x0F\x01\x18\x0F\x00\x10'  # lidt, lgdt, lldt
-        code += '\x0F\x31'                              # rdtsc
-        code += '\x0F\xA2'                              # cupid
-        code += '\xC3'                                  # ret
+        from pyopenreil.utils import asm
 
-        reader = ReaderRaw(code)
-        self.tr = CodeStorageTranslator('x86', reader)
+        def _translate(code):
 
-        print '\n', self.tr.get_func(0)  
+            tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code))
+            insn = tr.get_insn(0)
+
+            # check for single IR instruction
+            assert len(insn) == 1
+            return insn[0]
+
+        def _check_args(args, names):
+
+            if len(args) != len(names): return False
+
+            for arg in args:
+
+                if not Arg_name(arg) in names: return False
+
+            return True
+
+        insn = _translate(( 'int 3' ))        
+        assert insn.op == I_UNK
+        assert not insn.have_attr(IATTR_SRC) and not insn.have_attr(IATTR_DST)
+
+        insn = _translate(( 'hlt' ))        
+        assert insn.op == I_UNK
+        assert not insn.have_attr(IATTR_SRC) and not insn.have_attr(IATTR_DST)
+            
+        insn = _translate(( 'nop' ))
+        assert insn.op == I_NONE
+        assert not insn.have_attr(IATTR_SRC) and not insn.have_attr(IATTR_DST)
+
+        insn = _translate(( 'rdmsr' ))
+        assert insn.op == I_UNK
+        assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX' ])
+        assert _check_args(insn.get_attr(IATTR_DST), [ 'R_EAX', 'R_EDX' ])
+        
+        insn = _translate(( 'wrmsr' ))
+        assert insn.op == I_UNK
+        assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX', 'R_EAX', 'R_EDX' ])
+        assert not insn.have_attr(IATTR_DST)
+
+        insn = _translate(( 'rdtsc' ))        
+        assert insn.op == I_UNK
+        assert _check_args(insn.get_attr(IATTR_DST), [ 'R_EAX', 'R_EDX' ])
+        assert not insn.have_attr(IATTR_SRC)
+
+        insn = _translate(( 'cpuid' ))
+        assert insn.op == I_UNK
+        assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_EAX', 'R_ECX' ])
+        assert _check_args(insn.get_attr(IATTR_DST), [ 'R_EAX', 'R_EBX', 'R_ECX', 'R_EDX' ])
+
+        insn = _translate(( 'sidt [ecx]' ))
+        assert insn.op == I_UNK
+        assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX' ])
+        assert _check_args(insn.get_attr(IATTR_DST), [ 'R_IDT' ])
+
+        insn = _translate(( 'sgdt [ecx]' ))
+        assert insn.op == I_UNK
+        assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX' ])
+        assert _check_args(insn.get_attr(IATTR_DST), [ 'R_GDT' ])
+
+        insn = _translate(( 'sldt [ecx]' ))
+        assert insn.op == I_UNK
+        assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX' ])
+        assert _check_args(insn.get_attr(IATTR_DST), [ 'R_LDT' ])
+
+        insn = _translate(( 'lidt [ecx]' ))
+        assert insn.op == I_UNK
+        assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX', 'R_IDT' ])
+        assert not insn.have_attr(IATTR_DST)
+
+        insn = _translate(( 'lgdt [ecx]' ))
+        assert insn.op == I_UNK
+        assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX', 'R_GDT' ])
+        assert not insn.have_attr(IATTR_DST)
+
+        insn = _translate(( 'lldt [ecx]' ))
+        assert insn.op == I_UNK
+        assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX', 'R_LDT' ])
+        assert not insn.have_attr(IATTR_DST)
 
     def test_get_insn(self):
 

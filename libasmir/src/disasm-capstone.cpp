@@ -341,12 +341,32 @@ int disasm_insn(VexArch guest, uint8_t *data, string &mnemonic, string &op)
     return ret;
 }
 
-int i386_disasm_arg_special(unsigned int id, vector<Temp *> &args, dsiasm_arg_t type)
+#define I386_MODRM_RM(_modrm_) ((_modrm_) & 7)
+
+const char *i386_reg_name(int val)
+{
+    switch (val)
+    {
+    case 0: return "EAX";
+    case 1: return "ECX";
+    case 2: return "EDX";
+    case 3: return "EBX";
+    case 4: return "ESP";
+    case 5: return "EBP";
+    case 6: return "ESI";
+    case 7: return "EDI";
+    }
+
+    return NULL;
+}
+
+int i386_disasm_arg_special(cs_insn *insn, vector<Temp *> &args, dsiasm_arg_t type)
 {
     bool src = (type == disasm_arg_t_src);
     bool dst = (type == disasm_arg_t_dst);
+    const char *reg = NULL;
 
-    switch (id)
+    switch (insn->id)
     {
     case X86_INS_RDTSC:
 
@@ -403,19 +423,125 @@ int i386_disasm_arg_special(unsigned int id, vector<Temp *> &args, dsiasm_arg_t 
             return 0;
         }
 
+    case X86_INS_SIDT:        
+
+        if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
+        {
+            if (src)
+            {
+                args.push_back(mk_reg(reg, REG_32));
+                return 1;
+            }
+            else
+            {
+                args.push_back(mk_reg("IDT", REG_32));
+                return 1;
+            }
+        }
+
+        break;
+
+    case X86_INS_SGDT:
+
+        if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
+        {
+            if (src)
+            {
+                args.push_back(mk_reg(reg, REG_32));
+                return 1;
+            }
+            else
+            {
+                args.push_back(mk_reg("GDT", REG_32));
+                return 1;
+            }
+        }
+
+        break;
+
+    case X86_INS_SLDT:
+
+        if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
+        {
+            if (src)
+            {
+                args.push_back(mk_reg(reg, REG_32));
+                return 1;
+            }
+            else
+            {
+                args.push_back(mk_reg("LDT", REG_32));
+                return 1;
+            }
+        }
+
+        break;
+
+    case X86_INS_LIDT:
+
+        if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
+        {
+            if (src)
+            {
+                args.push_back(mk_reg("IDT", REG_32));
+                args.push_back(mk_reg(reg, REG_32));
+                return 2;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        break;
+
+    case X86_INS_LGDT:
+
+        if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
+        {
+            if (src)
+            {
+                args.push_back(mk_reg("GDT", REG_32));
+                args.push_back(mk_reg(reg, REG_32));
+                return 2;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        break;
+
+    case X86_INS_LLDT:
+
+        if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
+        {
+            if (src)
+            {
+                args.push_back(mk_reg("LDT", REG_32));
+                args.push_back(mk_reg(reg, REG_32));
+                return 2;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
         break;
     }
 
     return -1;
 }
 
-int disasm_arg_special(VexArch guest, unsigned int id, vector<Temp *> &args, dsiasm_arg_t type)
+int disasm_arg_special(VexArch guest, cs_insn *insn, vector<Temp *> &args, dsiasm_arg_t type)
 {
     switch (guest)
     {
     case VexArchX86:
 
-        return i386_disasm_arg_special(id, args, type);       
+        return i386_disasm_arg_special(insn, args, type);       
 
     case VexArchARM:
     
@@ -446,7 +572,7 @@ int disasm_arg(VexArch guest, uint8_t *data, vector<Temp *> &args, dsiasm_arg_t 
         uint8_t *data = NULL;
 
         // get arguments that capstone fails to recognise properly
-        ret = disasm_arg_special(guest, insn[0].id, args, type);
+        ret = disasm_arg_special(guest, &insn[0], args, type);
         if (ret >= 0)
         {
             return ret;
