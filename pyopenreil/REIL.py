@@ -9,6 +9,9 @@ from symbolic import *
 # supported arhitectures
 from arch import x86
 
+# architecture constants
+ARCH_X86 = 0
+
 
 class Error(Exception):
 
@@ -48,11 +51,11 @@ def get_arch(arch):
 
     try: 
 
-        return { 'x86': x86 }[arch]
+        return { ARCH_X86: x86 }[ arch ]
 
     except KeyError: 
 
-        raise translator.BaseError('Architecture %s is unknown' % arch)
+        raise Error('Architecture #%d is unknown' % arch)
 
 
 class Arg(object):
@@ -444,12 +447,17 @@ class Insn(object):
         elif self.have_flag(IOPT_ASM_END):
 
             # go to first IR instruction of next assembly instruction
-            return self.addr + self.size, 0
+            return self.next_asm(), 0
 
         else:
 
             # go to next IR instruction of current assembly instruction
             return self.addr, self.inum + 1
+
+    def next_asm(self):
+
+        # address of the next assembly instruction
+        return self.addr + self.size
 
     def jcc_loc(self):
 
@@ -709,7 +717,7 @@ class InsnList(list):
 
 class TestInsnList(unittest.TestCase):
 
-    arch = 'x86'
+    arch = ARCH_X86
 
     def setUp(self):
 
@@ -807,7 +815,7 @@ class BasicBlock(InsnList):
 
 class TestBasicBlock(unittest.TestCase):
 
-    arch = 'x86'
+    arch = ARCH_X86
 
     def test(self):       
 
@@ -980,7 +988,7 @@ class Func(InsnList):
 
 class TestFunc(unittest.TestCase):
 
-    arch = 'x86'
+    arch = ARCH_X86
 
     def test(self):        
 
@@ -1315,7 +1323,7 @@ class CFGraphBuilder(object):
 
 class TestCFGraphBuilder(unittest.TestCase):
 
-    arch = 'x86'
+    arch = ARCH_X86
 
     def setUp(self):
 
@@ -1721,7 +1729,7 @@ class DFGraphBuilder(object):
 
 class TestDFGraphBuilder(unittest.TestCase):
 
-    arch = 'x86'
+    arch = ARCH_X86
 
     def setUp(self):
 
@@ -1986,7 +1994,7 @@ class CodeStorageMem(CodeStorage):
 
 class TestCodeStorageMem(unittest.TestCase):
 
-    arch = 'x86'
+    arch = ARCH_X86
 
     def setUp(self):
 
@@ -2148,7 +2156,7 @@ class CodeStorageTranslator(CodeStorage):
 
 class TestCodeStorageTranslator(unittest.TestCase):
 
-    arch = 'x86'
+    arch = ARCH_X86
 
     def setUp(self):        
 

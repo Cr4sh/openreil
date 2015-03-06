@@ -18,8 +18,13 @@ class Compiler(object):
 
     def get_bits(self, arch):
 
-        try: return { 'x86': 32 }[arch]
-        except IndexError: raise Exception('Unknown architecture')      
+        try: 
+
+            return { REIL.ARCH_X86: 32 }[ arch ]
+
+        except IndexError: 
+
+            raise Exception('Unknown architecture')      
 
     def prog_read(self):
 

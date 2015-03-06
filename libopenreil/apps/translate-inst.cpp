@@ -33,14 +33,14 @@ int main(int argc, char *argv[])
     uint8_t inst[MAX_INST_LEN];
     memset(inst, 0, sizeof(inst));
 
-    if (!strcmp(argv[1], "-x86"))
+    if (!strcmp(argv[1], "x86"))
     {
         // set target architecture
-        arch = REIL_X86;
+        arch = ARCH_X86;
     }
     else
     {
-        printf("ERROR: Invalid architecture\n");
+        printf("ERROR: Bad architecture\n");
         return -1;
     }
 
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 
         if (errno == EINVAL)
         {
-            printf("ERROR: Invalid hex byte\n");
+            printf("ERROR: Invalid hex value\n");
             return -1;
         }
     }

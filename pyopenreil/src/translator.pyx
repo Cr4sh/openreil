@@ -1,18 +1,31 @@
 cimport libopenreil
 
+ARCH_X86 = 0
+
 IATTR_ASM = 'A'
 IATTR_BIN = 'B'
 IATTR_FLAGS = 'F'
 
-cdef arg_handler(libopenreil._reil_arg_t arg):
+cdef process_arg(libopenreil._reil_arg_t arg):
 
     # convert reil_arg_t to the python tuple
-    if arg.type == libopenreil.A_NONE: return ()
-    elif arg.type == libopenreil.A_REG: return ( arg.type, arg.size, arg.name )
-    elif arg.type == libopenreil.A_TEMP: return ( arg.type, arg.size, arg.name )
-    elif arg.type == libopenreil.A_CONST: return ( arg.type, arg.size, arg.val )
+    if arg.type == libopenreil.A_NONE: 
 
-cdef int inst_handler(libopenreil.reil_inst_t* inst, object context):
+        return ()
+    
+    elif arg.type == libopenreil.A_REG: 
+
+        return ( arg.type, arg.size, arg.name )
+    
+    elif arg.type == libopenreil.A_TEMP: 
+
+        return ( arg.type, arg.size, arg.name )
+    
+    elif arg.type == libopenreil.A_CONST: 
+
+        return ( arg.type, arg.size, arg.val )
+
+cdef int process_insn(libopenreil.reil_inst_t* inst, object context):
 
     attr = {}    
 
@@ -42,7 +55,7 @@ cdef int inst_handler(libopenreil.reil_inst_t* inst, object context):
     
     # convert reil_inst_t to the python tuple
     raw_info = ( inst.raw_info.addr, inst.raw_info.size )    
-    args = ( arg_handler(inst.a), arg_handler(inst.b), arg_handler(inst.c) )
+    args = ( process_arg(inst.a), process_arg(inst.b), process_arg(inst.c) )
     
     # put instruction into the list
     context.insert(0, ( raw_info, inst.inum, inst.op, args, attr ))
@@ -80,16 +93,25 @@ cdef class Translator:
 
     def __init__(self, arch):
     
-        if arch == 'x86': self.reil_arch = libopenreil.REIL_X86
-        else: raise(Exception('Unknown architecture'))
+        self.reil_arch = self.get_reil_arch(arch)
 
         # initialize translator
         self.reil = libopenreil.reil_init(self.reil_arch, 
-            <libopenreil.reil_inst_handler_t>inst_handler, <void*>self.translated)
+            <libopenreil.reil_inst_handler_t>process_insn, <void*>self.translated)
 
     def __del__(self):
 
         libopenreil.reil_close(self.reil)
+
+    def get_reil_arch(self, arch):
+
+        try: 
+
+            return { ARCH_X86: libopenreil.ARCH_X86 }[ arch ]
+
+        except KeyError: 
+
+            raise Error('Unknown architecture')
 
     def to_reil(self, data, addr = 0):
 
@@ -101,7 +123,7 @@ cdef class Translator:
         num = libopenreil.reil_translate_insn(self.reil, addr, c_data, c_size)
         if num == -1: 
 
-            raise(TranslationError(addr))
+            raise TranslationError(addr)
 
         # collect translated instructions
         while len(self.translated) > 0: ret.append(self.translated.pop())

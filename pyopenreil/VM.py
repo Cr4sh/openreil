@@ -516,7 +516,7 @@ class Cpu(object):
 
 class TestCpu(unittest.TestCase):
 
-    arch = 'x86'
+    arch = ARCH_X86
 
     def test(self):     
 
@@ -561,7 +561,7 @@ class TestCpu(unittest.TestCase):
         from pyopenreil.utils import asm
         tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code, addr = addr))
 
-        cpu = Cpu('x86')
+        cpu = Cpu(ARCH_X86)
 
         # set up stack pointer
         cpu.reg('esp').val = stack
@@ -605,7 +605,7 @@ class Stack(object):
 
 class TestStack(unittest.TestCase):
 
-    arch = 'x86'
+    arch = ARCH_X86
 
     def test(self):     
 
@@ -777,7 +777,7 @@ class Abi(object):
 
 class TestAbi(unittest.TestCase):
 
-    arch = 'x86'
+    arch = ARCH_X86
 
     def test(self):     
 

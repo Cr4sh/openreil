@@ -72,7 +72,7 @@ cdef extern from "libopenreil.h":
     
     ctypedef void* reil_t
     ctypedef void* reil_inst_handler_t    
-    cdef enum _reil_arch_t: REIL_X86
+    cdef enum _reil_arch_t: ARCH_X86
 
     ctypedef _reil_arg_t reil_arg_t
     ctypedef _reil_inst_t reil_inst_t

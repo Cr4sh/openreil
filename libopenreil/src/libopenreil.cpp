@@ -95,8 +95,14 @@ extern "C" reil_t reil_init(reil_arch_t arch, reil_inst_handler_t handler, void 
 
     switch (arch)
     {
-    case REIL_X86: guest = VexArchX86; break;
-    default: assert(0);
+    case ARCH_X86: 
+
+        guest = VexArchX86; 
+        break;
+
+    default: 
+
+        assert(0);
     }
 
     // allocate translator context

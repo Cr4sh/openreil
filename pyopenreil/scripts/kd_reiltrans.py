@@ -3,7 +3,7 @@ import pykd
 from pyopenreil.REIL import *
 from pyopenreil.utils import kd
 
-DEF_ARCH = 'x86'
+DEF_ARCH = ARCH_X86
 
 translate = {  'insn': lambda tr, addr: tr.get_insn(addr), \
               'block': lambda tr, addr: tr.get_bb(addr),   \

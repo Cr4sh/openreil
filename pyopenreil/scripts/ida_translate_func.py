@@ -3,7 +3,7 @@ import idc
 from pyopenreil.REIL import *
 from pyopenreil.utils import IDA
 
-DEF_ARCH = 'x86'
+DEF_ARCH = ARCH_X86
 
 arch = DEF_ARCH
 addr = idc.ScreenEA()

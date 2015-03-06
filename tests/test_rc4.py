@@ -10,6 +10,7 @@ from pyopenreil.utils import bin_PE
 
 class TestRC4(unittest.TestCase):
 
+    ARCH = ARCH_X86
     BIN_PATH = os.path.join(file_dir, 'rc4.exe')
 
     # VA's of the test rc4.exe procedures
@@ -24,7 +25,7 @@ class TestRC4(unittest.TestCase):
 
         # load PE image of test program
         reader = bin_PE.Reader(self.BIN_PATH)
-        tr = CodeStorageTranslator('x86', reader)
+        tr = CodeStorageTranslator(self.ARCH, reader)
 
         def code_optimization(addr):
      
@@ -42,7 +43,7 @@ class TestRC4(unittest.TestCase):
         code_optimization(self.RC4_CRYPT)
 
         # create CPU and ABI
-        cpu = Cpu('x86')
+        cpu = Cpu(self.ARCH)
         abi = Abi(cpu, tr)
 
         # allocate buffers for arguments of emulated functions

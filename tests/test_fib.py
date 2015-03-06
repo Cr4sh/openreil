@@ -10,13 +10,14 @@ from pyopenreil.utils import bin_PE
 
 class TestFib(unittest.TestCase):
 
+    ARCH = ARCH_X86
     BIN_PATH = os.path.join(file_dir, 'fib.exe')
     PROC_ADDR = 0x004016B0
 
     def test(self):        
     
         reader = bin_PE.Reader(self.BIN_PATH)
-        tr = CodeStorageTranslator('x86', reader)
+        tr = CodeStorageTranslator(self.ARCH, reader)
 
         dfg = DFGraphBuilder(tr).traverse(self.PROC_ADDR)  
         insn_before = tr.size()
@@ -32,7 +33,7 @@ class TestFib(unittest.TestCase):
         print '%d instructions before optimization and %d after\n' % \
               (insn_before, insn_after)
 
-        cpu = Cpu('x86')
+        cpu = Cpu(self.ARCH)
         abi = Abi(cpu, tr)
 
         testval = 11

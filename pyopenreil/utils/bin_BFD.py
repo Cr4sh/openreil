@@ -44,7 +44,7 @@ class TestBFD(unittest.TestCase):
     def test_reader(self): 
         
         reader = Reader(self.BIN_PATH)
-        tr = REIL.CodeStorageTranslator('x86', reader)
+        tr = REIL.CodeStorageTranslator(REIL.ARCH_X86, reader)
 
         print tr.get_func(self.PROC_ADDR)
 
