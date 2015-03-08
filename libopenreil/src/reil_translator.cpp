@@ -37,7 +37,7 @@ const char *reil_inst_name[] =
     "STR", "STM", "LDM", 
     "ADD", "SUB", "NEG", "MUL", "DIV", "MOD", "SMUL", "SDIV", "SMOD", 
     "SHL", "SHR", "AND", "OR", "XOR", "NOT",
-    "EQ", "NEQ", "L", "LE", "SL", "SLE"
+    "EQ", "LT"
 };
 
 reil_op_t reil_inst_map_binop[] = 
@@ -58,11 +58,11 @@ reil_op_t reil_inst_map_binop[] =
     /* BITOR    */ I_OR,       
     /* XOR      */ I_XOR,      
     /* EQ       */ I_EQ,
-    /* NEQ      */ I_NEQ,  
+    /* NEQ      */ I_NONE,  
     /* GT       */ I_NONE,       
-    /* LT       */ I_L,       
+    /* LT       */ I_LT,       
     /* GE       */ I_NONE,
-    /* LE       */ I_LE, 
+    /* LE       */ I_NONE, 
     /* SDIVIDE  */ I_SDIV, 
     /* SMOD     */ I_SMOD   
 };
@@ -273,7 +273,12 @@ reg_t CReilFromBilTranslator::convert_operand_size(reil_size_t size)
 
 void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
 {
-    if (exp == NULL) return;
+    if (exp == NULL)
+    {
+        memset(reil_arg, 0, sizeof(reil_arg_t));
+        reil_arg->type = A_NONE;
+        return;
+    }
 
     reil_assert(
         exp->exp_type == TEMP || exp->exp_type == CONSTANT || exp->exp_type == RELATIVE,
@@ -568,6 +573,66 @@ void CReilFromBilTranslator::process_bil_arshift(reil_inst_t *reil_inst)
     free_bil_exp(tmp_6);
 }
 
+void CReilFromBilTranslator::process_bil_neq(reil_inst_t *reil_inst)
+{
+    reil_inst_t new_inst;
+    reil_size_t size_dst = reil_inst->c.size;
+
+    Exp *tmp = temp_operand(convert_operand_size(size_dst), reil_inst->inum);            
+
+    // EQ a, b, tmp
+    NEW_INST(I_EQ, reil_inst->inum);
+    COPY_ARG(&new_inst.a, &reil_inst->a);
+    COPY_ARG(&new_inst.b, &reil_inst->b);
+    convert_operand(tmp, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    // NOT tmp, c
+    reil_inst->op = I_NOT;   
+    convert_operand(tmp, &new_inst.a);
+    convert_operand(NULL, &new_inst.b);
+
+    free_bil_exp(tmp);
+}
+
+void CReilFromBilTranslator::process_bil_le(reil_inst_t *reil_inst)
+{
+    reil_inst_t new_inst;
+    reil_size_t size_dst = reil_inst->c.size;
+
+    Exp *tmp_0 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);    
+
+    // EQ a, b, tmp_0
+    NEW_INST(I_EQ, reil_inst->inum);
+    COPY_ARG(&new_inst.a, &reil_inst->a);
+    COPY_ARG(&new_inst.b, &reil_inst->b);
+    convert_operand(tmp_0, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    Exp *tmp_1 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
+
+    // LT a, b, tmp_1
+    NEW_INST(I_LT, reil_inst->inum);
+    COPY_ARG(&new_inst.a, &reil_inst->a);
+    COPY_ARG(&new_inst.b, &reil_inst->b);
+    convert_operand(tmp_1, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    // OR tmp_0, tmp_1, c
+    reil_inst->op = I_OR;   
+    convert_operand(tmp_0, &new_inst.a);
+    convert_operand(tmp_1, &new_inst.b);
+
+    free_bil_exp(tmp_0);
+    free_bil_exp(tmp_1);
+}
+
 bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
 {
     reil_inst_t new_inst;
@@ -772,7 +837,8 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
             "invalid I_STM argument");
     }
 
-    bool binary_logic = false, is_arshift = false;
+    bool binary_logic = false;
+    bool is_arshift = false, is_neq = false, is_le = false;
     
     // get a and b operands values from expression
     if (exp->exp_type == BINOP)
@@ -791,6 +857,14 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
         if (binop->binop_type == ARSHIFT)
         {
             is_arshift = true;
+        }
+        else if (binop->binop_type == NEQ)
+        {
+            is_neq = true;
+        }
+        else if (binop->binop_type == LE)
+        {
+            is_le = true;
         }
         else
         {
@@ -925,8 +999,18 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
 
     if (is_arshift)
     {
-        // generate code for BAP ARSHIFT binary operand
+        // generate code for BAP ARSHIFT
         process_bil_arshift(&reil_inst);
+    }
+    else if (is_neq)
+    {
+        // generate code for BAP NEQ
+        process_bil_neq(&reil_inst);
+    }
+    else if (is_le)
+    {
+        // generate code for BAP LE
+        process_bil_le(&reil_inst);   
     }
 
     // add assembled REIL instruction

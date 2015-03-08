@@ -20,7 +20,7 @@ REIL_NAMES_INSN = [ 'NONE', 'UNK',  'JCC',
                     'STR',  'STM',  'LDM', 
                     'ADD',  'SUB',  'NEG', 'MUL', 'DIV', 'MOD', 'SMUL', 'SDIV', 'SMOD', 
                     'SHL',  'SHR',  'AND', 'OR',  'XOR', 'NOT',
-                    'EQ',   'NEQ',  'L',   'LE',  'SL',  'SLE' ]
+                    'EQ',   'LT' ]
 
 REIL_NAMES_SIZE = [ '1', '8', '16', '32', '64' ]
 

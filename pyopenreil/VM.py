@@ -289,11 +289,7 @@ class Math(object):
             I_XOR: lambda: eval_u(lambda a, b: a ^  b ),            
             I_NOT: lambda: eval_u(lambda a, b:     ~a ),
              I_EQ: lambda: eval_u(lambda a, b: a == b ),
-            I_NEQ: lambda: eval_u(lambda a, b: a != b ),
-              I_L: lambda: eval_u(lambda a, b: a <  b ),
-             I_LE: lambda: eval_u(lambda a, b: a <= b ),
-             I_SL: lambda: eval_s(lambda a, b: a <  b ),
-            I_SLE: lambda: eval_s(lambda a, b: a <= b ) 
+             I_LT: lambda: eval_u(lambda a, b: a <  b ) 
 
         }[op]()
 

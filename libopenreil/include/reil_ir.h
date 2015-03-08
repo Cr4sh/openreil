@@ -33,11 +33,7 @@ typedef enum _reil_op_t
     I_XOR,      // binary xor
     I_NOT,      // binary not  
     I_EQ,       // equation
-    I_NEQ,      // equation
-    I_L,        // less than
-    I_LE,       // less or equal than
-    I_SL,       // signed less than
-    I_SLE       // signed less or equal than
+    I_LT        // less than
 
 } reil_op_t;
 

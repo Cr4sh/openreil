@@ -28,11 +28,7 @@ cdef extern from "libopenreil.h":
         I_XOR,      # binary xor
         I_NOT,      # binary not 
         I_EQ,       # equation
-        I_NEQ,      # negative equation
-        I_L,        # less than
-        I_LE,       # less or equal than
-        I_SL,       # signed less than
-        I_SLE       # signed less or equal than
+        I_LT        # less than
 
     cdef enum _reil_type_t:
 

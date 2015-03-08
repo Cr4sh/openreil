@@ -1441,7 +1441,7 @@ class DFGraph(Graph):
             insn = node.item
             if insn is not None:                
 
-                # collect list of available machine instructions including deleted
+                # collect list of available machine instructions including deleted ones
                 addr_list = addr_list.union([ insn.addr ])
 
         for addr in addr_list:
@@ -1461,7 +1461,7 @@ class DFGraph(Graph):
                 relink = True
 
         # update inums and flags
-        if relink: storage.relink()
+        if relink: storage.fix_inums_and_flags()
 
         relink = False
         for node in self.deleted_nodes:
@@ -1469,7 +1469,7 @@ class DFGraph(Graph):
             insn = node.item
 
             # For CFG consistence we need to insert I_NONE
-            # instructions instead eliminated ones.
+            # instruction if whole machine instruction was eliminated.
             try: storage.get_insn(( insn.addr, 0 ))
             except StorageError: 
 
@@ -1481,7 +1481,7 @@ class DFGraph(Graph):
                 relink = True
 
         # update inums and flags
-        if relink: storage.relink()
+        if relink: storage.fix_inums_and_flags()
         
     def constant_folding(self, storage = None):
 
@@ -1657,9 +1657,9 @@ class DFGraphBuilder(object):
             if insn.have_flag(IOPT_CALL):
 
                 #
-                # Function call instruction.
+                # Function call.
                 #
-                # To make all the things a bit more simpler we assuming that:
+                # To make all of the things a bit more simpler we assuming that:
                 #   - target function can read and write all general purpose registers;
                 #   - target function is not using any flags that was set in current
                 #     function;
@@ -1712,8 +1712,8 @@ class DFGraphBuilder(object):
             updated = self._process_bb(bb, state, dfg) 
 
             #
-            # Process immediate postdominators of basic block if it's
-            # input state information was updated.
+            # Process immediate postdominators of basic block untill it's
+            # input state information keeps updating.
             #
             if updated:
 
@@ -1958,7 +1958,7 @@ class CodeStorageMem(CodeStorage):
             # load instructions from json
             for data in fd: self._put_insn(InsnJson().from_json(data))
 
-    def relink(self):
+    def fix_inums_and_flags(self):
 
         addr, prev, inum = None, None, 0
         updated, deleted = [], []
@@ -2021,14 +2021,14 @@ class TestCodeStorageMem(unittest.TestCase):
 
         # delete IR instruction
         self.storage.del_insn(( 1, 0 ))
-        self.storage.relink()
+        self.storage.fix_inums_and_flags()
 
         assert self.storage.size() == 5
         assert len(self.storage.get_insn(1)) == 4
 
         # delete machine instruction
         self.storage.del_insn(1)
-        self.storage.relink()
+        self.storage.fix_inums_and_flags()
 
         assert self.storage.size() == 1
         

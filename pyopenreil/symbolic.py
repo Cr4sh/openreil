@@ -262,8 +262,7 @@ class SymExp(Sym):
                    I_SMUL: '@*', I_SDIV: '@/', I_SMOD: '@%', 
                    I_SHL:  '<<', I_SHR:  '>>', I_AND:   '&',
                    I_OR:    '|', I_XOR:   '^', I_NOT:   '~',
-                   I_EQ:   '==', I_NEQ:  '!=', I_L:     '<',    
-                   I_LE:   '<=', I_SL:   '@<', I_SLE: '@<=' }[self.op]
+                   I_EQ:   '==', I_LT:    '<' }[self.op]
 
         if self.b is not None:
 

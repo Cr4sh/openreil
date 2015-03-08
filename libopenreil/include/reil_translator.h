@@ -55,11 +55,15 @@ private:
     Stmt *get_bil_stmt(int pos);
 
     void check_cjmp_false_target(Exp *target);
+    
+    void process_bil_arshift(reil_inst_t *reil_inst);
+    void process_bil_neq(reil_inst_t *reil_inst);
+    void process_bil_le(reil_inst_t *reil_inst);
+    bool process_bil_cast(Exp *exp, reil_inst_t *reil_inst);
 
     void free_bil_exp(Exp *exp);
-    void process_bil_arshift(reil_inst_t *reil_inst);
-    bool process_bil_cast(Exp *exp, reil_inst_t *reil_inst);
     Exp *process_bil_exp(Exp *exp);    
+    
     Exp *process_bil_inst(reil_op_t inst, uint64_t inst_flags, Exp *c, Exp *exp);
 
     VexArch guest;
