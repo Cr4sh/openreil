@@ -1,4 +1,4 @@
-import json, unittest
+import json, unittest, copy
 from abc import ABCMeta, abstractmethod
 from sets import Set
 
@@ -1063,6 +1063,12 @@ class Graph(object):
     # for to_dot_file()
     SHAPE = 'box'
 
+    # graph fonts
+    NODE_FONT = 'Helvetica'
+    EDGE_FONT = 'Helvetica'
+
+    DPI = '120'
+
     def __init__(self):
 
         self.nodes, self.edges = {}, Set()    
@@ -1125,8 +1131,10 @@ class Graph(object):
 
         with open(path, 'w') as fd:
 
-            fd.write('digraph pyopenreil {\n' + \
-                     'node [shape=%s]\n' % self.SHAPE)
+            fd.write('digraph pyopenreil {\n')
+            fd.write('dpi="%s"\n' % self.DPI)
+            fd.write('edge [fontname="%s"]\n' % self.EDGE_FONT)
+            fd.write('node [fontname="%s", shape="%s"]\n' % (self.NODE_FONT, self.SHAPE))
 
             nodes = self.nodes.values()
             nodes = sorted(nodes, key = lambda node: node.key())
@@ -1198,7 +1206,7 @@ class CFGraphNode(GraphNode):
 
     def text(self):
 
-        return "%s - %s" % (self.item.first.ir_addr(), self.item.last.ir_addr())
+        return '%s - %s' % (self.item.first.ir_addr(), self.item.last.ir_addr())
 
 
 class CFGraphEdge(GraphEdge):
@@ -1844,11 +1852,12 @@ class CodeStorage(object):
 
 class CodeStorageMem(CodeStorage):    
 
-    def __init__(self, arch, insn_list = None): 
+    def __init__(self, arch, insn_list = None, from_file = None): 
 
         self.clear()
         self.arch = get_arch(arch)
         if insn_list is not None: self.put_insn(insn_list)
+        if from_file is not None: self.from_file(from_file)
 
     def __iter__(self):
 
@@ -1957,6 +1966,22 @@ class CodeStorageMem(CodeStorage):
         
             # load instructions from json
             for data in fd: self._put_insn(InsnJson().from_json(data))
+
+    def to_storage(self, other):
+
+        other.clear()
+
+        ret = 0      
+        for insn in self: 
+
+            other.put_insn(insn)
+            ret += 1
+
+        return ret
+
+    def from_storage(self, other):
+
+        return other.to_storage(self)
 
     def fix_inums_and_flags(self):
 
