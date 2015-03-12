@@ -34,7 +34,8 @@ class TestRC4(unittest.TestCase):
             
             # run some basic dataflow optimizations
             dfg.eliminate_dead_code()
-            dfg.constant_folding()        
+            dfg.constant_folding()   
+            dfg.optimize_temp_regs()     
 
             # store resulting instructions
             dfg.store(tr.storage)  

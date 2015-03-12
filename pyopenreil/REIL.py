@@ -85,6 +85,17 @@ class Arg(object):
         elif self.type == A_TEMP:  return mkstr(self.name)
         elif self.type == A_CONST: return mkstr('%x' % self.get_val())
 
+    def __eq__(self, other):
+
+        return self.type == other.type and \
+               self.size == other.size and \
+               self.name == other.name and \
+               self.val == other.val
+
+    def __ne__(self, other):
+
+        return not self == other
+
     def get_val(self):
 
         mkval = lambda mask: long(self.val & mask)
@@ -211,6 +222,16 @@ class Insn(object):
         # unserialize instruction data
         if json: serialized = InsnJson().from_json(json)
         if serialized: self.unserialize(serialized)
+
+    def __eq__(self, other):
+
+        return self.op == other.op and \
+               self.addr == other.addr and self.inum == other.inum and \
+               self.a == other.a and self.b == other.b and self.c == other.c
+
+    def __ne__(self, other):
+
+        return not self == other
 
     def __str__(self):
 
@@ -952,7 +973,7 @@ class Func(InsnList):
 
     def add_bb(self, bb):
 
-        if not bb in self:
+        if not bb in self.bb_list:
 
             if bb.ir_addr == ( self.addr, 0 ):
 
@@ -1031,6 +1052,10 @@ class GraphNode(object):
 
         return str(self)
 
+    def present_in_dot_graph(self):
+
+        return True
+
 
 class GraphEdge(object):
 
@@ -1087,7 +1112,7 @@ class Graph(object):
 
         return node
 
-    def del_node(self, item):
+    def del_node(self, item, remove_from_list = True):
 
         node = item if isinstance(item, self.NODE) else self.NODE(item)
 
@@ -1098,8 +1123,10 @@ class Graph(object):
         # delete node edges
         for edge in edges: self.del_edge(edge)
 
-        # delete node
-        self.nodes.pop(node.key())
+        if remove_from_list:
+
+            # delete node from global list
+            self.nodes.pop(node.key())
 
     def add_edge(self, node_from, node_to, name = None):
 
@@ -1142,7 +1169,10 @@ class Graph(object):
             # write nodes
             for n in range(0, len(nodes)):
 
-                fd.write('%d [label="%s"];\n' % (n, nodes[n].text()))
+                node = nodes[n]
+                if node.present_in_dot_graph():
+
+                    fd.write('%d [label="%s"];\n' % (n, node.text()))
 
             # write edges
             for edge in self.edges:
@@ -1152,8 +1182,11 @@ class Graph(object):
 
                 attr = ' '.join(map(lambda a: '%s=%s' % a, attr.items()))
 
-                fd.write('%d -> %d [%s];\n' % (nodes.index(edge.node_from),
-                                               nodes.index(edge.node_to), attr))
+                if edge.node_from.present_in_dot_graph() and \
+                   edge.node_to.present_in_dot_graph():
+
+                    fd.write('%d -> %d [%s];\n' % (nodes.index(edge.node_from),
+                                                   nodes.index(edge.node_to), attr))
 
             fd.write('}\n')
 
@@ -1374,6 +1407,16 @@ class DFGraphNode(GraphNode):
 
         return '%s %s' % (self.key(), self.item.op_name())
 
+    def present_in_dot_graph(self):
+
+        if self.item is not None and \
+           self.item.have_flag(IOPT_ELIMINATED):
+
+            # don't show DFG nodes of eliminated instructions
+            return False
+
+        return True
+
     def key(self):
 
         return self.item.ir_addr()
@@ -1441,6 +1484,13 @@ class DFGraph(Graph):
 
         self.deleted_nodes = Set()
 
+    def del_node(self, node):
+
+        super(DFGraph, self).del_node(node, remove_from_list = False)
+
+        # change instruction of deleted node to I_NONE
+        node.item.eliminate()
+
     def store(self, storage):
 
         addr_list = Set()
@@ -1464,8 +1514,11 @@ class DFGraph(Graph):
             insn = node.item
             if insn is not None:                
             
-                # put each node instruction into the storage
-                storage.put_insn(insn.serialize())
+                if not insn.have_flag(IOPT_ELIMINATED):
+
+                    # put each node instruction into the storage
+                    storage.put_insn(insn.serialize())
+
                 relink = True
 
         # update inums and flags
@@ -1490,6 +1543,153 @@ class DFGraph(Graph):
 
         # update inums and flags
         if relink: storage.fix_inums_and_flags()
+
+    def optimize_temp_regs(self, storage = None):
+
+        deleted_nodes = []
+
+        from VM import Math
+
+        def _eliminate(node):
+
+            self.del_node(node)
+            deleted_nodes.append(node)
+            return 1
+
+        def _optimize_temp_regs():
+
+            deleted, pending = 0, [] 
+            
+            # Collect list of DFG nodes that reprsesents STR instructions
+            # with A_TEMP or A_REG destination argument and non-constant source.
+            for node in self.nodes.values():
+
+                insn = node.item
+                if insn is not None and insn.op == I_STR and \
+                   insn.a.type != A_CONST and \
+                   insn.c.type in [ A_REG, A_TEMP ]:
+
+                    pending.append(node)
+
+            for node in pending:    
+                
+                # direction of DFG analysis
+                backward = node.item.c.type == A_REG                           
+
+                print 'DFG node "%s" sets value "%s" of "%s"' % \
+                       (node, node.item.a, node.item.c)                
+            
+                if backward:                    
+
+                    insn = node.item
+                    
+                    if insn.a.type != A_TEMP:
+
+                        # don't touch instructions that modifies real CPU registers
+                        continue
+
+                    for edge in node.in_edges:
+
+                        node_prev = edge.node_from
+                        out_edges = filter(lambda edge: edge.node_to != node,
+                                           node_prev.out_edges)
+
+                        insn_prev = node_prev.item
+                        if insn_prev is None or \
+                           insn_prev.op == I_UNK: continue
+
+                        for edge in out_edges:
+
+                            insn_other = edge.node_to.item
+                            if insn_other is not None:
+
+                                # Propagate new value of insn_prev.c to other 
+                                # instructions that uses it.
+                                if insn_other.a.name == edge.name: insn_other.a = insn.c
+                                if insn_other.b.name == edge.name: insn_other.b = insn.c
+                                if insn_other.c.name == edge.name: insn_other.c = insn.c
+
+                            # update edge name to not break the DFG
+                            edge.name = insn.c.name                        
+
+                        for edge in node.out_edges:
+
+                            # update DFG edges
+                            self.add_edge(node_prev, edge.node_to, insn.c.name) 
+
+                        insn_prev.c = insn.c
+                        deleted += _eliminate(node)
+                        break
+
+                else:
+
+                    skip = False 
+
+                    for edge in node.out_edges:
+
+                        insn = node.item
+                        node_next = edge.node_to
+
+                        insn_next = node_next.item
+                        if insn_next is None: continue
+
+                        if insn_next.op == I_UNK:
+
+                            # Don't eliminate current instruction if any I_UNK
+                            # instructions uses it's results.
+                            skip = True
+                            break
+
+                        # We need to move register argument a from insn
+                        # to insn_next and check that other instructions between 
+                        # them are not modifying it's value.
+                        while insn.ir_addr != insn_next.ir_addr:
+
+                            if insn.c == node.item.a:
+
+                                skip = True
+                                break
+
+                            insn = self.nodes[insn.next()].item
+
+                    if not skip:
+
+                        for edge in node.out_edges:
+
+                            insn = node.item
+                            node_next = edge.node_to
+
+                            insn_next = node_next.item
+                            if insn_next is None: continue
+
+                            print 'Updating arg %s of DFG node "%s" to %s' % \
+                                  (edge, node_next, edge.name)
+
+                            # Propagate value to immediate postdominators
+                            # of current DFG node.
+                            if insn_next.a.name == edge.name: insn_next.a = insn.a
+                            if insn_next.b.name == edge.name: insn_next.b = insn.a
+                            if insn_next.c.name == edge.name: insn_next.c = insn.a
+
+                            for edge in node.in_edges:
+
+                                # update DFG edges
+                                self.add_edge(edge.node_from, node_next, insn.a.name)                            
+
+                        deleted += _eliminate(node)
+
+            return deleted
+
+        print '*** Optimizing temp registers usage...'
+        
+        while True:
+
+            if _optimize_temp_regs() == 0: break
+
+        # update global set of deleted DFG nodes
+        self.deleted_nodes = self.deleted_nodes.union(deleted_nodes)
+
+        if storage is not None: self.store(storage)
         
     def constant_folding(self, storage = None):
 
@@ -1497,9 +1697,17 @@ class DFGraph(Graph):
 
         from VM import Math
 
-        def evaluate(insn): 
+        def _eliminate(node):
 
+            self.del_node(node)
+            deleted_nodes.append(node)
+            return 1
+
+        def _evaluate(node): 
+
+            insn = node.item
             val = Math(insn.a, insn.b).eval(insn.op)
+
             if val is not None:
 
                 return Arg(A_CONST, insn.c.size, val = val)
@@ -1508,9 +1716,13 @@ class DFGraph(Graph):
 
                 return None
 
-        def need_to_propagate(insn):
+        def _propagate_check(node):
 
-            if insn.op == I_JCC: return False
+            insn = node.item
+
+            if insn.op in [ I_JCC, I_STM, I_NONE, I_UNK ]: 
+
+                return False
 
             for arg in insn.src(get_all = True):
 
@@ -1522,54 +1734,71 @@ class DFGraph(Graph):
 
             return True
 
-        def propagate(node):
-
-            val = evaluate(node.item)
-            if val is None: 
-
-                return False
+        def _propagate_do(node, arg):            
 
             for edge in node.out_edges:
 
-                node = edge.node_to
-                insn = node.item
+                node_next = edge.node_to
+                insn_next = node_next.item
 
-                print 'Updating arg %s of DFG node "%s" to %s' % (edge, node, val)
+                if insn_next.op == I_UNK:
 
-                if insn.a.name == edge.name: insn.a = val
-                if insn.b.name == edge.name: insn.b = val
+                    # Don't eliminate current instruction if any I_UNK
+                    # instructions uses it's results.
+                    return False
+
+            for edge in node.out_edges:
+
+                node_next = edge.node_to
+                insn_next = node_next.item
+
+                print 'Updating arg %s of DFG node "%s" to %s' % (edge, node_next, arg)
+
+                # Propagate constant value to immediate postdominators
+                # of current DFG node.
+                if insn_next.a.name == edge.name: insn_next.a = arg
+                if insn_next.b.name == edge.name: insn_next.b = arg
+                if insn_next.c.name == edge.name: insn_next.c = arg
 
             return True        
 
-        print '*** Folding constants...'
+        def _constant_folding():
 
-        while True:
+            deleted, pending = 0, []  
 
-            deleted, pending = 0, []            
-
+            # Collect list of DFG nodes that reprsesents instructions
+            # with constant source arguments and A_TEMP as destination argument.
             for node in self.nodes.values():
 
-                if node != self.entry_node and len(node.in_edges) == 0 and need_to_propagate(node.item):
+                if node != self.entry_node and len(node.in_edges) == 0 and \
+                   _propagate_check(node):
 
                     pending.append(node)
 
             for node in pending:
 
                 print 'DFG node "%s" has no input edges' % node
+
+                # evaluate constant expression
+                arg = _evaluate(node)
+                if arg is None: 
                 
-                if propagate(node):
+                    # propagate constants information
+                    if _propagate_do(node, arg):
 
-                    # delete node that has no output edges                    
-                    self.del_node(node)
+                        # delete node, it has no output edges anymore                        
+                        deleted += _eliminate(node)
 
-                    deleted_nodes.append(node)
-                    deleted += 1
+            return deleted
 
-            if deleted == 0: 
+        print '*** Folding constants...'
 
-                # no more nodes to delete
-                break
+        while True:            
+        
+            # perform constants folding untill there will be some nodes to delete    
+            if _constant_folding() == 0: break
 
+        # update global set of deleted DFG nodes
         self.deleted_nodes = self.deleted_nodes.union(deleted_nodes)
 
         if storage is not None: self.store(storage)
@@ -1616,6 +1845,7 @@ class DFGraph(Graph):
                 # no more nodes to delete
                 break
         
+        # update global set of deleted DFG nodes
         self.deleted_nodes = self.deleted_nodes.union(deleted_nodes)
 
         if storage is not None: self.store(storage)
@@ -1784,7 +2014,7 @@ class TestDFGraphBuilder(unittest.TestCase):
         assert edges.issuperset(Set([ 'R_OF', 'R_ZF', 'R_CF', 'R_AF', 'R_PF', 'R_SF', \
                                       'R_ECX', 'R_EDX', 'R_ESP' ]))
 
-        # run optimizations
+        # run constants and dead code optimizations
         dfg.eliminate_dead_code()
         dfg.constant_folding()
 
@@ -1796,6 +2026,47 @@ class TestDFGraphBuilder(unittest.TestCase):
         dfg.store(storage)
 
         print '\n', storage
+
+        # optimize temp registers usage
+        dfg.optimize_temp_regs()        
+
+        # update storage
+        storage = CodeStorageMem(self.arch)
+        dfg.store(storage)
+
+        print '\n', storage
+
+        '''
+            Check for correct resulting code:
+
+            00000000.00     STR             1:32,                 ,         R_EDX:32
+            00000005.00     ADD         R_ECX:32,         R_EDX:32,         R_ECX:32
+            00000007.00     LDM         R_ESP:32,                 ,          V_01:32
+            00000007.01     ADD         R_ESP:32,             4:32,         R_ESP:32
+            00000007.02     JCC              1:1,                 ,          V_01:32
+
+        '''
+        assert storage.get_insn(0) == [ Insn(op = I_STR, ir_addr = ( 0, 0 ), 
+                                             a = Arg(A_CONST, U32, val = 1), 
+                                             c = Arg(A_REG, U32, 'R_EDX')) ]
+
+        assert storage.get_insn(5) == [ Insn(op = I_ADD, ir_addr = ( 5, 0 ), 
+                                             a = Arg(A_REG, U32, 'R_ECX'),
+                                             b = Arg(A_REG, U32, 'R_EDX'),
+                                             c = Arg(A_REG, U32, 'R_ECX')) ]
+
+        assert storage.get_insn(7) == [ Insn(op = I_LDM, ir_addr = ( 7, 0 ), 
+                                             a = Arg(A_REG, U32, 'R_ESP'),
+                                             c = Arg(A_TEMP, U32, 'V_01')),
+
+                                        Insn(op = I_ADD, ir_addr = ( 7, 1 ), 
+                                             a = Arg(A_REG, U32, 'R_ESP'),
+                                             b = Arg(A_CONST, U32, val = 4), 
+                                             c = Arg(A_REG, U32, 'R_ESP')),
+
+                                        Insn(op = I_JCC, ir_addr = ( 7, 2 ), 
+                                             a = Arg(A_CONST, U1, val = 1), 
+                                             c = Arg(A_TEMP, U32, 'V_01')) ]
 
 
 class Reader(object):

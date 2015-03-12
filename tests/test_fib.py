@@ -24,6 +24,7 @@ class TestFib(unittest.TestCase):
 
         dfg.eliminate_dead_code()
         dfg.constant_folding()
+        dfg.optimize_temp_regs()
 
         dfg.store(tr.storage)
         insn_after = tr.size()
