@@ -1,4 +1,4 @@
-<style>fixed { font-family: Courier New, Courier, monospace; }</style>
+<style>m { font-family: Courier New, Courier, monospace; }</style>
 
 ## Installation
 
@@ -55,47 +55,48 @@ Example of IR code for `mov eax, ecx` x86 instruction:
 
 OpenREIL offers 23 different instructions:
 
-| Mnemonic            | Pseudocode                 | Description            |
-|---------------------|----------------------------|------------------------|
-| <fixed>STR</fixed>  | <fixed>c = a</fixed>       | Store to register      |
-| <fixed>STM</fixed>  | <fixed>\*c = a</fixed>     | Store to memory        |
-| <fixed>LDM</fixed>  | <fixed>c = \*a</fixed>     | Load from memory       |
-| <fixed>ADD</fixed>  | <fixed>c = a + b</fixed>   | Addition               |
-| <fixed>SUB</fixed>  | <fixed>c = a - b</fixed>   | Substraction           |
-| <fixed>NEG</fixed>  | <fixed>c = -a</fixed>      | Negation               |
-| <fixed>MUL</fixed>  | <fixed>c = a \* b</fixed>  | Multiplication         |
-| <fixed>DIV</fixed>  | <fixed>c = a / b</fixed>   | Division               |
-| <fixed>MOD</fixed>  | <fixed>c = a % b</fixed>   | Modulus                |
-| <fixed>SHL</fixed>  | <fixed>c = a << b</fixed>  | Shift left             |
-| <fixed>SHR</fixed>  | <fixed>c = a >> b</fixed>  | Shift right            |
-| <fixed>AND</fixed>  | <fixed>c = a & b</fixed>   | Binary AND             |
-| <fixed>OR</fixed>   | <fixed>c = a &#124; b</fixed>| Binary OR            |
-| <fixed>XOR</fixed>  | <fixed>c = a ^ b</fixed>   | Binary XOR             |
-| <fixed>NOT</fixed>  | <fixed>c = ~a</fixed>      | Binary NOT             |
-| <fixed>EQ</fixed>   | <fixed>c = a == b</fixed>  | Equation               |
-| <fixed>LT</fixed>   | <fixed>c = a < b</fixed>   | Less than              |
-| <fixed>SMUL</fixed> | <fixed>c = a \* b</fixed>  | Signed multiplication  |
-| <fixed>SDIV</fixed> | <fixed>c = a / b</fixed>   | Signed division        |
-| <fixed>SMOD</fixed> | <fixed>c = a % b</fixed>   | Signed modulus         |
-| <fixed>JCC</fixed>  | | Jump to c if a is not zero    |
-| <fixed>NONE</fixed> | | No operation                  |
-| <fixed>UNK</fixed>  | | Untranslated instruction      |
+| Mnemonic    | Pseudocode            | Description                 |
+|-------------|-----------------------|-----------------------------|
+| <m>STR</m>  | <m>c = a</m>          | Store to register           |
+| <m>STM</m>  | <m>\*c = a</m>        | Store to memory             |
+| <m>LDM</m>  | <m>c = \*a</m>        | Load from memory            |
+| <m>ADD</m>  | <m>c = a + b</m>      | Addition                    |
+| <m>SUB</m>  | <m>c = a - b</m>      | Substraction                |
+| <m>NEG</m>  | <m>c = -a</m>         | Negation                    |
+| <m>MUL</m>  | <m>c = a \* b</m>     | Multiplication              |
+| <m>DIV</m>  | <m>c = a / b</m>      | Division                    |
+| <m>MOD</m>  | <m>c = a % b</m>      | Modulus                     |
+| <m>SHL</m>  | <m>c = a << b</m>     | Shift left                  |
+| <m>SHR</m>  | <m>c = a >> b</m>     | Shift right                 |
+| <m>AND</m>  | <m>c = a & b</m>      | Binary AND                  |
+| <m>OR</m>   | <m>c = a &#124; b</m> | Binary OR                   |
+| <m>XOR</m>  | <m>c = a ^ b</m>      | Binary XOR                  |
+| <m>NOT</m>  | <m>c = ~a</m>         | Binary NOT                  |
+| <m>EQ</m>   | <m>c = a == b</m>     | Equation                    |
+| <m>LT</m>   | <m>c = a < b</m>      | Less than                   |
+| <m>SMUL</m> | <m>c = a \* b</m>     | Signed multiplication       |
+| <m>SDIV</m> | <m>c = a / b</m>      | Signed division             |
+| <m>SMOD</m> | <m>c = a % b</m>      | Signed modulus              |
+| <m>JCC</m>  |                       | Jump to c if a is not zero  |
+| <m>NONE</m> |                       | No operation                |
+| <m>UNK</m>  |                       | Untranslated instruction    |
+
           
-Each instruction argument can have 1, 8, 16, 32 or 64 bits of length\. Most of arithmetic instructions operates with unsigned arguments\. <fixed>SMUL</fixed>, <fixed>SDIV</fixed> and <fixed>SMOD</fixed> instructions operates with signed arguments in [two’s complement](http://en.wikipedia.org/wiki/Two%27s_complement) signed number representation form\.
+Each instruction argument can have 1, 8, 16, 32 or 64 bits of length\. Most of arithmetic instructions operates with unsigned arguments\. <m>SMUL</m>, <m>SDIV</m> and <m>SMOD</m> instructions operates with signed arguments in [two’s complement](http://en.wikipedia.org/wiki/Two%27s_complement) signed number representation form\.
 
 Most of instructions supposes the same size of their source and destination arguments, but there’s a several exceptions:
 
-   * Result (argument c) of <fixed>EQ</fixed> and <fixed>LT</fixed> instructions always has 1 bit size.
-   * Argument a of <fixed>STM</fixed> and argument c of <fixed>LDM</fixed> must have 8 bits or gather size (obviously, there is no memory read/write operations with single bit values).
-   * Result of <fixed>OR</fixed> instruction can have any size. It may be less, gather or equal than size of it’s input arguments. 
+   * Result (argument c) of <m>EQ</m> and <m>LT</m> instructions always has 1 bit size.
+   * Argument a of <m>STM</m> and argument c of <m>LDM</m> must have 8 bits or gather size (obviously, there is no memory read/write operations with single bit values).
+   * Result of <m>OR</m> instruction can have any size. It may be less, gather or equal than size of it’s input arguments. 
 
-OpenREIL uses <fixed>OR</fixed> operation for converting to value of different size. For example, converting value of 8 bit argument <fixed>V_01</fixed> to 1 bit argument <fixed>V_02</fixed> (1-7 bits of <fixed>V_01</fixed> will be ignored):
+OpenREIL uses <m>OR</m> operation for converting to value of different size. For example, converting value of 8 bit argument <m>V_01</m> to 1 bit argument <m>V_02</m> (1-7 bits of <m>V_01</m> will be ignored):
 
 ```
 00000000.00      OR           V_01:8,              0:8,           V_02:1
 ```
 
-Converting 1 bit argument <fixed>V_02</fixed> to 32 bit argument <fixed>V_03</fixed> (1-31 bits of <fixed>V_03</fixed> will be zero extended):
+Converting 1 bit argument <m>V_02</m> to 32 bit argument <m>V_03</m> (1-31 bits of <m>V_03</m> will be zero extended):
 
 ```
 00000000.00      OR           V_02:1,              0:1,          V_03:32
@@ -103,30 +104,30 @@ Converting 1 bit argument <fixed>V_02</fixed> to 32 bit argument <fixed>V_03</fi
 
 Instruction argument can have following type:
 
-   * <fixed>A_REG</fixed> - CPU register (example: <fixed>R_EAX:32</fixed>, <fixed>R_ZF:1</fixed>).
-   * <fixed>A_TEMP</fixed> - temporary register (example: <fixed>V_01:8</fixed>, <fixed>V_02:32</fixed>).
-   * <fixed>A_CONST</fixed> - constant value (example: <fixed>0:1</fixed>, <fixed>fffffff4:32</fixed>).
-   * <fixed>A_NONE</fixed> - argument is not used by instruction.
+   * <m>A_REG</m> - CPU register (example: <m>R_EAX:32</m>, <m>R_ZF:1</m>).
+   * <m>A_TEMP</m> - temporary register (example: <m>V_01:8</m>, <m>V_02:32</m>).
+   * <m>A_CONST</m> - constant value (example: <m>0:1</m>, <m>fffffff4:32</m>).
+   * <m>A_NONE</m> - argument is not used by instruction.
 
 Address of each IR instruction consists from two parts: original address of translated machine instruction and IR instruction logical number (inum). First IR instruction of each machine instruction always has inum with value 0. 
 
-Group of IR instructions that represent one machine instruction can set value of some temporary register only once, so, <fixed>A_TEMP</fixed> arguments are single state assignment within the confines of machine instruction.
+Group of IR instructions that represent one machine instruction can set value of some temporary register only once, so, <m>A_TEMP</m> arguments are single state assignment within the confines of machine instruction.
 
 
 ### Optional instruction flags
 
 In addition to address, operation code and arguments IR instruction also has flags which used to store useful metainformation:
 
-   * <fixed>IOPT_CALL</fixed> - this JCC instruction represents a function call.
-   * <fixed>IOPT_RET</fixed> - this JCC instruction represents a function exit.
-   * <fixed>IOPT_ASM_END</fixed> - last IR instruction of machine instruction.
-   * <fixed>IOPT_BB_END</fixed> - last IR instruction of basic block.
-   * <fixed>IOPT_ELIMINATED</fixed> - whole machine instruction was replaced with NONE IR instruction during dead code elimination.
+   * <m>IOPT_CALL</m> - this JCC instruction represents a function call.
+   * <m>IOPT_RET</m> - this JCC instruction represents a function exit.
+   * <m>IOPT_ASM_END</m> - last IR instruction of machine instruction.
+   * <m>IOPT_BB_END</m> - last IR instruction of basic block.
+   * <m>IOPT_ELIMINATED</m> - whole machine instruction was replaced with NONE IR instruction during dead code elimination.
 
 
 ### Representation of x86 registers
 
-IR code for x86 architecture operates only with 32-bit length general purpose CPU registers (<fixed>R_EAX:32</fixed>, <fixed>R_ECX:32</fixed>, etc.), OpenREIL has no half-sized registers (<fixed>AX</fixed>, <fixed>AL</fixed>, <fixed>AH</fixed>, etc.), translator converts all machine instructions that operates with such registers to full length form.
+IR code for x86 architecture operates only with 32-bit length general purpose CPU registers (<m>R_EAX:32</m>, <m>R_ECX:32</m>, etc.), OpenREIL has no half-sized registers (<m>AX</m>, <m>AL</m>, <m>AH</m>, etc.), translator converts all machine instructions that operates with such registers to full length form.
 
 Example of IR code for `mov ah, al` x86 instruction:
 
@@ -145,7 +146,7 @@ Example of IR code for `mov ah, al` x86 instruction:
 
 ### Representation of x86 EFLAGS
 
-OpenREIL uses separate 1-bit registers to represent <fixed>ZF</fixed>, <fixed>PF</fixed>, <fixed>CF</fixed>, <fixed>AF</fixed>, <fixed>SF</fixed> and <fixed>OF</fixed> bits of <fixed>EFLAGS</fixed> register.
+OpenREIL uses separate 1-bit registers to represent <m>ZF</m>, <m>PF</m>, <m>CF</m>, <m>AF</m>, <m>SF</m> and <m>OF</m> bits of <m>EFLAGS</m> register.
 
 Example of IR code for `test eax, eax` x86 instruction which sets some of these bits:
 
@@ -182,7 +183,7 @@ Example of IR code for `test eax, eax` x86 instruction which sets some of these 
 ```
 
 
-For machine instructions which operates with whole <fixed>EFLAGS</fixed> value (pushfd, etc.) OpenREIL composes it's value from values of 1-bit registers:
+For machine instructions which operates with whole <m>EFLAGS</m> value (pushfd, etc.) OpenREIL composes it's value from values of 1-bit registers:
 
 Example of IR code for pushfd x86 instruction:
 
@@ -315,7 +316,7 @@ Program output:
 
 pyopenreil.translator module is written in Cython, it’s stands for bridge between C API and high level Python API of OpenREIL. Also, OpenREIL uses JSON representation of these tupples to store translated instruction into the file or Mongo DB collection.
 
-IR constants (operation codes, argument types, etc.) are declared in <fixed>pyopenreil.IR</fixed> module.
+IR constants (operation codes, argument types, etc.) are declared in <m>pyopenreil.IR</m> module.
 
 
 ### High level Python API
@@ -326,17 +327,17 @@ High level Python API of OpenREIL has abstractions for IR instructions and argum
 
 The most important modules:
 
-   * <fixed>pyopenreil.IR</fixed> - IR constants.
-   * <fixed>pyopenreil.REIL</fixed> - translation and analysis API.
-   * <fixed>pyopenreil.symbolic</fixed> - represents IR as symbolic expressions.
-   * <fixed>pyopenreil.VM</fixed> - IR emulation.
-   * <fixed>pyopenreil.utils.asm</fixed> - instruction reader for x86 assembly language.
-   * <fixed>pyopenreil.utils.bin_PE</fixed> - instruction reader for PE binaries.
-   * <fixed>pyopenreil.utils.bin_BFD</fixed> - instruction reader for ELF and Mach-O binaries.
-   * <fixed>pyopenreil.utils.kd</fixed> - instruction reader that uses pykd API.
-   * <fixed>pyopenreil.utils.GDB</fixed> - instruction reader that uses GDB Python API.
-   * <fixed>pyopenreil.utils.IDA</fixed> - instruction reader that uses IDA Pro Python API.
-   * <fixed>pyopenreil.utils.mongodb</fixed> - instruction storage that uses Mongo DB.
+   * <m>pyopenreil.IR</m> - IR constants.
+   * <m>pyopenreil.REIL</m> - translation and analysis API.
+   * <m>pyopenreil.symbolic</m> - represents IR as symbolic expressions.
+   * <m>pyopenreil.VM</m> - IR emulation.
+   * <m>pyopenreil.utils.asm</m> - instruction reader for x86 assembly language.
+   * <m>pyopenreil.utils.bin_PE</m> - instruction reader for PE binaries.
+   * <m>pyopenreil.utils.bin_BFD</m> - instruction reader for ELF and Mach-O binaries.
+   * <m>pyopenreil.utils.kd</m> - instruction reader that uses pykd API.
+   * <m>pyopenreil.utils.GDB</m> - instruction reader that uses GDB Python API.
+   * <m>pyopenreil.utils.IDA</m> - instruction reader that uses IDA Pro Python API.
+   * <m>pyopenreil.utils.mongodb</m> - instruction storage that uses Mongo DB.
 
 Usage example:
 
@@ -415,10 +416,51 @@ from pyopenreil.utils import asm
 reader = asm.Reader(ARCH_X86, ( 'push eax' ), addr = 0)
 ```
 
+### MongoDB as IR code storage
+
+Using of <m>CodeStorageMem()</m> class as IR code storage has one significant disadvantage: real programs are very complex nowadays, so you may need to analyze amount of code that is too big to fit into the RAM. 
+
+To solve scalability problem I implemented other storage class that uses MongoDB collections to store translated code, example of it's usage:
+
+```python
+from pyopenreil.utils import mongodb
+
+# create storage instance
+storage = mongodb.CodeStorageMongo(ARCH_X86,
+          collection = 'test_fib', db = 'openreil',
+          host = 'localhost', port = 27017) 
+
+# clear old contents of collection
+storage.clear()
+```
+
+Here is an example of MongoDB collection record format which is used by OpenREIL:
+
+```
+{ 
+  "_id" : ObjectId("54e2a2fad87fe0462f000000"), 
+  "addr" : NumberLong(1094795585), 
+  "size" : 1
+  "inum" : 0, 
+  "op" : 3,
+  "a" : [ 1, 3, "V_00" ], 
+  "b" : [ ], 
+  "c" : [ 2, 3, "V_01" ],  
+  "attr" : { 2 : 0 } 
+}
+```
+
+This record stores the following IR instruction:
+
+```
+41414141.00     STR          V_00:32,                 ,          V_01:32
+```
+
+To improove storage performance you also can join a several instances of MongoDB into the single cluster.
 
 ### Translating of basic blocks and functions
 
-<fixed>CodeStorageTranslator</fixed> class of <fixed>pyopenreil.REIL</fixed> is also can do code translation at basic blocks or functions level. Example of basic block translation:
+<m>CodeStorageTranslator</m> class of <m>pyopenreil.REIL</m> is also can do code translation at basic blocks or functions level. Example of basic block translation:
 
 ```python
 # initialize raw instruction reader
@@ -465,6 +507,89 @@ for bb in func.bb_list:
 
 ```
 
+### Symbolic expressions
+
+OpenREIL can convert basic blocks and instructions into the symbolic form, it might be useful for such tasks like symbolic execution, intercating with SMT solver, decompilation and analysis of code semantics.
+
+Let's write a program that translates assembly function into IR and prints a set of symbolic expressions for it's first basic block:
+
+```python
+from pyopenreil.REIL import *
+from pyopenreil.utils import asm
+
+# create assembly instruction reader
+reader = asm.Reader(ARCH_X86, ( 'push ebp',
+                                'mov ebp, esp',
+                                'xor eax, eax',
+                                'test ecx, ecx', 
+                                'jz _quit',
+                                'inc eax',
+                                '_quit: leave',
+                                'ret'), addr = 0)
+
+# create translator instance
+tr = CodeStorageTranslator(ARCH_X86, reader)
+
+# translate first basic block
+bb = tr.get_bb(0)
+
+# Get symbolic representation of basic block.
+# False value of temp_regs argument indicates that
+# we don't need expressions for REIL temp registers.
+sym = bb.to_symbolic(temp_regs = False)
+
+# print SymState object
+print sym
+```
+
+Program output (symbolic represenation of first basic block which contains first 5 machine instructions of the test code):
+```
+R_ESP = (R_ESP - 0x4)
+*(R_ESP - 0x4) = R_EBP
+R_EBP = (R_ESP - 0x4)
+R_EAX = 0x0
+R_CF = 0x0
+R_PF = ~((((((R_ECX & 0xff) >> 0x7) ^ ((R_ECX & 0xff) >> 0x6)) ^ (((R_ECX & 0xff) >> 0x5) ^ ((R_ECX & 0xff) >> 0x4))) ^ ((((R_ECX & 0xff) >> 0x3) ^ ((R_ECX & 0xff) >> 0x2)) ^ (((R_ECX & 0xff) >> 0x1) ^ (R_ECX & 0xff)))) & 0x1)
+R_AF = 0x0
+R_ZF = (R_ECX == 0x0)
+R_SF = (0x1 == (0x1 & (R_ECX >> 0x1f)))
+R_OF = 0x0
+@IP = ((((R_ECX == 0x0) | 0x0) & 0x1)) ? 0xa : 0x9
+```
+
+Symbolic expressions are implemented in <m>pyopenreil.symbolic</m> module; <m>symbolic.Sym</m> is a base class for other classes that represents expression members: <m>symbolic.SymVal</m>, <m>symbolic.SymConst</m>, <m>symbolic.SymExp</m>, <m>symbolic.SymCond</m>, <m>symbolic.SymPtr</m> and others.
+
+You can get individual expressions from symbolic representation:
+
+```python
+from pyopenreil.symbolic import *
+
+# get expression for ZF register value
+exp_zf = sym.query(SymVal('R_ZF'))
+
+# prints (R_ECX == 0x0)
+print exp_zf
+```
+
+Getting expression that represents instruction pointer value at the end of the basic block:
+
+```python
+# get expression for EIP register value
+exp_eip = sym.query(SymIP())
+
+# prints ((((R_ECX == 0x0) | 0x0) & 0x1)) ? 0xa : 0x9
+print exp_ip
+```
+
+You also can compare expressions, OpenREIL will care about commutativity and other important things. To match any valid expression <m>symbolic.SymAny</m> object is used:
+
+```python
+# compare expressions
+assert exp_zf == SymExp(I_EQ, SymVal('R_ECX'), SymConst(0, U32))
+assert exp_zf == SymExp(I_EQ, SymVal('R_ECX'), SymAny())
+assert exp_zf == SymAny()
+```
+
 ### Control flow graphs
 
 OpenREIL can build [control flow graph](http://en.wikipedia.org/wiki/Control_flow_graph) (CFG) of IR code. Let's write some test program in C to demonstrate it:
@@ -508,26 +633,26 @@ int main(int argc, char *argv[])
 }
 ```
 
-Now compile it with GCC and get virtual address of <fixed>fib()</fixed> function using objdump:
+Now compile it with GCC and get virtual address of <m>fib()</m> function using objdump:
 
 ```
 $ gcc tests/fib.c -o tests/fib
 $ objdump -t tests/fib | grep '.text'
-08048360 l    d  .text	00000000              .text
-08048390 l     F .text	00000000              __do_global_dtors_aux
-080483f0 l     F .text	00000000              frame_dummy
-08048540 l     F .text	00000000              __do_global_ctors_aux
-08048530 g     F .text	00000002              __libc_csu_fini
-08048532 g     F .text	00000000              .hidden __i686.get_pc_thunk.bx
-080484c0 g     F .text	00000061              __libc_csu_init
-08048360 g     F .text	00000000              _start
-0804844b g     F .text	0000006e              main
-08048414 g     F .text	00000037              fib
+08048360 l    d  .text  00000000              .text
+08048390 l     F .text  00000000              __do_global_dtors_aux
+080483f0 l     F .text  00000000              frame_dummy
+08048540 l     F .text  00000000              __do_global_ctors_aux
+08048530 g     F .text  00000002              __libc_csu_fini
+08048532 g     F .text  00000000              .hidden __i686.get_pc_thunk.bx
+080484c0 g     F .text  00000061              __libc_csu_init
+08048360 g     F .text  00000000              _start
+0804844b g     F .text  0000006e              main
+08048414 g     F .text  00000037              fib
 ```
 
-OpenREIL allows to work with CFG's using <fixed>REIL.CFGraph</fixed>, <fixed>REIL.CFGraphNode</fixed> and <fixed>REIL.CFGraphEdge</fixed> objects; <fixed>REIL.CFGraphBuilder</fixed> object accepts translator instance and performs CFG traversing starting from specified address and untill the end of the current machine code function. 
+OpenREIL allows to work with CFG's using <m>REIL.CFGraph</m>, <m>REIL.CFGraphNode</m> and <m>REIL.CFGraphEdge</m> objects; <m>REIL.CFGraphBuilder</m> object accepts translator instance and performs CFG traversing starting from specified address and untill the end of the current machine code function. 
 
-Let's build control flow graph of <fixed>fib()</fixed> function (that located at address <fixed>0x08048414</fixed>) of <fixed>tests/fib</fixed> executable:
+Let's build control flow graph of <m>fib()</m> function (that located at address <m>0x08048414</m>) of <m>tests/fib</m> executable:
 
 ```python
 from pyopenreil.REIL import *
@@ -558,7 +683,7 @@ It's easy to render this file into the PNG image using Graphviz dot utility:
 $ dot -Tpng cfg.dot > cfg.png
 ```
 
-Example of the <fixed>fib()</fixed> function CFG:
+Example of the <m>fib()</m> function CFG:
 
 <img src="https://dl.dropboxusercontent.com/u/22903093/openreil/cfg_1.png" alt="OpenREIL Python API diagram" width="181" height="266">
 
@@ -595,7 +720,7 @@ Please note, that generated IR code may have more complicated CFG layout than it
 00001339.04     JCC              1:1,                 ,          V_01:32
 ```
 
-As you can see, this IR code has branch instructions at <fixed>1337.02</fixed>  and <fixed>1337.0e</fixed>, so, it's DFG has 3 nodes:
+As you can see, this IR code has branch instructions at <m>1337.02</m>  and <m>1337.0e</m>, so, it's DFG has 3 nodes:
 
 <img src="https://dl.dropboxusercontent.com/u/22903093/openreil/cfg_2.png" alt="OpenREIL Python API diagram" width="231" height="96">
 
@@ -616,8 +741,8 @@ Assembly code of the function:
 ```
 _sum:
 
-mov		eax, ecx
-add		eax, edx
+mov     eax, ecx
+add     eax, edx
 ret
 ```
 
@@ -701,12 +826,12 @@ tr = CodeStorageTranslator(ARCH_X86, reader)
 dfg = DFGraphBuilder(tr).traverse(0)
 ```
 
-<fixed>REIL.DFGraph</fixed> allows to apply some basic data flow code optimizations to translated IR code, currently it supports such well known compiler optimizations as [dead code elimination](http://en.wikipedia.org/wiki/Dead_code_elimination) and [constant folding](http://en.wikipedia.org/wiki/Constant_folding). 
+<m>REIL.DFGraph</m> allows to apply some basic data flow code optimizations to translated IR code, currently it supports such well known compiler optimizations as [dead code elimination](http://en.wikipedia.org/wiki/Dead_code_elimination) and [constant folding](http://en.wikipedia.org/wiki/Constant_folding). 
 
-Let's apply these optimizations to <fixed>fib()</fixed> function code:
+Let's apply these optimizations to <m>fib()</m> function code:
 
 ```python
-# run available optimizations
+# run some of available optimizations
 dfg.eliminate_dead_code()
 dfg.constant_folding()
 
@@ -755,7 +880,192 @@ dfg.to_dot_file('dfg.dot')
 
 <img src="https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_1.png" alt="OpenREIL Python API diagram" width="242" height="536">
 
-### Emulation of IR code
+It's obvious to figure, that optimized code is still no prefect: it uses additional 7 temp registers (1 in first instruction, 3 in second and third instructions) to represent our machine code, while only one temp register (<m>V_01:32</m> inside IR code of `ret`) is enough.
+
+<m>REIL.DFGraph</m> is also allows to optimize temp registers usage:
+
+```python
+dfg.optimize_temp_regs()
+dfg.store(tr.storage)
+
+print tr.storage
+```
+
+Now translated code looks pretty close to original machine code:
+
+```
+;
+; asm: mov eax, ecx
+; data (2): 89 c8
+;
+00000000.00     STR         R_ECX:32,                 ,         R_EAX:32
+;
+; asm: add eax, edx
+; data (2): 01 d0
+;
+00000002.00     ADD         R_EAX:32,         R_EDX:32,         R_EAX:32
+;
+; asm: ret
+; data (1): c3
+;
+00000004.00     LDM         R_ESP:32,                 ,          V_01:32
+00000004.01     ADD         R_ESP:32,             4:32,         R_ESP:32
+00000004.02     JCC              1:1,                 ,          V_01:32
+```
+
+Data flow graph of final code after all optimizations:
+
+<img src="https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_2.png" alt="OpenREIL Python API diagram" width="269" height="280">
+
+### Handling of unknown instructions
+
+During static code analysis it will be useful to have ability to get metainformation about machine instruction (source and destination registers, etc.) even if translation of this instruction to IR was unsuccessful. With such ability it will be not necessery to interrupt code analysis on unknown/untranslated machine instruction, you'll just loose some analysis accuracy.
+
+VEX library which used in OpenREIL has excellent support of x86 general purpose instructions, but it can't translate to IR some certain system instructions like `rdmsr`, `wrmsr`, `cpuid`, `sidt`, `sgdt`, `sldt` and some others. In this case libopenreil will try to use Capstone engine to get information about registers reads and writes, and pass this information to upper abstraction levels. For representing of unknown/untranslated instructions OpenREIL has <m>I_UNK</m> IR instruction.
+
+Let's try to translate to IR some code that uses `cpuid` instruction to get information about x86 processor info and features:
+
+```python
+from pyopenreil.REIL import *
+from pyopenreil.utils import asm
+
+# create assembly instruction reader
+reader = asm.Reader(ARCH_X86, ( 'mov eax, 00000001h',
+                                'mov ecx, 0',
+                                'cpuid',
+                                'mov eax, ecx',
+                                'ret' ), addr = 0)
+
+# create translator instance
+tr = CodeStorageTranslator(ARCH_X86, reader)
+
+# translate function and build it's DFG
+dfg = DFGraphBuilder(tr).traverse(addr)
+
+# Run all available code optimizations and update 
+# storage with new function code.
+dfg.optimize_all(tr.storage)
+
+# print IR of translated nad optimized function
+print tr.get_func(0)
+```
+
+Generated IR code:
+
+```
+;
+; asm: mov eax, 1
+; data (5): b8 01 00 00 00
+;
+00000000.00     STR             1:32,                 ,         R_EAX:32
+;
+; asm: mov ecx, 0
+; data (5): b9 00 00 00 00
+;
+00000005.00     STR             0:32,                 ,         R_ECX:32
+;
+; asm: cpuid -- reads: R_EAX, R_ECX; writes: R_EAX, R_EBX, R_ECX, R_EDX
+; data (2): 0f a2
+;
+0000000a.00     UNK                 ,                 ,
+;
+; asm: mov eax, ecx
+; data (2): 89 c8
+;
+0000000c.00     STR         R_ECX:32,                 ,         R_EAX:32
+;
+; asm: ret
+; data (1): c3
+;
+0000000e.00     LDM         R_ESP:32,                 ,          V_01:32
+0000000e.01     ADD         R_ESP:32,             4:32,         R_ESP:32
+0000000e.02     JCC              1:1,                 ,          V_01:32
+```
+
+As you can see, it has <m>I_UNK</m> instruction with <m>a.00</m> IR address.
+
+Data flow graph of IR code with <m>I_UNK</m> node wchich represents `cpuid` instruction with <m>R_EAX</m>, <m>R_ECX</m> as source and <m>R_EDX</m>, <m>R_ECX</m>, <m>R_EBX</m> as destination arguments:
+
+<img src="https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_3.png" alt="OpenREIL Python API diagram" width="426" height="266">
+
+### IR code emulation
+
+OpenREIL has emulator for IR code, currently engine uses it mostly for tests. The main idea of such tests - run machine code natively first, then translate it to IR and run under emulation, and finally - compare execution results. Example of programs that preforms such tests: [tests/test_fib.py]() and [tests/test_rc4.py]().
+
+Let's run some simple code under emulation to demonstrate it's API usage:
+
+```python
+from pyopenreil.REIL import *
+from pyopenreil.VM import *
+
+from pyopenreil.utils import asm
+
+stack_addr = 0x50000
+func_addr = 0x1000
+
+# create assembly instruction reader
+reader = asm.Reader(ARCH_X86, ( 'mov eax, ecx',
+                                'add eax, edx', 
+                                'ret' ), addr = func_addr)
+
+# create translator instance
+tr = CodeStorageTranslator(ARCH_X86, reader)
+
+# create virtual CPU instance
+cpu = Cpu(ARCH_X86)
+
+# set up stack pointer and input args
+cpu.reg('esp').val = stack_addr
+cpu.reg('ecx').val = 1 # first arg of test function
+cpu.reg('edx').val = 2 # second arg of test function
+
+# run test code untill ret
+try: cpu.run(tr, func_addr)
+except MemReadError as e: 
+
+    # IR code of ret instruction will generate
+    # memory access exception because we passed 
+    # an invalid stack pointer to test code.
+    # So, here we just stopping emulation when such 
+    # exception occurs.
+    if e.addr != stack_addr: raise
+
+# check for correct return value (1 + 2 = 3)
+assert cpu.reg('eax').val == 3
+
+# print current CPU context info into console
+cpu.dump()
+```
+
+Console output of the <m>cpu.dump()</m> call:
+
+```
+   R_EAX: 0000000000000003
+   R_ECX: 0000000000000001
+   R_EDX: 0000000000000002
+   R_ESP: 0000000000050000
+    R_AF: 0000000000000000
+    R_PF: 0000000000000001
+    R_OF: 0000000000000000
+    R_ZF: 0000000000000000
+    R_CF: 0000000000000000
+    R_SF: 0000000000000000
+```
+
+For more user friedndly interacting with emulated code OpenREIL has <m>pyopenreil.VM.Abi</m> class which allows to allocate emulator memory and place arbitrary data there (<m>Abi.string()</m> and <m>Abi.buffer()</m> methods), or call native code functions using <m>Abi.stdcall()</m>, <m>Abi.cdecl()</m> and <m>Abi.fastcall()</m> methods. There's also <m>pyopenreil.VM.Stack</m> class to represent a stack memory.
+
+Here is example of calling test code from above using <m>pyopenreil.VM.Abi</m>:
+
+```python
+# Abi constructor accepts translator and virtual CPU instances
+abi = Abi(cpu, tr)
+
+# call our test code using fastcall call convention
+ret = abi.fastcall(func_addr, 1, 2)
+
+# check for correct return value
+assert ret == 3
+```
 
 ## Using OpenREIL for plugins
 

@@ -76,6 +76,19 @@ class Arg(object):
         # unserialize argument data
         if serialized: self.unserialize(serialized)
 
+    def __hash__(self):
+
+        return hash(( self.type, self.size, self.name, self.val ))    
+
+    def __eq__(self, other):
+
+        return ( self.type, self.size, self.name, self.val ) == \
+               ( other.type, other.size, other.name, other.val )
+
+    def __ne__(self, other):
+
+        return not self == other
+
     def __str__(self):
 
         mkstr = lambda val: '%s:%s' % (val, self.size_name())
@@ -84,17 +97,6 @@ class Arg(object):
         elif self.type == A_REG:   return mkstr(self.name)
         elif self.type == A_TEMP:  return mkstr(self.name)
         elif self.type == A_CONST: return mkstr('%x' % self.get_val())
-
-    def __eq__(self, other):
-
-        return self.type == other.type and \
-               self.size == other.size and \
-               self.name == other.name and \
-               self.val == other.val
-
-    def __ne__(self, other):
-
-        return not self == other
 
     def get_val(self):
 
@@ -223,11 +225,15 @@ class Insn(object):
         if json: serialized = InsnJson().from_json(json)
         if serialized: self.unserialize(serialized)
 
+    def __hash__(self):
+
+        return hash(( self.addr, self.inum, self.op,
+                      hash(self.a), hash(self.b), hash(self.c) ))
+
     def __eq__(self, other):
 
-        return self.op == other.op and \
-               self.addr == other.addr and self.inum == other.inum and \
-               self.a == other.a and self.b == other.b and self.c == other.c
+        return ( self.addr, self.inum, self.op, self.a, self.b, self.c ) == \
+               ( other.addr, other.inum, other.op, other.a, other.b, other.c )
 
     def __ne__(self, other):
 
@@ -358,7 +364,7 @@ class Insn(object):
 
         ret = []
 
-        if self.op != I_NONE: 
+        if self.op not in [ I_UNK, I_NONE ]: 
 
             if get_all: cond = lambda arg: arg.type != A_NONE 
             else: cond = lambda arg: arg.is_var()
@@ -366,7 +372,7 @@ class Insn(object):
             if self.op != I_JCC and self.op != I_STM and \
                cond(self.c): ret.append(self.c)
 
-        elif self.have_attr(IATTR_DST):
+        if self.op == I_UNK and self.have_attr(IATTR_DST):
 
             # get operands information from attributes
             ret = map(lambda a: Arg(a), self.get_attr(IATTR_DST))
@@ -377,7 +383,7 @@ class Insn(object):
 
         ret = []
 
-        if self.op != I_NONE:
+        if self.op not in [ I_UNK, I_NONE ]: 
 
             if get_all: cond = lambda arg: arg.type != A_NONE 
             else: cond = lambda arg: arg.is_var()
@@ -388,7 +394,7 @@ class Insn(object):
             if (self.op == I_JCC or self.op == I_STM) and \
                cond(self.c): ret.append(self.c)
 
-        elif self.have_attr(IATTR_SRC):
+        if self.op == I_UNK and self.have_attr(IATTR_DST):
 
             # get operands information from attributes
             ret = map(lambda a: Arg(a), self.get_attr(IATTR_SRC))
@@ -723,7 +729,7 @@ class InsnList(list):
 
         return InsnList(ret)
 
-    def to_symbolic(self, in_state = None, skip_temp = False):
+    def to_symbolic(self, in_state = None, temp_regs = True):
 
         out_state = None if in_state is None else in_state.copy()
 
@@ -731,7 +737,7 @@ class InsnList(list):
         for insn in self: out_state = insn.to_symbolic(out_state)
 
         # remove temp registers from output state
-        if skip_temp: out_state.remove_temp_regs()
+        if not temp_regs: out_state.remove_temp_regs()
 
         return out_state
 
@@ -823,7 +829,7 @@ class BasicBlock(InsnList):
 
             ret += '; ' + '-' * 32 + '\n'
 
-            for item in str(self.to_symbolic(skip_temp = True)).strip().split('\n'):
+            for item in str(self.to_symbolic(temp_regs = False)).strip().split('\n'):
 
                 ret += '; %s\n' % item
 
@@ -983,17 +989,20 @@ class Func(InsnList):
             if bb.last.have_flag(IOPT_RET):
 
                 # set last instruction of the func
-                if not bb in self.last: self.last.append(bb.last)    
+                if not bb.last in self.last: self.last.append(bb.last)    
 
                 # update number of stack arguments
                 insn_list = bb.get_range(bb.last.addr)
                 self.stack_args = self._get_stack_args_count(insn_list)
 
-            # update func code chunks information
+            # update code chunks and basic blocks information
             self.add_chunk(bb.first.addr, bb.size)
-
-            self += bb
             self.bb_list.append(bb) 
+            
+            for insn in bb:
+
+                # add bb instruction to func instructions list
+                if not insn in self: self.append(insn)            
 
     def name(self):
 
@@ -1508,6 +1517,31 @@ class DFGraph(Graph):
             try: storage.del_insn(addr)
             except StorageError: pass
 
+        # Instruction with inum == 0 is also contains
+        # metainformation about machine insturction.
+        # If such instruction was eliminated - we need to
+        # provide this information to next IR instruction of
+        # machine instruction.
+        for node in self.nodes.values():
+
+            insn = node.item
+            if insn is None or \
+               insn.inum != 0 or not \
+               insn.have_flag(IOPT_ELIMINATED): continue            
+            
+            # find not eliminated IR instruction 
+            next = insn  
+            while next.have_flag(IOPT_ELIMINATED) and not \
+                  next.have_flag(IOPT_ASM_END):
+
+                next = self.nodes[( next.addr, next.inum + 1 )].item
+
+            if next != insn:
+
+                # copy information about machine instruction
+                if insn.have_attr(IATTR_BIN): next.set_attr(IATTR_BIN, insn.get_attr(IATTR_BIN))
+                if insn.have_attr(IATTR_ASM): next.set_attr(IATTR_ASM, insn.get_attr(IATTR_ASM))
+
         relink = False
         for node in self.nodes.values():
 
@@ -1543,6 +1577,13 @@ class DFGraph(Graph):
 
         # update inums and flags
         if relink: storage.fix_inums_and_flags()
+
+    def optimize_all(self, storage = None):
+
+        # run all available optimizations
+        self.optimize_temp_regs(storage = storage)
+        self.constant_folding(storage = storage)
+        self.eliminate_dead_code(storage = storage)
 
     def optimize_temp_regs(self, storage = None):
 
@@ -1614,8 +1655,18 @@ class DFGraph(Graph):
 
                         for edge in node.out_edges:
 
+                            found = False
+                            for edge_old in node_prev.out_edges:
+
+                                if edge_old.node_to == edge.node_to and \
+                                   edge_old.name == insn.c.name:
+
+                                    # such edge is already exists
+                                    found = True
+                                    break
+
                             # update DFG edges
-                            self.add_edge(node_prev, edge.node_to, insn.c.name) 
+                            if not found: self.add_edge(node_prev, edge.node_to, insn.c.name) 
 
                         insn_prev.c = insn.c
                         deleted += _eliminate(node)
@@ -1673,8 +1724,18 @@ class DFGraph(Graph):
 
                             for edge in node.in_edges:
 
+                                found = False
+                                for edge_old in edge.node_from.out_edges:
+
+                                    if edge_old.node_to == node_next and \
+                                       edge_old.name == insn.a.name:
+
+                                        # such edge is already exists
+                                        found = True
+                                        break
+
                                 # update DFG edges
-                                self.add_edge(edge.node_from, node_next, insn.a.name)                            
+                                if not found: self.add_edge(edge.node_from, node_next, insn.a.name)                            
 
                         deleted += _eliminate(node)
 
@@ -1803,7 +1864,7 @@ class DFGraph(Graph):
 
         if storage is not None: self.store(storage)
 
-    def eliminate_dead_code(self, storage = None):
+    def eliminate_dead_code(self, keep_flags = False, storage = None):
 
         deleted_nodes = []
 
@@ -1818,7 +1879,7 @@ class DFGraph(Graph):
             if arg is None: continue
             
             if (arg.type == A_TEMP) or \
-               (arg.type == A_REG and arg.name in x86.Registers.flags):
+               (arg.type == A_REG and not keep_flags and arg.name in x86.Registers.flags):
 
                 print 'Eliminating %s that live at the end of the function...' % arg.name
                 self.del_edge(edge)        
