@@ -612,7 +612,7 @@ class TestSymState(unittest.TestCase):
                    c = Arg(A_TEMP, U32, 'V_01')).to_symbolic(sym)
 
         sym.remove_temp_regs()  
-        assert sym.list_vals() == [ SymVal('R_ECX') ]      
+        assert sym.arg_out() == [ SymVal('R_ECX') ]      
 
     def test_slice(self):             
 
@@ -626,10 +626,10 @@ class TestSymState(unittest.TestCase):
                    c = Arg(A_REG, U32, 'R_EDX')).to_symbolic(sym)
 
         sym.slice(val_out = [ 'R_ECX' ])  
-        assert sym.list_vals() == [ SymVal('R_ECX') ]      
+        assert sym.arg_out() == [ SymVal('R_ECX') ]      
 
         sym.slice(val_in = [ 'R_EBX' ])
-        assert sym.list_vals() == []      
+        assert sym.arg_out() == []      
 
 
 class InsnJson(): 
@@ -1580,12 +1580,124 @@ class DFGraph(Graph):
 
     def optimize_all(self, storage = None):
 
-        # run all available optimizations
-        self.optimize_temp_regs(storage = storage)
-        self.constant_folding(storage = storage)
-        self.eliminate_dead_code(storage = storage)
+        # run all available optimizations        
+        self.eliminate_dead_code(storage = storage)  
+        self.constant_folding(storage = storage)        
+        self.eliminate_subexpressions(storage = storage)
+        
+    def constant_folding(self, storage = None):
 
-    def optimize_temp_regs(self, storage = None):
+        deleted_nodes = []
+
+        from VM import Math
+
+        def _eliminate(node):
+
+            self.del_node(node)
+            deleted_nodes.append(node)
+            return 1
+
+        def _evaluate(node): 
+
+            insn = node.item
+            val = Math(insn.a, insn.b).eval(insn.op)
+
+            if val is not None:
+
+                return Arg(A_CONST, insn.c.size, val = val)
+
+            else:
+
+                return None
+
+        def _propagate_check(node):
+
+            insn = node.item
+
+            if insn.op in [ I_JCC, I_STM, I_NONE, I_UNK ]: 
+
+                return False
+
+            for arg in insn.src(get_all = True):
+
+                if arg.type != A_CONST: return False
+
+            for arg in insn.dst(get_all = True):
+
+                if arg.type != A_TEMP: return False
+
+            return True
+
+        def _propagate_do(node, arg):            
+
+            for edge in node.out_edges:
+
+                node_next = edge.node_to
+                insn_next = node_next.item
+
+                if insn_next.op == I_UNK:
+
+                    # Don't eliminate current instruction if any I_UNK
+                    # instructions uses it's results.
+                    return False
+
+            for edge in node.out_edges:
+
+                node_next = edge.node_to
+                insn_next = node_next.item
+
+                print 'Updating arg %s of DFG node "%s" to %s' % (edge, node_next, arg)
+
+                # Propagate constant value to immediate postdominators
+                # of current DFG node.
+                if insn_next.a.name == edge.name: insn_next.a = arg
+                if insn_next.b.name == edge.name: insn_next.b = arg
+                if insn_next.c.name == edge.name: insn_next.c = arg
+
+            return True        
+
+        def _constant_folding():
+
+            deleted, pending = 0, []  
+
+            # Collect list of DFG nodes that reprsesents instructions
+            # with constant source arguments and A_TEMP as destination argument.
+            for node in self.nodes.values():
+
+                if node != self.entry_node and len(node.in_edges) == 0 and \
+                   _propagate_check(node):
+
+                    pending.append(node)
+
+            for node in pending:
+
+                print 'DFG node "%s" has no input edges' % node
+
+                # evaluate constant expression
+                arg = _evaluate(node)
+                if arg is None: 
+                
+                    # propagate constants information
+                    if _propagate_do(node, arg):
+
+                        # delete node, it has no output edges anymore                        
+                        deleted += _eliminate(node)
+
+            return deleted
+
+        print '*** Folding constants...'
+
+        while True:            
+        
+            # perform constants folding untill there will be some nodes to delete    
+            if _constant_folding() == 0: break
+
+        # update global set of deleted DFG nodes
+        self.deleted_nodes = self.deleted_nodes.union(deleted_nodes)
+
+        if storage is not None: self.store(storage)
+
+    def eliminate_subexpressions(self, storage = None):
 
         deleted_nodes = []
 
@@ -1746,118 +1858,6 @@ class DFGraph(Graph):
         while True:
 
             if _optimize_temp_regs() == 0: break
-
-        # update global set of deleted DFG nodes
-        self.deleted_nodes = self.deleted_nodes.union(deleted_nodes)
-
-        if storage is not None: self.store(storage)
-        
-    def constant_folding(self, storage = None):
-
-        deleted_nodes = []
-
-        from VM import Math
-
-        def _eliminate(node):
-
-            self.del_node(node)
-            deleted_nodes.append(node)
-            return 1
-
-        def _evaluate(node): 
-
-            insn = node.item
-            val = Math(insn.a, insn.b).eval(insn.op)
-
-            if val is not None:
-
-                return Arg(A_CONST, insn.c.size, val = val)
-
-            else:
-
-                return None
-
-        def _propagate_check(node):
-
-            insn = node.item
-
-            if insn.op in [ I_JCC, I_STM, I_NONE, I_UNK ]: 
-
-                return False
-
-            for arg in insn.src(get_all = True):
-
-                if arg.type != A_CONST: return False
-
-            for arg in insn.dst(get_all = True):
-
-                if arg.type != A_TEMP: return False
-
-            return True
-
-        def _propagate_do(node, arg):            
-
-            for edge in node.out_edges:
-
-                node_next = edge.node_to
-                insn_next = node_next.item
-
-                if insn_next.op == I_UNK:
-
-                    # Don't eliminate current instruction if any I_UNK
-                    # instructions uses it's results.
-                    return False
-
-            for edge in node.out_edges:
-
-                node_next = edge.node_to
-                insn_next = node_next.item
-
-                print 'Updating arg %s of DFG node "%s" to %s' % (edge, node_next, arg)
-
-                # Propagate constant value to immediate postdominators
-                # of current DFG node.
-                if insn_next.a.name == edge.name: insn_next.a = arg
-                if insn_next.b.name == edge.name: insn_next.b = arg
-                if insn_next.c.name == edge.name: insn_next.c = arg
-
-            return True        
-
-        def _constant_folding():
-
-            deleted, pending = 0, []  
-
-            # Collect list of DFG nodes that reprsesents instructions
-            # with constant source arguments and A_TEMP as destination argument.
-            for node in self.nodes.values():
-
-                if node != self.entry_node and len(node.in_edges) == 0 and \
-                   _propagate_check(node):
-
-                    pending.append(node)
-
-            for node in pending:
-
-                print 'DFG node "%s" has no input edges' % node
-
-                # evaluate constant expression
-                arg = _evaluate(node)
-                if arg is None: 
-                
-                    # propagate constants information
-                    if _propagate_do(node, arg):
-
-                        # delete node, it has no output edges anymore                        
-                        deleted += _eliminate(node)
-
-            return deleted
-
-        print '*** Folding constants...'
-
-        while True:            
-        
-            # perform constants folding untill there will be some nodes to delete    
-            if _constant_folding() == 0: break
 
         # update global set of deleted DFG nodes
         self.deleted_nodes = self.deleted_nodes.union(deleted_nodes)
@@ -2088,8 +2088,8 @@ class TestDFGraphBuilder(unittest.TestCase):
 
         print '\n', storage
 
-        # optimize temp registers usage
-        dfg.optimize_temp_regs()        
+        # run common subexpression elimination to optimize temp regs usage
+        dfg.eliminate_subexpressions()        
 
         # update storage
         storage = CodeStorageMem(self.arch)

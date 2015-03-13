@@ -32,10 +32,10 @@ class TestRC4(unittest.TestCase):
             # construct dataflow graph for given function
             dfg = DFGraphBuilder(tr).traverse(addr)
             
-            # run some basic dataflow optimizations
+            # run some basic optimizations
             dfg.eliminate_dead_code()
             dfg.constant_folding()   
-            dfg.optimize_temp_regs()     
+            dfg.eliminate_subexpressions()     
 
             # store resulting instructions
             dfg.store(tr.storage)  

@@ -16,15 +16,18 @@ class TestFib(unittest.TestCase):
 
     def test(self):        
     
+        # load PE image of test program
         reader = bin_PE.Reader(self.BIN_PATH)
         tr = CodeStorageTranslator(self.ARCH, reader)
 
+        # construct dataflow graph for given function
         dfg = DFGraphBuilder(tr).traverse(self.PROC_ADDR)  
         insn_before = tr.size()
 
+        # run some basic optimizations
         dfg.eliminate_dead_code()
         dfg.constant_folding()
-        dfg.optimize_temp_regs()
+        dfg.eliminate_subexpressions()
 
         dfg.store(tr.storage)
         insn_after = tr.size()
@@ -34,6 +37,7 @@ class TestFib(unittest.TestCase):
         print '%d instructions before optimization and %d after\n' % \
               (insn_before, insn_after)
 
+        # create CPU and ABI
         cpu = Cpu(self.ARCH)
         abi = Abi(cpu, tr)
 

@@ -382,9 +382,29 @@ class SymState(object):
     def query(self, val):
 
         try: return self[val]
-        except KeyError: return val    
+        except KeyError: return val        
 
-    def list_vals(self):
+    def arg_in(self):
+
+        ret = []
+
+        def visitor(val):
+
+            if isinstance(val, SymVal) or \
+               isinstance(val, SymPtr):
+
+                if not val in ret: ret.append(val)
+
+            return val
+
+        # enumerate available expressions
+        for val, exp in self:
+
+            exp.parse(visitor)
+
+        return ret
+
+    def arg_out(self):
 
         return [ val for val, _ in self.state ]
 
@@ -406,7 +426,7 @@ class SymState(object):
 
     def remove_temp_regs(self):
 
-        for val in self.list_vals():
+        for val in self.arg_out():
 
             if isinstance(val, SymVal) and val.is_temp: 
 

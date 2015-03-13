@@ -590,6 +590,20 @@ assert exp_zf == SymExp(I_EQ, SymVal('R_ECX'), SymAny())
 assert exp_zf == SymAny()
 ```
 
+For extracting information about input and output arguments of <m>symbolic.SymState</m> it has <m>arg_src()</m> and <m>arg_dst()</m> methods:
+
+```python
+print 'IN:', ', '.join(map(lambda a: str(a), sym.arg_in()))
+print 'OUT:', ', '.join(map(lambda a: str(a), sym.arg_out()))
+```
+
+Console output:
+
+```
+IN: R_ESP, R_EBP, R_ECX
+OUT: R_ESP, *(R_ESP - 0x4), R_EBP, R_EAX, R_CF, R_PF, R_AF, R_ZF, R_SF, R_OF, @IP
+```
+
 ### Control flow graphs
 
 OpenREIL can build [control flow graph](http://en.wikipedia.org/wiki/Control_flow_graph) (CFG) of IR code. Let's write some test program in C to demonstrate it:
@@ -826,7 +840,7 @@ tr = CodeStorageTranslator(ARCH_X86, reader)
 dfg = DFGraphBuilder(tr).traverse(0)
 ```
 
-<m>REIL.DFGraph</m> allows to apply some basic data flow code optimizations to translated IR code, currently it supports such well known compiler optimizations as [dead code elimination](http://en.wikipedia.org/wiki/Dead_code_elimination) and [constant folding](http://en.wikipedia.org/wiki/Constant_folding). 
+<m>REIL.DFGraph</m> allows to apply some basic data flow code optimizations to translated IR code, currently it supports such well known compiler optimizations as [dead code elimination](http://en.wikipedia.org/wiki/Dead_code_elimination), [constant folding](http://en.wikipedia.org/wiki/Constant_folding) and very basic [common subexpressions elimination](http://en.wikipedia.org/wiki/Common_subexpression_elimination). 
 
 Let's apply these optimizations to <m>fib()</m> function code:
 
@@ -882,10 +896,10 @@ dfg.to_dot_file('dfg.dot')
 
 It's obvious to figure, that optimized code is still no prefect: it uses additional 7 temp registers (1 in first instruction, 3 in second and third instructions) to represent our machine code, while only one temp register (<m>V_01:32</m> inside IR code of `ret`) is enough.
 
-<m>REIL.DFGraph</m> is also allows to optimize temp registers usage:
+<m>REIL.DFGraph</m> is also allows to optimize temp registers usage with common subexpressions elimination:
 
 ```python
-dfg.optimize_temp_regs()
+dfg.eliminate_subexpressions()
 dfg.store(tr.storage)
 
 print tr.storage
@@ -916,6 +930,12 @@ Now translated code looks pretty close to original machine code:
 Data flow graph of final code after all optimizations:
 
 <img src="https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_2.png" alt="OpenREIL Python API diagram" width="269" height="280">
+
+<m>REIL.CFGraph</m> is also has <m>optimize_all()</m> method that runs all available optimizations. 
+
+Please note, that you need to specify <m>True</m> value for <m>keep_flags</m> argument of <m>CFGraph.eliminate_dead_code()</m> if you want to keep flag register values at function exit.
+
+It also will be necessary to say, that described optimizations was designed not for defeating code obfuscation or something, but rather for reducing amount of ineffective code produced by libopenreil translator.
 
 ### Handling of unknown instructions
 
@@ -1067,9 +1087,193 @@ ret = abi.fastcall(func_addr, 1, 2)
 assert ret == 3
 ```
 
+Let's try more complex IR code emulation example. Here is the source code of test program that performs RC4 encryption/decryption of some data:
+
+```cpp
+#include <stdio.h>
+#include <string.h>
+
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+
+typedef struct _RC4_CTX 
+{
+    unsigned char S[256];
+    unsigned char x, y;
+
+} RC4_CTX;
+
+void rc4_swap(unsigned char *a, unsigned char *b)
+{
+    unsigned char c = *a;
+
+    *a = *b;
+    *b = c;
+}
+
+void rc4_set_key(RC4_CTX *ctx, unsigned char *key, int key_len)
+{
+    int i = 0;
+    unsigned char x = 0, y = 0;    
+    unsigned char *S = ctx->S;
+
+    ctx->x = x = 0;
+    ctx->y = y = 0;
+
+    for (i = 0; i < 256; i++)
+    {
+        S[i] = (unsigned char)i;
+    }
+    
+    for (i = 0; i < 256; i++)
+    {
+        y = (y + S[i] + key[x]) % 256;
+
+        rc4_swap(&S[i], &S[y]);
+
+        x = (x + 1) % key_len;
+    }
+}
+
+void rc4_crypt(RC4_CTX *ctx, unsigned char *data, int data_len)
+{
+    int i = 0;
+    unsigned char x = 0, y = 0;
+    unsigned char *S = ctx->S;
+
+    for (i = 0; i < data_len; i++)
+    {
+        x = (x + 1) % 256;
+        y = (y + S[x]) % 256;
+
+        rc4_swap(&S[x], &S[y]);
+
+        data[i] ^= S[(S[x] + S[y]) % 256];
+    }
+
+    ctx->x = x;
+    ctx->y = y;
+}
+
+#define MAX_DATA_LEN 255
+
+RC4_CTX m_ctx;
+
+int main(int argc, char *argv[])
+{
+    if (argc < 3)
+    {
+        return -1;
+    }
+    
+    // get encryption key and data
+    char *key = argv[1], *data = argv[2];
+    int key_len = strlen(key);
+    int data_len = strlen(data);
+
+    // copy data to local in/out buffer
+    unsigned char buff[MAX_DATA_LEN];
+    memcpy(buff, data, MIN(MAX_DATA_LEN, data_len));
+ 
+    // perform encryption
+    rc4_set_key(&m_ctx, (unsigned char *)key, key_len);
+    rc4_crypt(&m_ctx, buff, data_len);
+
+    printf("Encrypted data: ");
+
+    for (i = 0; i < data_len; i++)
+    {
+        printf("%.2x ", buff[i]);
+    }
+
+    printf("\n");
+
+    return 0;
+}
+```
+
+Compile it and get VA's of <m>rc4_set_key()</m> and <m>rc4_crypt()</m> functions:
+
+```
+$ gcc tests/rc4.c -o tests/rc4
+$ objdump -t tests/rc4 | grep '.text'
+080483e0 l    d  .text  00000000              .text
+08048410 l     F .text  00000000              __do_global_dtors_aux
+08048470 l     F .text  00000000              frame_dummy
+08048980 l     F .text  00000000              __do_global_ctors_aux
+08048970 g     F .text  00000002              __libc_csu_fini
+080484b9 g     F .text  000000df              rc4_set_key
+08048972 g     F .text  00000000              .hidden __i686.get_pc_thunk.bx
+08048494 g     F .text  00000025              rc4_swap
+08048900 g     F .text  00000061              __libc_csu_init
+080483e0 g     F .text  00000000              _start
+08048674 g     F .text  00000280              main
+08048598 g     F .text  000000dc              rc4_crypt
+```
+
+Now let's write a test program that encrypts some data using these functions under emulation and compares encryption results with built-in Python implementation of RC4:
+
+```python
+from pyopenreil.REIL import *
+from pyopenreil.VM import *
+
+from pyopenreil.utils import bin_BFD
+
+# test input data for RC4 encryption
+test_key = 'somekey'
+test_val = 'foobar'
+
+# VA's of required functions
+rc4_set_key = 0x080484b9
+rc4_crypt = 0x08048598
+
+# load test program image
+reader = bin_BFD.Reader('tests/rc4')
+tr = CodeStorageTranslator(ARCH_X86, reader)
+
+def code_optimization(addr):
+
+    # construct dataflow graph for given function
+    dfg = DFGraphBuilder(tr).traverse(addr)
+  
+    # run available optimizations
+    dfg.optimize_all(tr.storage)
+
+code_optimization(rc4_set_key)
+code_optimization(rc4_crypt)
+
+# create CPU and ABI
+cpu = Cpu(ARCH_X86)
+abi = Abi(cpu, tr)
+
+# allocate buffers for arguments of emulated function
+ctx = abi.buff(256 + 4 * 2) # rc4_ctx structure
+val = abi.buff(test_val) # data to encrypt
+
+# emulate rc4_set_key() function call
+abi.cdecl(rc4_set_key, ctx, test_key, len(test_key))
+
+# emulate rc4_crypt() function call
+abi.cdecl(rc4_crypt, ctx, val, len(test_val))
+
+# read results of RC4 encryption
+val_1 = abi.read(val, len(test_val))
+print 'Encrypted value:', repr(val_1)
+
+# compare results with Python build-in RC4 module
+from Crypto.Cipher import ARC4
+rc4 = ARC4.new(test_key)
+val_2 = rc4.encrypt(test_val)
+
+assert val_1 == val_2
+```
+
+It tooks around 5 seconds to execute this code, which shows that Python implemetation of IR code emulator is a quite slow. I'm not sure if OpenREIL emulation features will be useful for any research purposes (it seems that no), but as was said above, it helps me a lot with translator testing.
+
 ## Using OpenREIL for plugins
 
 ### IDA Pro
+
+OpenREIL has [IDA Pro script]() that can translate machine functions to IR code and save it into the JSON files, to use this script you need to install [IDAPython]().
 
 ### GDB
 
