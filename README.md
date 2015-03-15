@@ -57,7 +57,7 @@ Please note, that currently OpenREIL is a far away from stable release, so, I do
 OpenREIL supports Linux, Mac OS X and Windows. Structure of the project source code directory:
 
 * `VEX` &minus; VEX source code with BAP patches applied.
-* `capstone` &minus; Capstone engine source code.
+* `capstone` &minus; Capstone engine source code will be downloaded here.
 * `docs` &minus; documentation directory.
 * `libasmir` &minus; libasmir source code.
 * `libopenreil` &minus; OpenREIL translator source code.
@@ -66,12 +66,12 @@ OpenREIL supports Linux, Mac OS X and Windows. Structure of the project source c
 
 ### Linux and OS X <a id="_2_1"></a>
 
-To build OpenREIL under *nix operating systems you need to install gcc, nasm, make, Python 2.x with header files, [NumPy](https://pypi.python.org/pypi/numpy) and [Cython](http://cython.org/). After that you can run configure and make just as usual. 
+To build OpenREIL under *nix operating systems you need to install git, gcc, nasm, make, Python 2.x with header files, [NumPy](https://pypi.python.org/pypi/numpy) and [Cython](http://cython.org/). After that you can run configure and make just as usual. 
 
 Example for Debian:
 
 ```
-$ sudo apt-get install gcc make nasm python python-dev python-numpy cython
+$ sudo apt-get install git gcc make nasm python python-dev python-numpy cython
 $ tar -xpvf openreil-0.1.tar.bz2
 $ cd openreil-0.1
 $ ./autogen.sh
