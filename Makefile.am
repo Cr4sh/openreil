@@ -16,3 +16,8 @@ test:
 
 	python tests/run_unittest.py
 
+.PHONY: doc
+doc:
+
+	grip --export docs/
+
