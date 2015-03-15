@@ -124,7 +124,7 @@ OpenREIL offers 23 different instructions:
 | STM       | \*c = a              | Store to memory             |
 | LDM       | c = \*a              | Load from memory            |
 | ADD       | c = a + b            | Addition                    |
-| SUB       | c = a &minus; b      | Subtraction                |
+| SUB       | c = a &minus; b      | Subtraction                 |
 | NEG       | c = &minus;a         | Negation                    |
 | MUL       | c = a \* b           | Multiplication              |
 | DIV       | c = a / b            | Division                    |
@@ -507,7 +507,7 @@ Here is an example of MongoDB collection record format which is used by OpenREIL
   "a" : [ 1, 3, "V_00" ], 
   "b" : [ ], 
   "c" : [ 2, 3, "V_01" ],  
-  "attr" : { 2 : 0 } 
+  "attr" : [ [ 2, 0 ] ]
 }
 ```
 
