@@ -42,10 +42,12 @@ class TestPE(unittest.TestCase):
 
     def test_reader(self): 
 
-        reader = Reader(self.BIN_PATH)
-        tr = REIL.CodeStorageTranslator(REIL.ARCH_X86, reader)
+        if os.path.isfile(self.BIN_PATH):
 
-        print tr.get_func(self.PROC_ADDR)
+            reader = Reader(self.BIN_PATH)
+            tr = REIL.CodeStorageTranslator(REIL.ARCH_X86, reader)
+
+            print tr.get_func(self.PROC_ADDR)
 
 #
 # EoF

@@ -19,7 +19,7 @@ def main(argv):
 
         return usage(argv)
 
-    mode, addr = argv[1], int(argv[2], 16)        
+    mode, addr = argv[1], pykd.expr(argv[2])        
     arch = DEF_ARCH
     path = None
 
@@ -27,7 +27,7 @@ def main(argv):
 
         return usage(argv)    
 
-    for val in range(3, len(argv)):
+    for i in range(3, len(argv)):
 
         val = argv[i]
 

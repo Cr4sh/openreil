@@ -42,11 +42,13 @@ class TestBFD(unittest.TestCase):
     PROC_ADDR = 0x08048434
 
     def test_reader(self): 
-        
-        reader = Reader(self.BIN_PATH)
-        tr = REIL.CodeStorageTranslator(REIL.ARCH_X86, reader)
 
-        print tr.get_func(self.PROC_ADDR)
+        if os.path.isfile(self.BIN_PATH):
+        
+            reader = Reader(self.BIN_PATH)
+            tr = REIL.CodeStorageTranslator(REIL.ARCH_X86, reader)
+
+            print tr.get_func(self.PROC_ADDR)
 
 #
 # EoF

@@ -1,4 +1,4 @@
-import json, unittest, copy
+import json, base64, unittest, copy
 from abc import ABCMeta, abstractmethod
 from sets import Set
 
@@ -637,6 +637,13 @@ class InsnJson():
     def to_json(self, insn):
 
         insn = insn.serialize() if isinstance(insn, Insn) else insn
+        attr = Insn_attr(insn)
+
+        if attr.has_key(IATTR_BIN): 
+
+            # JSON doesn't support binary data
+            attr[IATTR_BIN] = base64.b64encode(attr[IATTR_BIN])
+
         return json.dumps(insn)
 
     def from_json(self, data):                
@@ -647,16 +654,20 @@ class InsnJson():
                           Arg_val(a) if Arg_type(a) == A_CONST else Arg_name(a) ) if len(a) > 0 else ()
         
         insn = json.loads(data)
+        attr = Insn_attr(insn)
         args = ( arg(Insn_args(insn)[0]), \
                  arg(Insn_args(insn)[1]), \
                  arg(Insn_args(insn)[2]) )
+
+        if attr.has_key(IATTR_BIN): 
+
+            attr[IATTR_BIN] = base64.b64decode(attr[IATTR_BIN])
 
         # return raw instruction data
         return ( ( Insn_addr(insn), Insn_size(insn) ), \
                  Insn_inum(insn), \
                  Insn_op(insn), \
-                 args, \
-                 Insn_attr(insn) ) 
+                 args, attr ) 
 
 
 class TestInsnJson(unittest.TestCase):
@@ -672,7 +683,8 @@ class TestInsnJson(unittest.TestCase):
         # json representation of the test instruction
         self.json_data = '[[0, 2], 0, %d, [[%d, %d, "%s"], [], [%d, %d, "%s"]], {"%s": %d}]' % \
                          (I_STR, A_REG, U32, 'R_ECX', \
-                                 A_REG, U32, 'R_EAX', IATTR_FLAGS, IOPT_ASM_END)
+                                 A_REG, U32, 'R_EAX', 
+                                 IATTR_FLAGS, IOPT_ASM_END)
 
         # make test instruction
         self.test_insn = Insn(op = I_STR, size = 2, ir_addr = ( 0, 0 ), \

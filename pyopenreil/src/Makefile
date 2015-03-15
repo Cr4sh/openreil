@@ -26,7 +26,7 @@ clean:
 	@rm *.o *.cpp ../translator.$(PYEXT)
 
 # get Python site-packages directory path
-LIBDIR := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_python_lib())")
+LIBDIR := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_python_lib().replace(chr(92), chr(47)))")
 INSTALLDIR := $(LIBDIR)/pyopenreil
 
 install:
