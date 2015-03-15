@@ -19,5 +19,5 @@ test:
 .PHONY: doc
 doc:
 
-	grip --export docs/
+	grip --export && mv README.html docs/README.html
 

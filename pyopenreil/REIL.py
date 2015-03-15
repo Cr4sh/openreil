@@ -246,8 +246,8 @@ class Insn(object):
     def to_str(self, show_bin = False, show_asm = True):
 
         ret = ''
-        show_asm = show_asm and self.have_attr(IATTR_ASM)
-        show_bin = show_bin and self.have_attr(IATTR_BIN)
+        show_asm = show_asm and self.has_attr(IATTR_ASM)
+        show_bin = show_bin and self.has_attr(IATTR_BIN)
         show_hdr = show_asm or show_bin
 
         if show_hdr: ret += ';\n'
@@ -259,8 +259,8 @@ class Insn(object):
             if self.op == I_UNK:
 
                 # print source and destination register arguments for unknown instruction
-                src = self.get_attr(IATTR_SRC) if self.have_attr(IATTR_SRC) else []
-                dst = self.get_attr(IATTR_DST) if self.have_attr(IATTR_DST) else []
+                src = self.get_attr(IATTR_SRC) if self.has_attr(IATTR_SRC) else []
+                dst = self.get_attr(IATTR_DST) if self.has_attr(IATTR_DST) else []
 
                 if len(src) > 0 or len(dst) > 0:
 
@@ -334,7 +334,7 @@ class Insn(object):
         # initialize missing attributes with default values
         for name, val in self.ATTR_DEFS:
 
-            if not self.have_attr(name): self.set_attr(name, val)
+            if not self.has_attr(name): self.set_attr(name, val)
 
     def get_attr(self, name):
 
@@ -344,7 +344,7 @@ class Insn(object):
 
         self.attr[name] = val
 
-    def have_attr(self, name):
+    def has_attr(self, name):
 
         return self.attr.has_key(name)
 
@@ -352,7 +352,7 @@ class Insn(object):
 
         self.set_attr(IATTR_FLAGS, self.get_attr(IATTR_FLAGS) | val)
 
-    def have_flag(self, val):
+    def has_flag(self, val):
 
         return self.get_attr(IATTR_FLAGS) & val != 0    
 
@@ -372,7 +372,7 @@ class Insn(object):
             if self.op != I_JCC and self.op != I_STM and \
                cond(self.c): ret.append(self.c)
 
-        if self.op == I_UNK and self.have_attr(IATTR_DST):
+        if self.op == I_UNK and self.has_attr(IATTR_DST):
 
             # get operands information from attributes
             ret = map(lambda a: Arg(a), self.get_attr(IATTR_DST))
@@ -394,7 +394,7 @@ class Insn(object):
             if (self.op == I_JCC or self.op == I_STM) and \
                cond(self.c): ret.append(self.c)
 
-        if self.op == I_UNK and self.have_attr(IATTR_DST):
+        if self.op == I_UNK and self.has_attr(IATTR_DST):
 
             # get operands information from attributes
             ret = map(lambda a: Arg(a), self.get_attr(IATTR_SRC))
@@ -433,7 +433,7 @@ class Insn(object):
 
                 else:
 
-                    if self.have_attr(IATTR_NEXT):
+                    if self.has_attr(IATTR_NEXT):
 
                         next = self.get_attr(IATTR_NEXT)[0]
 
@@ -454,24 +454,24 @@ class Insn(object):
 
     def next(self):
 
-        if self.have_attr(IATTR_NEXT):
+        if self.has_attr(IATTR_NEXT):
 
             # force to use next instruction that was set in attributes
             return self.get_attr(IATTR_NEXT)
 
-        if self.have_flag(IOPT_RET): 
+        if self.has_flag(IOPT_RET): 
 
             # end of function
             return None
 
         elif self.op == I_JCC and \
              self.a.type == A_CONST and self.a.get_val() != 0 and \
-             not self.have_flag(IOPT_CALL):
+             not self.has_flag(IOPT_CALL):
 
             # unconditional jump
             return None
 
-        elif self.have_flag(IOPT_ASM_END):
+        elif self.has_flag(IOPT_ASM_END):
 
             # go to first IR instruction of next assembly instruction
             return self.next_asm(), 0
@@ -644,9 +644,15 @@ class InsnJson():
             # JSON doesn't support binary data
             attr[IATTR_BIN] = base64.b64encode(attr[IATTR_BIN])
 
-        return json.dumps(insn)
+        # JSON doesn't support numeric keys
+        attr = [ (key, val) for key, val in attr.items() ]
+
+        return json.dumps(( ( Insn_addr(insn), Insn_size(insn) ), \
+                            Insn_inum(insn), Insn_op(insn), Insn_args(insn), attr ))
 
     def from_json(self, data):                
+
+        attr_new = {}
 
         # make serialized argument from json data
         arg = lambda a: ( Arg_type(a), \
@@ -658,16 +664,19 @@ class InsnJson():
         args = ( arg(Insn_args(insn)[0]), \
                  arg(Insn_args(insn)[1]), \
                  arg(Insn_args(insn)[2]) )
+        
+        for key, val in attr: 
 
-        if attr.has_key(IATTR_BIN): 
+            attr_new[key] = val
 
-            attr[IATTR_BIN] = base64.b64decode(attr[IATTR_BIN])
+        if attr_new.has_key(IATTR_BIN): 
+
+            # get instruction binary data from base64
+            attr_new[IATTR_BIN] = base64.b64decode(attr_new[IATTR_BIN])
 
         # return raw instruction data
         return ( ( Insn_addr(insn), Insn_size(insn) ), \
-                 Insn_inum(insn), \
-                 Insn_op(insn), \
-                 args, attr ) 
+                 Insn_inum(insn), Insn_op(insn), args, attr_new ) 
 
 
 class TestInsnJson(unittest.TestCase):
@@ -681,7 +690,7 @@ class TestInsnJson(unittest.TestCase):
                                              (A_REG, U32, 'R_EAX')), attr)
 
         # json representation of the test instruction
-        self.json_data = '[[0, 2], 0, %d, [[%d, %d, "%s"], [], [%d, %d, "%s"]], {"%s": %d}]' % \
+        self.json_data = '[[0, 2], 0, %d, [[%d, %d, "%s"], [], [%d, %d, "%s"]], [[%d, %d]]]' % \
                          (I_STR, A_REG, U32, 'R_ECX', \
                                  A_REG, U32, 'R_EAX', 
                                  IATTR_FLAGS, IOPT_ASM_END)
@@ -734,7 +743,7 @@ class InsnList(list):
             if start: ret.append(insn)
 
             if addr == last or \
-               (last[1] is None and addr[0] == last[0] and insn.have_flag(IOPT_ASM_END)):
+               (last[1] is None and addr[0] == last[0] and insn.has_flag(IOPT_ASM_END)):
 
                 # end of the range
                 break
@@ -998,7 +1007,7 @@ class Func(InsnList):
                 # set first instructin of the func
                 self.first = bb.first
 
-            if bb.last.have_flag(IOPT_RET):
+            if bb.last.has_flag(IOPT_RET):
 
                 # set last instruction of the func
                 if not bb.last in self.last: self.last.append(bb.last)    
@@ -1306,7 +1315,7 @@ class CFGraphBuilder(object):
             insn = insn_list[-1]
 
             # check for basic block end
-            if insn.have_flag(IOPT_BB_END): break
+            if insn.has_flag(IOPT_BB_END): break
 
             addr += insn.size
 
@@ -1327,7 +1336,7 @@ class CFGraphBuilder(object):
         for insn in insn_list[inum:]:
 
             last += 1
-            if insn.have_flag(IOPT_BB_END): 
+            if insn.has_flag(IOPT_BB_END): 
 
                 return BasicBlock(insn_list[inum:last])
 
@@ -1431,7 +1440,7 @@ class DFGraphNode(GraphNode):
     def present_in_dot_graph(self):
 
         if self.item is not None and \
-           self.item.have_flag(IOPT_ELIMINATED):
+           self.item.has_flag(IOPT_ELIMINATED):
 
             # don't show DFG nodes of eliminated instructions
             return False
@@ -1539,20 +1548,20 @@ class DFGraph(Graph):
             insn = node.item
             if insn is None or \
                insn.inum != 0 or not \
-               insn.have_flag(IOPT_ELIMINATED): continue            
+               insn.has_flag(IOPT_ELIMINATED): continue            
             
             # find not eliminated IR instruction 
             next = insn  
-            while next.have_flag(IOPT_ELIMINATED) and not \
-                  next.have_flag(IOPT_ASM_END):
+            while next.has_flag(IOPT_ELIMINATED) and not \
+                  next.has_flag(IOPT_ASM_END):
 
                 next = self.nodes[( next.addr, next.inum + 1 )].item
 
             if next != insn:
 
                 # copy information about machine instruction
-                if insn.have_attr(IATTR_BIN): next.set_attr(IATTR_BIN, insn.get_attr(IATTR_BIN))
-                if insn.have_attr(IATTR_ASM): next.set_attr(IATTR_ASM, insn.get_attr(IATTR_ASM))
+                if insn.has_attr(IATTR_BIN): next.set_attr(IATTR_BIN, insn.get_attr(IATTR_BIN))
+                if insn.has_attr(IATTR_ASM): next.set_attr(IATTR_ASM, insn.get_attr(IATTR_ASM))
 
         relink = False
         for node in self.nodes.values():
@@ -1560,7 +1569,7 @@ class DFGraph(Graph):
             insn = node.item
             if insn is not None:                
             
-                if not insn.have_flag(IOPT_ELIMINATED):
+                if not insn.has_flag(IOPT_ELIMINATED):
 
                     # put each node instruction into the storage
                     storage.put_insn(insn.serialize())
@@ -1965,7 +1974,7 @@ class DFGraphBuilder(object):
             src = [ arg.name for arg in insn.src() ]
             dst = [ arg.name for arg in insn.dst() ]            
 
-            if insn.have_flag(IOPT_CALL):
+            if insn.has_flag(IOPT_CALL):
 
                 #
                 # Function call.
@@ -2262,7 +2271,7 @@ class CodeStorageMem(CodeStorage):
             ret.append(insn)
 
             # stop on machine instruction end
-            if insn.have_flag(IOPT_ASM_END): break
+            if insn.has_flag(IOPT_ASM_END): break
             inum += 1
 
         return ret
@@ -2339,7 +2348,7 @@ class CodeStorageMem(CodeStorage):
                 # end of machine instruction
                 addr, inum = insn.addr, 0
 
-                if prev is not None and not prev.have_flag(IOPT_ASM_END):
+                if prev is not None and not prev.has_flag(IOPT_ASM_END):
 
                     # set end of asm instruction flag for previous insn
                     prev.set_flag(IOPT_ASM_END)
@@ -2560,15 +2569,15 @@ class TestCodeStorageTranslator(unittest.TestCase):
 
         insn = _translate(( 'int 3' ))        
         assert insn.op == I_UNK
-        assert not insn.have_attr(IATTR_SRC) and not insn.have_attr(IATTR_DST)
+        assert not insn.has_attr(IATTR_SRC) and not insn.has_attr(IATTR_DST)
 
         insn = _translate(( 'hlt' ))        
         assert insn.op == I_UNK
-        assert not insn.have_attr(IATTR_SRC) and not insn.have_attr(IATTR_DST)
+        assert not insn.has_attr(IATTR_SRC) and not insn.has_attr(IATTR_DST)
             
         insn = _translate(( 'nop' ))
         assert insn.op == I_NONE
-        assert not insn.have_attr(IATTR_SRC) and not insn.have_attr(IATTR_DST)
+        assert not insn.has_attr(IATTR_SRC) and not insn.has_attr(IATTR_DST)
 
         insn = _translate(( 'rdmsr' ))
         assert insn.op == I_UNK
@@ -2578,12 +2587,12 @@ class TestCodeStorageTranslator(unittest.TestCase):
         insn = _translate(( 'wrmsr' ))
         assert insn.op == I_UNK
         assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX', 'R_EAX', 'R_EDX' ])
-        assert not insn.have_attr(IATTR_DST)
+        assert not insn.has_attr(IATTR_DST)
 
         insn = _translate(( 'rdtsc' ))        
         assert insn.op == I_UNK
         assert _check_args(insn.get_attr(IATTR_DST), [ 'R_EAX', 'R_EDX' ])
-        assert not insn.have_attr(IATTR_SRC)
+        assert not insn.has_attr(IATTR_SRC)
 
         insn = _translate(( 'cpuid' ))
         assert insn.op == I_UNK
@@ -2608,17 +2617,17 @@ class TestCodeStorageTranslator(unittest.TestCase):
         insn = _translate(( 'lidt [ecx]' ))
         assert insn.op == I_UNK
         assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX', 'R_IDT' ])
-        assert not insn.have_attr(IATTR_DST)
+        assert not insn.has_attr(IATTR_DST)
 
         insn = _translate(( 'lgdt [ecx]' ))
         assert insn.op == I_UNK
         assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX', 'R_GDT' ])
-        assert not insn.have_attr(IATTR_DST)
+        assert not insn.has_attr(IATTR_DST)
 
         insn = _translate(( 'lldt [ecx]' ))
         assert insn.op == I_UNK
         assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX', 'R_LDT' ])
-        assert not insn.have_attr(IATTR_DST)
+        assert not insn.has_attr(IATTR_DST)
 
     def test_get_insn(self):
 

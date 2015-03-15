@@ -1500,6 +1500,7 @@ _end:
 
 #endif  
 
+    return;
 }
 
 CReilTranslator::CReilTranslator(VexArch arch, reil_inst_handler_t handler, void *context)

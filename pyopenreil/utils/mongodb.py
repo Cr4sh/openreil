@@ -1,6 +1,7 @@
+import base64
+import pymongo
 from pyopenreil import REIL
 from cachetools import LRUCache
-import pymongo
 
 _U64IN = lambda v: -(0xFFFFFFFFFFFFFFFFL + 1L - v) if v > 0x7FFFFFFFFFFFFFFFL else v
 
@@ -38,7 +39,7 @@ class CodeStorageMongo(REIL.CodeStorageMem):
 
         # get collection        
         self.collection = self.db[self.collection_name]
-        self.collection.ensure_index(self.INDEX)        
+        self.collection.ensure_index(self.INDEX)     
 
     def __iter__(self):
 
@@ -48,7 +49,7 @@ class CodeStorageMongo(REIL.CodeStorageMem):
 
     def _insn_to_item(self, insn):
 
-        insn = REIL.Insn(insn)
+        insn = REIL.Insn(insn)        
 
         def _arg_in(arg):
 
@@ -64,14 +65,24 @@ class CodeStorageMongo(REIL.CodeStorageMem):
 
                 return ( arg.type, arg.size, arg.name )
 
+        if insn.has_attr(REIL.IATTR_BIN):
+
+            # JSON doesn't support binary data
+            insn.set_attr(REIL.IATTR_BIN, base64.b64encode(insn.get_attr(REIL.IATTR_BIN)))
+
+        # JSON doesn't support numeric keys
+        attr = [ (key, val) for key, val in insn.attr.items() ]
+
         return {
 
             'addr': _U64IN(insn.addr), 'size': insn.size, 'inum': insn.inum, 'op': insn.op, \
             'a': _arg_in(insn.a), 'b': _arg_in(insn.b), 'c': _arg_in(insn.c), \
-            'attr': insn.attr
+            'attr': attr
         }
 
     def _insn_from_item(self, item):
+
+        attr, attr_dict = item['attr'], {}
 
         def _arg_out(arg):
 
@@ -83,13 +94,22 @@ class CodeStorageMongo(REIL.CodeStorageMem):
 
                 arg = ( REIL.Arg_type(arg), REIL.Arg_size(arg), _U64OUT(REIL.Arg_val(arg)) )
 
-            return arg
+            return arg                
+
+        for key, val in attr:
+
+            attr_dict[key] = val
+
+        if attr_dict.has_key(REIL.IATTR_BIN):
+
+            # get instruction binary data from base64
+            attr_dict[REIL.IATTR_BIN] = base64.b64decode(attr_dict[REIL.IATTR_BIN])
 
         return ( 
 
             ( _U64OUT(item['addr']), item['size'] ), item['inum'], item['op'], \
             ( _arg_out(item['a']), _arg_out(item['b']), _arg_out(item['c']) ), \
-            item['attr'] 
+            attr_dict
         ) 
 
     def _get_key(self, ir_addr):

@@ -2,9 +2,10 @@ cimport libopenreil
 
 ARCH_X86 = 0
 
-IATTR_ASM = 'A'
-IATTR_BIN = 'B'
-IATTR_FLAGS = 'F'
+# IR instruction attributes
+IATTR_ASM = 0
+IATTR_BIN = 1
+IATTR_FLAGS = 2
 
 cdef process_arg(libopenreil._reil_arg_t arg):
 

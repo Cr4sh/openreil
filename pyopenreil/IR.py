@@ -1,11 +1,11 @@
 
 # IR instruction attributes
-IATTR_ASM   = 'A'
-IATTR_BIN   = 'B'
-IATTR_FLAGS = 'F'
-IATTR_NEXT  = 'N'
-IATTR_SRC   = 'S'
-IATTR_DST   = 'D'
+IATTR_ASM   = 0
+IATTR_BIN   = 1
+IATTR_FLAGS = 2
+IATTR_NEXT  = 3
+IATTR_SRC   = 4
+IATTR_DST   = 5
 
 # IR instruction flags
 IOPT_CALL       = 0x00000001

@@ -5,9 +5,8 @@
 // IR format definitions
 #include "reil_ir.h"
 
-#define DBG_BAP
-
 #define MAX_INST_LEN 30
+
 #define REIL_ERROR -1
 
 typedef void * reil_t;

@@ -55,8 +55,15 @@ Please note, that currently OpenREIL is a far away from stable release, so, I do
 
 ## Installation <a id="_2"></a>
 
-OpenREIL supports Linux, Mac OS X and Windows.
+OpenREIL supports Linux, Mac OS X and Windows. Structure of the project source code directory:
 
+* `VEX` &minus; VEX (with BAP patches) source code.
+* `capstone` &minus; Capstone engine source code.
+* `docs` &minus; documentation directory.
+* `libasmir` &minus; libasmir source code.
+* `libopenreil` &minus; OpenREIL translation library.
+* `pyopenreil` &minus; OpenREIL Python API.
+* `tests` &minus; unit tests launcher and stand-alone test programs.
 
 ### Linux and OS X <a id="_2_1"></a>
 
@@ -178,7 +185,7 @@ In addition to address, operation code and arguments IR instruction also has fla
    * `IOPT_RET` &minus; this JCC instruction represents a function exit.
    * `IOPT_ASM_END` &minus; last IR instruction of machine instruction.
    * `IOPT_BB_END` &minus; last IR instruction of basic block.
-   * `IOPT_ELIMINATED` &minus; whole machine instruction was replaced with NONE IR instruction during dead code elimination.
+   * `IOPT_ELIMINATED` &minus; whole machine instruction was replaced with `I_NONE` IR instruction during dead code elimination.
 
 
 ### Representation of x86 registers <a id="_3_3"></a>
@@ -295,7 +302,7 @@ Example of IR code for pushfd x86 instruction:
 
 ## C API <a id="_4"></a>
 
-OpenREIL C API is declared in [reil_ir.h]() (IR format) and [libopenreil.h]() (translator API) header files. 
+OpenREIL C API is declared in [reil_ir.h](../blob/master/libopenreil/include/reil_ir.h) (IR format) and [libopenreil.h](../blob/master/libopenreil/include/libopenreil.h) (translator API) header files. 
 
 Here is an example of the test program that translates machine code to IR instructions and prints them to stdout:
 
@@ -367,7 +374,7 @@ Program output:
 ```
 
 
-pyopenreil.translator module is written in Cython, it’s stands for bridge between C API and high level Python API of OpenREIL. Also, OpenREIL uses JSON representation of these tuples to store translated instruction into the file or Mongo DB collection.
+pyopenreil.translator module is written in Cython, it’s stands for bridge between C API and high level Python API of OpenREIL. Also, OpenREIL uses JSON representation of these tuples to store translated instruction into the file or MongoDB collection.
 
 IR constants (operation codes, argument types, etc.) are declared in `pyopenreil.IR` module.
 
@@ -390,7 +397,7 @@ The most important modules:
    * `pyopenreil.utils.kd` &minus; instruction reader that uses pykd API.
    * `pyopenreil.utils.GDB` &minus; instruction reader that uses GDB Python API.
    * `pyopenreil.utils.IDA` &minus; instruction reader that uses IDA Pro Python API.
-   * `pyopenreil.utils.mongodb` &minus; instruction storage that uses Mongo DB.
+   * `pyopenreil.utils.mongodb` &minus; instruction storage that uses MongoDB.
 
 Usage example:
 
@@ -747,13 +754,13 @@ You can save generated graph as file of [Graphviz DOT format](http://www.graphvi
 cfg.to_dot_file('cfg.dot')
 ```
 
-It's easy to render this file into the PNG image using Graphviz dot utility:
+Than you can render this file into the PNG image using Graphviz dot utility:
 
 ```
 $ dot -Tpng cfg.dot > cfg.png
 ```
 
-Example of the `fib()` function CFG:
+Rendered control flow graph of the `fib()` function:
 
 <img src="https://dl.dropboxusercontent.com/u/22903093/openreil/cfg_1.png" alt="OpenREIL Python API diagram" width="181" height="266">
 
@@ -806,7 +813,7 @@ long __fastcall sum(long a, long b)
 }
 ```
 
-Assembly code of the function:
+It's Assembly code:
 
 ```
 _sum:
@@ -816,7 +823,7 @@ add     eax, edx
 ret
 ```
 
-Translated IR code:
+Generated IR code:
 
 ```
 ;
@@ -1068,7 +1075,7 @@ Data flow graph of IR code with `I_UNK` node which represents `cpuid` instructio
 
 ### IR code emulation <a id="_5_9"></a>
 
-OpenREIL has emulator for IR code, currently engine uses it mostly for tests. The main idea of such tests &minus; run machine code natively first, then translate it to IR and run under emulation, and finally &minus; compare execution results. Example of programs that preforms such tests: [tests/test_fib.py]() and [tests/test_rc4.py]().
+OpenREIL has emulator for IR code, currently engine uses it mostly for tests. The main idea of such tests &minus; run machine code natively first, then translate it to IR and run under emulation, and finally &minus; compare execution results. Example of programs that preforms such tests: [tests/test_fib.py](../blob/master/tests/test_fib.py) and [tests/test_rc4.py](../blob/master/tests/test_rc4.py).
 
 Let's run some simple code under emulation to demonstrate it's API usage:
 
@@ -1418,7 +1425,7 @@ reader = GDB.Reader(inferrior)
 ```
 
 
-### WinDbg (kd) <a id="_6_3"></a>
+### WinDbg (kd, cdb) <a id="_6_3"></a>
 
 WinDbg (and also kd, cdb and others) from Microsoft with [pykd](https://pykd.codeplex.com/) Python bindings is also allows to use OpenREIL in similar way. 
 
@@ -1441,6 +1448,8 @@ reader = kd.Reader()
 
 * ARMv5 support (VEX and libasmir already has it).
 * x86_64 support (VEX already has it).
-* Complete OpenREIL API reference.
+* Complete API reference.
+* Examples of libopnreil usage in PIN and DynamoRIO modules.
+* DynamoRIO based tracer that saves IR traces into the MongoDB collection.
 * Symbolic execution on the top of `pyopenreil.VM` module.
 * Out of the box support of LLDB and Immunity Debugger.

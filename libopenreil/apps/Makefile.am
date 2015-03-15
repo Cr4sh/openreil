@@ -1,5 +1,5 @@
 
-bin_PROGRAMS = translate-inst
+noinst_PROGRAMS = translate-inst
 
 include_HEADERS = ../include/reil_ir.h ../include/libopenreil.h
 
