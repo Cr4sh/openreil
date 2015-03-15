@@ -310,7 +310,7 @@ Example of IR code for pushfd x86 instruction:
 
 ## C API <a id="_4"></a>
 
-OpenREIL C API is declared in [reil_ir.h](../blob/master/libopenreil/include/reil_ir.h) (IR format) and [libopenreil.h](../blob/master/libopenreil/include/libopenreil.h) (translator API) header files. 
+OpenREIL C API is declared in [reil_ir.h](../master/libopenreil/include/reil_ir.h) (IR format) and [libopenreil.h](../master/libopenreil/include/libopenreil.h) (translator API) header files. 
 
 Here is an example of the test program that translates machine code to IR instructions and prints them to stdout:
 
