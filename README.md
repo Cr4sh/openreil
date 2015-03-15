@@ -594,7 +594,7 @@ This record stores the following IR instruction:
 41414141.00     STR          V_00:32,                 ,          V_01:32
 ```
 
-To improve storage performance you also can join a several instances of MongoDB into the single cluster.
+MongoDB module uses `[('addr', ASCENDING), ('inum', ASCENDING)]` as collection index. To improve storage performance you also can join a several instances of MongoDB into the cluster.
 
 
 ### Translating of basic blocks and functions <a id="_5_4"></a>
