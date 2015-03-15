@@ -46,8 +46,9 @@ However, after Zynamics was acquired by Google they abandoned BinNavi, so, I dec
 
 OpenREIL is not a 100% compatible with Zynamics REIL, it has the same ideology and basics, but there's some changes in IR instruction set and representation of the traget hardware platform features.
 
-OpenREIL is based on my custom fork of libasmir &minus; IR translation library from old versions of [BAP framework](http://bap.ece.cmu.edu/). I removed some 3-rd party dependencies of libasmir (libbfd, libopcodes) and features that irrelevant to translation itself (binary files parsing, traces processing, etc.)
-, than I did some minor refactoring/bugfixes, switched to [Capstone](http://www.capstone-engine.org/) for instruction length disassembling and implemented BAP IR &#8594; REIL translation logic on the top of libasmir. Because libasmir uses VEX (production-quality library, part of [Valgrind](http://valgrind.org/)), full code translation sequence inside of OpenREIL is looks as binary &#8594; VEX IR &#8594; BAP IR &#8594; REIL. It's kinda ugly from engineering point of view, but it allows us to have a pretty robust and reliable support of all general instructions of x86. Current version of OpenREIL still has no support of other architectures, but I'm working on x86_64 and ARMv5.
+OpenREIL is based on my custom fork of libasmir &minus; IR translation library from old versions of [BAP framework](http://bap.ece.cmu.edu/). I removed some 3-rd party dependencies of libasmir (libbfd, libopcodes) and features that irrelevant to translation itself (binary files parsing, traces processing, etc.), than I did some minor refactoring/bugfixes, switched to [Capstone](http://www.capstone-engine.org/) for instruction length disassembling and implemented BAP IR &#8594; REIL translation logic on the top of libasmir. 
+
+Because libasmir uses VEX (production-quality library, part of [Valgrind](http://valgrind.org/)), full code translation sequence inside of OpenREIL is looks as binary &#8594; VEX IR &#8594; BAP IR &#8594; REIL. It's kinda ugly from engineering point of view, but it allows us to have a pretty robust and reliable support of all general instructions of x86. Current version of OpenREIL still has no support of other architectures, but I'm working on x86_64 and ARMv5.
 
 Please note, that currently OpenREIL is a far away from stable release, so, I don't recommend you to use it for any serious purposes.
 
@@ -78,7 +79,7 @@ $ sudo apt-get install mongodb python-pymongo python-setuptools
 $ sudo easy_install cachetools
 ```
 
-OpenREIL can be used not only for debugger/diassembler plugins, but also for standalone code analysis tools. For loading of executable files it uses pybfd (ELF, Mach-O) and pefile (Portable Execute) Python libraries:
+OpenREIL can be used not only for debugger/disassembler plugins, but also for standalone code analysis tools. For loading of executable files it uses pybfd (ELF, Mach-O) and pefile (Portable Execute) Python libraries:
 
 ```
 $ sudo easy_install pefile pybfd
@@ -87,7 +88,7 @@ $ sudo easy_install pefile pybfd
 
 ### Windows <a id="_2_2"></a>
 
-Building OpenREIL on Windows requires [MinGW](http://www.mingw.org/) build environment and all of the dependencies that was mnetioned above.
+Building OpenREIL on Windows requires [MinGW](http://www.mingw.org/) build environment and all of the dependencies that was mentioned above.
 
 
 ## IR format  <a id="_3"></a>
@@ -110,31 +111,31 @@ Example of IR code for `mov eax, ecx` x86 instruction:
 
 OpenREIL offers 23 different instructions:
 
-| Mnemonic    | Pseudocode             | Description                 |
-|-------------|------------------------|-----------------------------|
-| `STR`       | `c = a`                | Store to register           |
-| `STM`       | `*c = a`               | Store to memory             |
-| `LDM`       | `c = *a`               | Load from memory            |
-| `ADD`       | `c = a + b`            | Addition                    |
-| `SUB`       | `c = a - b`            | Substraction                |
-| `NEG`       | `c = -a`               | Negation                    |
-| `MUL`       | `c = a \* b`           | Multiplication              |
-| `DIV`       | `c = a / b`            | Division                    |
-| `MOD`       | `c = a % b`            | Modulus                     |
-| `SHL`       | `c = a << b`           | Shift left                  |
-| `SHR`       | `c = a >> b`           | Shift right                 |
-| `AND`       | `c = a & b`            | Binary AND                  |
-| `OR`        | `c = a | b`            | Binary OR                   |
-| `XOR`       | `c = a ^ b`            | Binary XOR                  |
-| `NOT`       | `c = ~a`               | Binary NOT                  |
-| `EQ`        | `c = a == b`           | Equation                    |
-| `LT`        | `c = a < b`            | Less than                   |
-| `SMUL`      | `c = a * b`            | Signed multiplication       |
-| `SDIV`      | `c = a / b`            | Signed division             |
-| `SMOD`      | `c = a % b`            | Signed modulus              |
-| `JCC`       |                        | Jump to c if a is not zero  |
-| `NONE`      |                        | No operation                |
-| `UNK`       |                        | Untranslated instruction    |
+| Mnemonic  | Pseudocode           | Instruction description     |
+|-----------|----------------------|-----------------------------|
+| STR       | c = a                | Store to register           |
+| STM       | \*c = a              | Store to memory             |
+| LDM       | c = \*a              | Load from memory            |
+| ADD       | c = a + b            | Addition                    |
+| SUB       | c = a &minus; b      | Subtraction                |
+| NEG       | c = &minus;a         | Negation                    |
+| MUL       | c = a \* b           | Multiplication              |
+| DIV       | c = a / b            | Division                    |
+| MOD       | c = a % b            | Modulus                     |
+| SHL       | c = a << b           | Shift left                  |
+| SHR       | c = a >> b           | Shift right                 |
+| AND       | c = a & b            | Binary AND                  |
+| OR        | c = a &#124; b       | Binary OR                   |
+| XOR       | c = a ^ b            | Binary XOR                  |
+| NOT       | c = ~a               | Binary NOT                  |
+| EQ        | c = a == b           | Equation                    |
+| LT        | c = a < b            | Less than                   |
+| SMUL      | c = a \* b           | Signed multiplication       |
+| SDIV      | c = a / b            | Signed division             |
+| SMOD      | c = a % b            | Signed modulus              |
+| JCC       |                      | Jump to c if a is not zero  |
+| NONE      |                      | No operation                |
+| UNK       |                      | Untranslated instruction    |
 
           
 Each instruction argument can have 1, 8, 16, 32 or 64 bits of length\. Most of arithmetic instructions operates with unsigned arguments\. `SMUL`, `SDIV` and `SMOD` instructions operates with signed arguments in [two’s complement](http://en.wikipedia.org/wiki/Two%27s_complement) signed number representation form\.
@@ -238,7 +239,7 @@ Example of IR code for `test eax, eax` x86 instruction which sets some of these 
 ```
 
 
-For machine instructions which operates with whole `EFLAGS` value (pushfd, etc.) OpenREIL composes it's value from values of 1-bit registers:
+For machine instructions which operates with whole `EFLAGS` value (`pushfd`, `popfd`, etc.) OpenREIL composes it's value from values of 1-bit registers:
 
 Example of IR code for pushfd x86 instruction:
 
@@ -320,7 +321,7 @@ int translate_inst(reil_arch_t arch, const unsigned char *data, int len)
     reil_t reil = reil_init(arch, inst_handler, (void *)&translated);
     if (reil)
     {
-        // translate single instructions to REIL IR
+        // translate single instructions to REIL
         reil_translate(reil, 0, data, len);
         reil_close(reil);
         return translated;
@@ -335,7 +336,7 @@ int translate_inst(reil_arch_t arch, const unsigned char *data, int len)
 
 ### Low level translation API <a id="_5_1"></a>
 
-OpenREIL has low level translation API that returns IR instructions as Python tupple. Here is the description of using this API to decode `push eax` x86 instruction:
+OpenREIL has low level translation API that returns IR instructions as Python tuple. Here is the description of using this API to decode `push eax` x86 instruction:
 
 ```python
 from pyopenreil import translator
@@ -344,7 +345,7 @@ from pyopenreil.REIL import ARCH_X86
 # create REIL translator instance
 tr = translator.Translator(ARCH_X86)
 
-# translate machine instruction to REIL IR
+# translate machine instruction to REIL
 insn_lst = tr.to_reil('\x50', addr = 0)
 
 for insn in insn_lst:
@@ -366,7 +367,7 @@ Program output:
 ```
 
 
-pyopenreil.translator module is written in Cython, it’s stands for bridge between C API and high level Python API of OpenREIL. Also, OpenREIL uses JSON representation of these tupples to store translated instruction into the file or Mongo DB collection.
+pyopenreil.translator module is written in Cython, it’s stands for bridge between C API and high level Python API of OpenREIL. Also, OpenREIL uses JSON representation of these tuples to store translated instruction into the file or Mongo DB collection.
 
 IR constants (operation codes, argument types, etc.) are declared in `pyopenreil.IR` module.
 
@@ -399,7 +400,7 @@ from pyopenreil.REIL import *
 # create in-memory storage for IR instructions
 storage = CodeStorageMem(ARCH_X86)
 
-# initialize raw instruction reader
+# initialise raw instruction reader
 reader = ReaderRaw('\x50', addr = 0)
 
 # create translator instance
@@ -471,7 +472,7 @@ reader = asm.Reader(ARCH_X86, ( 'push eax' ), addr = 0)
 
 ### MongoDB as IR code storage <a id="_5_3"></a>
 
-Using of `CodeStorageMem()` class as IR code storage has one significant disadvantage: real programs are very complex nowadays, so you may need to analyze amount of code that is too big to fit into the RAM. 
+Using of `CodeStorageMem()` class as IR code storage has one significant disadvantage: real programs are very complex nowadays, so you may need to analyse amount of code that is too big to fit into the RAM. 
 
 To solve scalability problem I implemented other storage class that uses MongoDB collections to store translated code, example of it's usage:
 
@@ -509,7 +510,7 @@ This record stores the following IR instruction:
 41414141.00     STR          V_00:32,                 ,          V_01:32
 ```
 
-To improove storage performance you also can join a several instances of MongoDB into the single cluster.
+To improve storage performance you also can join a several instances of MongoDB into the single cluster.
 
 
 ### Translating of basic blocks and functions <a id="_5_4"></a>
@@ -517,7 +518,7 @@ To improove storage performance you also can join a several instances of MongoDB
 `CodeStorageTranslator` class of `pyopenreil.REIL` is also can do code translation at basic blocks or functions level. Example of basic block translation:
 
 ```python
-# initialize raw instruction reader
+# initialise raw instruction reader
 reader = ReaderRaw('\x33\xC0\xC3', addr = 0)
 
 # Create translator instance.
@@ -563,7 +564,7 @@ for bb in func.bb_list:
 
 ### Symbolic expressions <a id="_5_5"></a>
 
-OpenREIL can convert basic blocks and instructions into the symbolic form, it might be useful for such tasks like symbolic execution, intercating with SMT solver, decompilation and analysis of code semantics.
+OpenREIL can convert basic blocks and instructions into the symbolic form, it might be useful for such tasks like symbolic execution, interacting with SMT solver, decompilation and analysis of code semantics.
 
 Let's write a program that translates assembly function into IR and prints a set of symbolic expressions for it's first basic block:
 
@@ -596,7 +597,7 @@ sym = bb.to_symbolic(temp_regs = False)
 print sym
 ```
 
-Program output (symbolic represenation of first basic block which contains first 5 machine instructions of the test code):
+Program output (symbolic representation of first basic block which contains first 5 machine instructions of the test code):
 ```
 R_ESP = (R_ESP - 0x4)
 *(R_ESP - 0x4) = R_EBP
@@ -719,7 +720,7 @@ $ objdump -t tests/fib | grep '.text'
 08048414 g     F .text  00000037              fib
 ```
 
-OpenREIL allows to work with CFG's using `REIL.CFGraph`, `REIL.CFGraphNode` and `REIL.CFGraphEdge` objects; `REIL.CFGraphBuilder` object accepts translator instance and performs CFG traversing starting from specified address and untill the end of the current machine code function. 
+OpenREIL allows to work with CFG's using `REIL.CFGraph`, `REIL.CFGraphNode` and `REIL.CFGraphEdge` objects; `REIL.CFGraphBuilder` object accepts translator instance and performs CFG traversing starting from specified address and until the end of the current machine code function. 
 
 Let's build control flow graph of `fib()` function (that located at address `0x08048414`) of `tests/fib` executable:
 
@@ -756,7 +757,7 @@ Example of the `fib()` function CFG:
 
 <img src="https://dl.dropboxusercontent.com/u/22903093/openreil/cfg_1.png" alt="OpenREIL Python API diagram" width="181" height="266">
 
-Please note, that generated IR code may have more complicated CFG layout than it's source machine code (because of x86 instructions with REP preffix, for example). Here is IR code for function that consists from `rep movsb` and `ret` instructions:
+Please note, that generated IR code may have more complicated CFG layout than it's source machine code (because of x86 instructions with REP prefix, for example). Here is IR code for function that consists from `rep movsb` and `ret` instructions:
 
 ```
 ;
@@ -995,7 +996,7 @@ It also will be necessary to say, that described optimizations was designed not 
 
 ### Handling of unknown instructions <a id="_5_8"></a>
 
-During static code analysis it will be useful to have ability to get metainformation about machine instruction (source and destination registers, etc.) even if translation of this instruction to IR was unsuccessful. With such ability it will be not necessery to interrupt code analysis on unknown/untranslated machine instruction, you'll just loose some analysis accuracy.
+During static code analysis it will be useful to have ability to get metainformation about machine instruction (source and destination registers, etc.) even if translation of this instruction to IR was unsuccessful. With such ability it will be not necessary to interrupt code analysis on unknown/untranslated machine instruction, you'll just loose some analysis accuracy.
 
 VEX library which used in OpenREIL has excellent support of x86 general purpose instructions, but it can't translate to IR some certain system instructions like `rdmsr`, `wrmsr`, `cpuid`, `sidt`, `sgdt`, `sldt` and some others. In this case libopenreil will try to use Capstone engine to get information about registers reads and writes, and pass this information to upper abstraction levels. For representing of unknown/untranslated instructions OpenREIL has `I_UNK` IR instruction.
 
@@ -1022,7 +1023,7 @@ dfg = DFGraphBuilder(tr).traverse(addr)
 # storage with new function code.
 dfg.optimize_all(tr.storage)
 
-# print IR of translated nad optimized function
+# print IR of translated and optimized function
 print tr.get_func(0)
 ```
 
@@ -1060,7 +1061,7 @@ Generated IR code:
 
 As you can see, it has `I_UNK` instruction with `a.00` IR address.
 
-Data flow graph of IR code with `I_UNK` node wchich represents `cpuid` instruction with `R_EAX`, `R_ECX` as source and `R_EDX`, `R_ECX`, `R_EBX` as destination arguments:
+Data flow graph of IR code with `I_UNK` node which represents `cpuid` instruction with `R_EAX`, `R_ECX` as source and `R_EDX`, `R_ECX`, `R_EBX` as destination arguments:
 
 <img src="https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_3.png" alt="OpenREIL Python API diagram" width="426" height="266">
 
@@ -1096,7 +1097,7 @@ cpu.reg('esp').val = stack_addr
 cpu.reg('ecx').val = 1 # first arg of test function
 cpu.reg('edx').val = 2 # second arg of test function
 
-# run test code untill ret
+# run test code until ret
 try: cpu.run(tr, func_addr)
 except MemReadError as e: 
 
@@ -1129,7 +1130,7 @@ Console output of the `cpu.dump()` call:
     R_SF: 0000000000000000
 ```
 
-For more user friedndly interacting with emulated code OpenREIL has `pyopenreil.VM.Abi` class which allows to allocate emulator memory and place arbitrary data there (`Abi.string()` and `Abi.buffer()` methods), or call native code functions using `Abi.stdcall()`, `Abi.cdecl()` and `Abi.fastcall()` methods. There's also `pyopenreil.VM.Stack` class to represent a stack memory.
+For more user friendly interacting with emulated code OpenREIL has `pyopenreil.VM.Abi` class which allows to allocate emulator memory and place arbitrary data there (`Abi.string()` and `Abi.buffer()` methods), or call native code functions using `Abi.stdcall()`, `Abi.cdecl()` and `Abi.fastcall()` methods. There's also `pyopenreil.VM.Stack` class to represent a stack memory.
 
 Here is example of calling test code from above using `pyopenreil.VM.Abi`:
 
@@ -1324,7 +1325,7 @@ val_2 = rc4.encrypt(test_val)
 assert val_1 == val_2
 ```
 
-It tooks around 5 seconds to execute this code, which shows that Python implemetation of IR code emulator is a quite slow. I'm not sure if OpenREIL emulation features will be useful for any research purposes (it seems that no), but as was said above, it helps me a lot with translator testing.
+It took around 5 seconds to execute this code, which shows that Python implementation of IR code emulator is a quite slow. I'm not sure if OpenREIL emulation features will be useful for any research purposes (it seems that no), but as was said above, it helps me a lot with translator testing.
 
 
 ## Using with third party tools <a id="_6"></a>
@@ -1349,7 +1350,7 @@ addr = idc.ScreenEA()
 arch = DEF_ARCH
 path = os.path.join(os.getcwd(), 'sub_%.8X.ir' % addr)
 
-# initialize OpenREIL stuff
+# initialise OpenREIL stuff
 reader = IDA.Reader()
 storage = CodeStorageMem(arch)
 tr = CodeStorageTranslator(arch, reader, storage)
@@ -1366,7 +1367,7 @@ print '[*] %d IR instructions in %d basic blocks translated' % (len(func), len(f
 storage.to_file(path)
 ```
 
-This script utilizes [IDAPython](http://code.google.com/p/idapython/) API and instructions reader from `pyopenreil.utils.IDA` to interact with IDA Pro.
+This script utilises [IDAPython](http://code.google.com/p/idapython/) API and instructions reader from `pyopenreil.utils.IDA` to interact with IDA Pro.
 
 To use this script run «File» &#8594; «Script File» (Alt-F7) IDA command and open `pyopenreil/scripts/ida_translate_func.py`, than script will translate machine code of current subroutine into the IR:
 
@@ -1377,7 +1378,7 @@ In other script you can use `from_file()` method of `REIL.CodeStorageMem` class 
 
 ### GDB <a id="_6_2"></a>
 
-OpenREIL translatin plugin for GDB is located at `pyopenreil/scripts/gdb_reiltrans.py`, it implements `reiltrans` command that allows to generate IR for given instruction, basic block or function and print it to console or save to file.
+OpenREIL translation plugin for GDB is located at `pyopenreil/scripts/gdb_reiltrans.py`, it implements `reiltrans` command that allows to generate IR for given instruction, basic block or function and print it to console or save to file.
 
 Usage example:
 
@@ -1436,7 +1437,10 @@ from pyopenreil.utils import kd
 reader = kd.Reader()
 ```
 
-## FAQ <a id="_7"></a>
-
 ## TODO <a id="_8"></a>
 
+* ARMv5 support (VEX and libasmir already has it).
+* x86_64 support (VEX already has it).
+* Complete OpenREIL API reference.
+* Symbolic execution on the top of `pyopenreil.VM` module.
+* Out of the box support of LLDB and Immunity Debugger.
