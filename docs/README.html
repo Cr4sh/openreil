@@ -128,7 +128,7 @@
 <li>
 <code>VEX</code> − VEX source code with BAP patches applied.</li>
 <li>
-<code>capstone</code> − Capstone engine source code.</li>
+<code>capstone</code> − Capstone engine source code will be downloaded here.</li>
 <li>
 <code>docs</code> − documentation directory.</li>
 <li>
@@ -145,13 +145,13 @@
 <a id="user-content-linux-and-os-x-" class="anchor" href="#linux-and-os-x-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Linux and OS X <a id="user-content-_2_1"></a>
 </h3>
 
-<p>To build OpenREIL under *nix operating systems you need to install gcc, nasm, make, Python 2.x with header files, <a href="https://pypi.python.org/pypi/numpy">NumPy</a> and <a href="http://cython.org/">Cython</a>. After that you can run configure and make just as usual. </p>
+<p>To build OpenREIL under *nix operating systems you need to install git, gcc, nasm, make, Python 2.x with header files, <a href="https://pypi.python.org/pypi/numpy">NumPy</a> and <a href="http://cython.org/">Cython</a>. After that you can run configure and make just as usual. </p>
 
 <p>Example for Debian:</p>
 
-<pre><code>$ sudo apt-get install gcc make nasm python python-dev python-numpy cython
-$ tar -xpvf openreil-0.1.tar.bz2
-$ cd openreil-0.1
+<pre><code>$ sudo apt-get install git gcc make nasm python python-dev python-numpy cython
+$ git clone https://github.com/Cr4sh/openreil.git
+$ cd openreil
 $ ./autogen.sh
 $ ./configure
 $ make

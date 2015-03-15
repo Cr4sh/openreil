@@ -72,8 +72,8 @@ Example for Debian:
 
 ```
 $ sudo apt-get install git gcc make nasm python python-dev python-numpy cython
-$ tar -xpvf openreil-0.1.tar.bz2
-$ cd openreil-0.1
+$ git clone https://github.com/Cr4sh/openreil.git
+$ cd openreil
 $ ./autogen.sh
 $ ./configure
 $ make
