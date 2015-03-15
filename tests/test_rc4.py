@@ -58,15 +58,11 @@ class TestRC4(unittest.TestCase):
         abi.cdecl(self.RC4_CRYPT, ctx, val, len(test_val))
         
         # read results of RC4 encryption
-        val_1 = abi.read(val, len(test_val))
-        print 'Encrypted value:', repr(val_1)
+        val = abi.read(val, len(test_val))
+        print 'Encrypted value:', repr(val)
 
-        # compare results with Python build-in RC4 module
-        from Crypto.Cipher import ARC4
-        rc4 = ARC4.new(test_key)
-        val_2 = rc4.encrypt(test_val)
-
-        assert val_1 == val_2
+        # check for correct result
+        assert val == '\x38\x88\xBC'
 
 
 if __name__ == '__main__':    
