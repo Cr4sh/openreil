@@ -1448,6 +1448,9 @@ reader = kd.Reader(ARCH_X86)
 
 * ARMv5 support (VEX and libasmir already has it).
 * x86_64 support (VEX already has it).
+* Floating point instructions support for x86 and x86_64.
+* SSE instructions support for x86 and x86_64.
+* AVX instructions support for x86 and x86_64.
 * Complete API reference.
 * Examples of libopnreil usage in PIN and DynamoRIO modules.
 * DynamoRIO based tracer that saves IR traces into the MongoDB collection.
