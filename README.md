@@ -420,7 +420,7 @@ int main(int argc, char *argv[])
 
 ### Low level translation API <a id="_5_1"></a>
 
-OpenREIL has low level translation API that returns IR instructions as Python tuple. Here is the description of using this API to decode `push eax` x86 instruction:
+OpenREIL has low level translation API that returns IR instructions as Python tuple. Here is en example of decoding `push eax` x86 instruction using this API:
 
 ```python
 from pyopenreil import translator
