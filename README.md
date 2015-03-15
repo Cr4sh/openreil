@@ -26,8 +26,7 @@ OpenREIL is open source library that implements translator and tools for REIL (R
   - [IDA Pro](#_6_1)
   - [GDB](#_6_2)
   - [WinDbg (kd, cdb)](#_6_3)
-+ [FAQ](#_7)
-+ [TODO](#_8)
++ [TODO](#_7)
 
 
 ## About <a id="_1"></a>
@@ -57,11 +56,11 @@ Please note, that currently OpenREIL is a far away from stable release, so, I do
 
 OpenREIL supports Linux, Mac OS X and Windows. Structure of the project source code directory:
 
-* `VEX` &minus; VEX (with BAP patches) source code.
+* `VEX` &minus; VEX source code with BAP patches applied.
 * `capstone` &minus; Capstone engine source code.
 * `docs` &minus; documentation directory.
 * `libasmir` &minus; libasmir source code.
-* `libopenreil` &minus; OpenREIL translation library.
+* `libopenreil` &minus; OpenREIL translator source code.
 * `pyopenreil` &minus; OpenREIL Python API.
 * `tests` &minus; unit tests launcher and stand-alone test programs.
 
@@ -315,7 +314,65 @@ OpenREIL C API is declared in [reil_ir.h](../master/libopenreil/include/reil_ir.
 Here is an example of the test program that translates machine code to IR instructions and prints them to stdout:
 
 ```cpp
+#include <stdio.h>
 #include <libopenreil.h>
+
+#define MAX_ARG_STR 50
+
+const char *inst_op[] =
+{
+    "NONE", "UNK", "JCC",
+    "STR", "STM", "LDM",
+    "ADD", "SUB", "NEG", "MUL", "DIV", "MOD", "SMUL", "SDIV", "SMOD",
+    "SHL", "SHR", "AND", "OR", "XOR", "NOT",
+    "EQ", "LT"
+};
+
+int arg_size[] = { 1, 8, 16, 32, 64 };
+
+char *arg_print(reil_arg_t *arg, char *arg_str)
+{
+    memset(arg_str, 0, MAX_ARG_STR);
+
+    switch (arg->type)
+    {
+    case A_NONE:
+
+        snprintf(arg_str, MAX_ARG_STR - 1, "");
+        break;
+
+    case A_REG:
+    case A_TEMP:
+
+        snprintf(arg_str, MAX_ARG_STR - 1, "%s:%d", arg->name, arg_size[arg->size]);
+        break;
+
+    case A_CONST:
+
+        snprintf(arg_str, MAX_ARG_STR - 1, "%llx:%d", arg->val, arg_size[arg->size]);
+        break;
+    }
+
+    return arg_str;
+}
+
+void inst_print(reil_inst_t *inst)
+{
+    char arg_str[MAX_ARG_STR];
+
+    // print address and mnemonic
+    printf(
+        "%.8llx.%.2x %7s ",
+        inst->raw_info.addr, inst->inum, inst_op[inst->op]
+    );
+
+    // print instruction arguments
+    printf("%16s, ", arg_print(&inst->a, arg_str));
+    printf("%16s, ", arg_print(&inst->b, arg_str));
+    printf("%16s  ", arg_print(&inst->c, arg_str));
+
+    printf("\n");
+}
 
 int inst_handler(reil_inst_t *inst, void *context)
 {
@@ -323,20 +380,20 @@ int inst_handler(reil_inst_t *inst, void *context)
     *(int *)context += 1;
 
     // print IR instruction to the stdout
-    reil_inst_print(inst);
-     
+    inst_print(inst);
+
     return 0;
 }
 
-int translate_inst(reil_arch_t arch, const unsigned char *data, int len)
-{    
+int translate_inst(reil_arch_t arch, unsigned char *data, int len)
+{
     int translated = 0;
 
-    // initialize REIL translator 
+    // initialize REIL translator
     reil_t reil = reil_init(arch, inst_handler, (void *)&translated);
     if (reil)
     {
-        // translate single instructions to REIL
+        // translate single instruction to REIL
         reil_translate(reil, 0, data, len);
         reil_close(reil);
         return translated;
@@ -344,8 +401,20 @@ int translate_inst(reil_arch_t arch, const unsigned char *data, int len)
 
     return -1;
 }
-```
 
+int main(int argc, char *argv[])
+{
+    unsigned char *test_data = "\x33\xC0"; // xor eax, eax
+    int len = 2;
+
+    if (translate_inst(ARCH_X86, test_data, len) >= 0)
+    {
+        return 0;
+    }
+
+    return -1;
+}
+```
 
 ## Python API <a id="_5"></a>
 
@@ -382,14 +451,14 @@ Program output:
 ```
 
 
-pyopenreil.translator module is written in Cython, it’s stands for bridge between C API and high level Python API of OpenREIL. Also, OpenREIL uses JSON representation of these tuples to store translated instruction into the file or MongoDB collection.
+`pyopenreil.translator` module is written in Cython, it’s stands for bridge between C API and high level Python API of OpenREIL. Also, OpenREIL uses JSON representation of these tuples to store translated instruction into the file or MongoDB collection.
 
 IR constants (operation codes, argument types, etc.) are declared in `pyopenreil.IR` module.
 
 
 ### High level Python API <a id="_5_2"></a>
 
-High level Python API of OpenREIL has abstractions for IR instructions and arguments, translator, machine instructions reader, IR instructions storage:
+High level Python API of OpenREIL has abstractions for IR instructions format, translator, machine instructions reader and IR instructions storage:
 
 <img src="https://dl.dropboxusercontent.com/u/22903093/openreil/python_api.png" alt="OpenREIL Python API diagram" width="465" height="405">
 
@@ -487,7 +556,7 @@ reader = asm.Reader(ARCH_X86, ( 'push eax' ), addr = 0)
 
 ### MongoDB as IR code storage <a id="_5_3"></a>
 
-Using of `CodeStorageMem()` class as IR code storage has one significant disadvantage: real programs are very complex nowadays, so you may need to analyse amount of code that is too big to fit into the RAM. 
+Using of `CodeStorageMem()` class as IR code storage has one significant disadvantage: real programs are very complex nowadays, so you may need to analyze amount of code that is too big to fit into the RAM. 
 
 To solve scalability problem I implemented other storage class that uses MongoDB collections to store translated code, example of it's usage:
 
@@ -910,6 +979,8 @@ tr = CodeStorageTranslator(reader)
 # build data flow graph
 dfg = DFGraphBuilder(tr).traverse(0)
 ```
+
+Rendered data flow graph picture ([link](https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_full.png)) for this simple code looks quite complex because `add` instruction (like any other arithmetic instruction of x86) is doing a lot of `EFLAGS` computations.
 
 `REIL.DFGraph` allows to apply some basic data flow code optimizations to translated IR code, currently it supports such well known compiler optimizations as [dead code elimination](http://en.wikipedia.org/wiki/Dead_code_elimination), [constant folding](http://en.wikipedia.org/wiki/Constant_folding) and very basic [common subexpressions elimination](http://en.wikipedia.org/wiki/Common_subexpression_elimination). 
 
@@ -1452,7 +1523,7 @@ from pyopenreil.utils import kd
 reader = kd.Reader(ARCH_X86)
 ```
 
-## TODO <a id="_8"></a>
+## TODO <a id="_7"></a>
 
 * ARMv5 support (VEX and libasmir already has it).
 * x86_64 support (VEX already has it).
@@ -1460,8 +1531,9 @@ reader = kd.Reader(ARCH_X86)
 * SSE instructions support for x86 and x86_64.
 * AVX instructions support for x86 and x86_64.
 * Complete API reference.
-* REIL to LLVM IR translation.
-* Examples of libopnreil usage in PIN and DynamoRIO modules.
+* SMT solvers support.
+* Symbolic execution.
+* REIL &#8594; LLVM IR &#8594; binary code translation.
+* Examples of libopenreil usage in PIN and DynamoRIO modules.
 * DynamoRIO based tracer that saves IR traces into the MongoDB collection.
-* Symbolic execution on the top of `pyopenreil.VM` module.
 * Out of the box support of LLDB and Immunity Debugger.
