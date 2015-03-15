@@ -100,6 +100,11 @@ $ sudo easy_install pefile pybfd
 
 Building OpenREIL on Windows requires [MinGW](http://www.mingw.org/) build environment and all of the dependencies that was mentioned above.
 
+You also can download compiled Win32 binaries of OpenREIL:
+
+* [libopenreil-0.1-win32.zip](https://github.com/Cr4sh/openreil/releases/download/0.1/libopenreil-0.1-win32.zip)
+* [pyopenreil-0.1-win32-python2.7.zip](https://github.com/Cr4sh/openreil/releases/download/0.1/pyopenreil-0.1-win32-python2.7.zip)
+
 
 ## IR format  <a id="_3"></a>
 
@@ -1455,6 +1460,7 @@ reader = kd.Reader(ARCH_X86)
 * SSE instructions support for x86 and x86_64.
 * AVX instructions support for x86 and x86_64.
 * Complete API reference.
+* REIL to LLVM IR translation.
 * Examples of libopnreil usage in PIN and DynamoRIO modules.
 * DynamoRIO based tracer that saves IR traces into the MongoDB collection.
 * Symbolic execution on the top of `pyopenreil.VM` module.
