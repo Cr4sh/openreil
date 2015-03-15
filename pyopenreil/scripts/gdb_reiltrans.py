@@ -50,8 +50,8 @@ class CommandREILTranslate(gdb.Command):
                 path = args[i + 1]
 
         # initialize OpenREIL stuff        
-        reader = GDB.Reader(gdb.selected_inferior())
-        tr = CodeStorageTranslator(arch, reader)
+        reader = GDB.Reader(arch, gdb.selected_inferior())
+        tr = CodeStorageTranslator(reader)
 
         # translate function and enumerate it's basic blocks
         insn_list = self.translate[mode](tr, addr)

@@ -524,7 +524,7 @@ class TestCpu(unittest.TestCase):
 
         # create reader and translator
         from pyopenreil.utils import asm
-        tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code, addr = addr))
+        tr = CodeStorageTranslator(asm.Reader(self.arch, code, addr = addr))
         
         cpu = Cpu(self.arch)
 
@@ -555,7 +555,7 @@ class TestCpu(unittest.TestCase):
 
         # create reader and translator
         from pyopenreil.utils import asm
-        tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code, addr = addr))
+        tr = CodeStorageTranslator(asm.Reader(self.arch, code, addr = addr))
 
         cpu = Cpu(ARCH_X86)
 
@@ -613,7 +613,7 @@ class TestStack(unittest.TestCase):
 
         # create reader and translator        
         from pyopenreil.utils import asm
-        tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code, addr = addr))
+        tr = CodeStorageTranslator(asm.Reader(self.arch, code, addr = addr))
 
         cpu = Cpu(self.arch)
 
@@ -785,7 +785,7 @@ class TestAbi(unittest.TestCase):
 
         # create reader and translator        
         from pyopenreil.utils import asm
-        tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code, addr = addr))
+        tr = CodeStorageTranslator(asm.Reader(self.arch, code, addr = addr))
 
         cpu = Cpu(self.arch)
         abi = Abi(cpu, tr)

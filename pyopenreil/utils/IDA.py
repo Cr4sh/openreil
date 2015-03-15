@@ -3,6 +3,10 @@ import idc
 
 class Reader(REIL.Reader):
 
+    def __init__(self, arch):
+
+        self.arch = arch
+
     def read(self, addr, size): 
 
         return idc.GetManyBytes(addr, size)

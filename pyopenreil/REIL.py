@@ -873,7 +873,7 @@ class TestBasicBlock(unittest.TestCase):
         
         # create translator
         from pyopenreil.utils import asm
-        tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code))
+        tr = CodeStorageTranslator(asm.Reader(self.arch, code))
 
         # translate basic block
         bb = tr.get_bb(0)
@@ -1049,7 +1049,7 @@ class TestFunc(unittest.TestCase):
         code = ( 'xor eax, eax', 'ret 8' )
 
         # create translator
-        tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code))
+        tr = CodeStorageTranslator(asm.Reader(self.arch, code))
 
         # get function
         fn = tr.get_func(0)
@@ -2164,8 +2164,9 @@ class Reader(object):
 
 class ReaderRaw(Reader):
 
-    def __init__(self, data, addr = 0L):
+    def __init__(self, arch, data, addr = 0L):
 
+        self.arch = arch
         self.addr = addr
         self.data = data
 
@@ -2433,13 +2434,13 @@ class CodeStorageTranslator(CodeStorage):
 
             CFGraphBuilder.traverse(self, ir_addr)
 
-    def __init__(self, arch, reader = None, storage = None):
+    def __init__(self, reader, storage = None):
 
         import translator
         
-        self.arch = get_arch(arch)
-        self.translator = translator.Translator(arch)
-        self.storage = CodeStorageMem(arch) if storage is None else storage
+        self.arch = get_arch(reader.arch)
+        self.translator = translator.Translator(reader.arch)
+        self.storage = CodeStorageMem(reader.arch) if storage is None else storage
         self.reader = reader
 
     def translate_insn(self, data, addr):                
@@ -2542,7 +2543,7 @@ class TestCodeStorageTranslator(unittest.TestCase):
         code = ( 'xor eax, eax', 'ret' )
         
         from pyopenreil.utils import asm
-        self.tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code))
+        self.tr = CodeStorageTranslator(asm.Reader(self.arch, code))
 
     def test_unknown_insn_x86(self):
 
@@ -2550,7 +2551,7 @@ class TestCodeStorageTranslator(unittest.TestCase):
 
         def _translate(code):
 
-            tr = CodeStorageTranslator(self.arch, asm.Reader(self.arch, code))
+            tr = CodeStorageTranslator(asm.Reader(self.arch, code))
             insn = tr.get_insn(0)
 
             # check for single IR instruction

@@ -12,9 +12,9 @@ arch = DEF_ARCH
 path = os.path.join(os.getcwd(), 'sub_%.8X.ir' % addr)
 
 # initialize OpenREIL stuff
-reader = IDA.Reader()
+reader = IDA.Reader(arch)
 storage = CodeStorageMem(arch)
-tr = CodeStorageTranslator(arch, reader, storage)
+tr = CodeStorageTranslator(reader, storage)
 
 # translate function and enumerate it's basic blocks
 func = tr.get_func(addr)

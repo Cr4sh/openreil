@@ -25,7 +25,7 @@ class TestRC4(unittest.TestCase):
 
         # load PE image of test program
         reader = bin_PE.Reader(self.BIN_PATH)
-        tr = CodeStorageTranslator(self.ARCH, reader)
+        tr = CodeStorageTranslator(reader)
 
         def code_optimization(addr):
      

@@ -408,10 +408,10 @@ from pyopenreil.REIL import *
 storage = CodeStorageMem(ARCH_X86)
 
 # initialise raw instruction reader
-reader = ReaderRaw('\x50', addr = 0)
+reader = ReaderRaw(ARCH_X86, '\x50', addr = 0)
 
 # create translator instance
-tr = CodeStorageTranslator(ARCH_X86, reader, storage)
+tr = CodeStorageTranslator(reader, storage)
 
 # translate single machine instruction
 insn_list = tr.get_insn(0)
@@ -526,12 +526,12 @@ To improve storage performance you also can join a several instances of MongoDB 
 
 ```python
 # initialise raw instruction reader
-reader = ReaderRaw('\x33\xC0\xC3', addr = 0)
+reader = ReaderRaw(ARCH_X86, '\x33\xC0\xC3', addr = 0)
 
 # Create translator instance.
 # We are not passing storage instance, translator will create
 # instance of CodeStorageMem automatically in this case.
-tr = CodeStorageTranslator(ARCH_X86, reader)
+tr = CodeStorageTranslator(reader)
 
 # translate single basic block
 bb = tr.get_bb(0)
@@ -590,7 +590,7 @@ reader = asm.Reader(ARCH_X86, ( 'push ebp',
                                 'ret'), addr = 0)
 
 # create translator instance
-tr = CodeStorageTranslator(ARCH_X86, reader)
+tr = CodeStorageTranslator(reader)
 
 # translate first basic block
 bb = tr.get_bb(0)
@@ -742,7 +742,7 @@ reader = bin_BFD.Reader('tests/fib')
 addr = 0x08048414
 
 # create translator instance
-tr = CodeStorageTranslator(ARCH_X86, reader)
+tr = CodeStorageTranslator(reader)
 
 # build control flow graph
 cfg = CFGraphBuilder(tr).traverse(addr)
@@ -897,7 +897,7 @@ reader = asm.Reader(ARCH_X86, ( 'mov eax, ecx',
                                 'ret' ), addr = 0)
 
 # create translator instance
-tr = CodeStorageTranslator(ARCH_X86, reader)
+tr = CodeStorageTranslator(reader)
 
 # build data flow graph
 dfg = DFGraphBuilder(tr).traverse(0)
@@ -1021,7 +1021,7 @@ reader = asm.Reader(ARCH_X86, ( 'mov eax, 00000001h',
                                 'ret' ), addr = 0)
 
 # create translator instance
-tr = CodeStorageTranslator(ARCH_X86, reader)
+tr = CodeStorageTranslator(reader)
 
 # translate function and build it's DFG
 dfg = DFGraphBuilder(tr).traverse(addr)
@@ -1094,7 +1094,7 @@ reader = asm.Reader(ARCH_X86, ( 'mov eax, ecx',
                                 'ret' ), addr = func_addr)
 
 # create translator instance
-tr = CodeStorageTranslator(ARCH_X86, reader)
+tr = CodeStorageTranslator(reader)
 
 # create virtual CPU instance
 cpu = Cpu(ARCH_X86)
@@ -1293,7 +1293,7 @@ rc4_crypt = 0x08048598
 
 # load test program image
 reader = bin_BFD.Reader('tests/rc4')
-tr = CodeStorageTranslator(ARCH_X86, reader)
+tr = CodeStorageTranslator(reader)
 
 def code_optimization(addr):
 
@@ -1358,9 +1358,9 @@ arch = DEF_ARCH
 path = os.path.join(os.getcwd(), 'sub_%.8X.ir' % addr)
 
 # initialise OpenREIL stuff
-reader = IDA.Reader()
+reader = IDA.Reader(arch)
 storage = CodeStorageMem(arch)
-tr = CodeStorageTranslator(arch, reader, storage)
+tr = CodeStorageTranslator(reader, storage)
 
 # translate function and enumerate it's basic blocks
 func = tr.get_func(addr)
@@ -1421,7 +1421,7 @@ from pyopenreil.utils import GDB
 inferrior = gdb.selected_inferior()
 
 # create instruction reader
-reader = GDB.Reader(inferrior)
+reader = GDB.Reader(ARCH_X86, inferrior)
 ```
 
 
@@ -1441,7 +1441,7 @@ Machine code reader for WinDbg is located in `pyopenreil.utils.kd` module:
 from pyopenreil.utils import kd
 
 # create instruction reader
-reader = kd.Reader()
+reader = kd.Reader(ARCH_X86)
 ```
 
 ## TODO <a id="_8"></a>

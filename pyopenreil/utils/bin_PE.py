@@ -1,10 +1,10 @@
 import sys, os, unittest
+import pefile
 
 file_dir = os.path.abspath(os.path.dirname(__file__))
 test_dir = os.path.abspath(os.path.join(file_dir, '..', '..', 'tests'))
 
 from pyopenreil import REIL
-import pefile
 
 MAX_INST_LEN = 30
 
@@ -14,6 +14,18 @@ class Reader(REIL.Reader):
 
         # load PE image
         self.pe = pefile.PE(path, fast_load = True)
+        
+        try:
+
+            # get REIL arch by file arch    
+            machine = self.pe.FILE_HEADER.Machine
+            machine = pefile.MACHINE_TYPE[machine]
+        
+            self.arch = { 'IMAGE_FILE_MACHINE_I386': REIL.ARCH_X86 }[ machine ]
+        
+        except KeyError:
+
+            raise Exception('Unsupported architecture')
 
         super(REIL.Reader, self).__init__()
 
@@ -45,7 +57,7 @@ class TestPE(unittest.TestCase):
         if os.path.isfile(self.BIN_PATH):
 
             reader = Reader(self.BIN_PATH)
-            tr = REIL.CodeStorageTranslator(REIL.ARCH_X86, reader)
+            tr = REIL.CodeStorageTranslator(reader)
 
             print tr.get_func(self.PROC_ADDR)
 

@@ -1,10 +1,10 @@
 import sys, os, unittest
+import pybfd.bfd
 
 file_dir = os.path.abspath(os.path.dirname(__file__))
 test_dir = os.path.abspath(os.path.join(file_dir, '..', '..', 'tests'))
 
 from pyopenreil import REIL
-from pybfd.bfd import Bfd
 
 MAX_INST_LEN = 30
 
@@ -13,7 +13,16 @@ class Reader(REIL.Reader):
     def __init__(self, path):
 
         # load image
-        self.bfd = Bfd(path)
+        self.bfd = pybfd.bfd.Bfd(path)
+
+        try:
+
+            # get REIL arch by file arch
+            self.arch = { pybfd.bfd.ARCH_I386: REIL.ARCH_X86 }[ self.bfd.architecture ]
+        
+        except KeyError:
+
+            raise Exception('Unsupported architecture')
 
         super(REIL.Reader, self).__init__()
 
@@ -46,7 +55,7 @@ class TestBFD(unittest.TestCase):
         if os.path.isfile(self.BIN_PATH):
         
             reader = Reader(self.BIN_PATH)
-            tr = REIL.CodeStorageTranslator(REIL.ARCH_X86, reader)
+            tr = REIL.CodeStorageTranslator(reader)
 
             print tr.get_func(self.PROC_ADDR)
 

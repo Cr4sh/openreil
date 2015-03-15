@@ -12,7 +12,7 @@ class Compiler(object):
 
         self.prog_src = temp_name('asm')
         self.prog_dst = temp_name('bin')
-
+        
         self.bits = 32 if arch is None else self.get_bits(arch)
         self.nasm_path = NASM_PATH if path is None else path  
 
@@ -70,7 +70,7 @@ class Reader(REIL.ReaderRaw):
         
         data = Compiler(arch).compile(prog)
 
-        super(Reader, self).__init__(data, addr = addr)
+        super(Reader, self).__init__(arch, data, addr = addr)
 
 #
 # EoF

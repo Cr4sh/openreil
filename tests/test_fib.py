@@ -18,7 +18,7 @@ class TestFib(unittest.TestCase):
     
         # load PE image of test program
         reader = bin_PE.Reader(self.BIN_PATH)
-        tr = CodeStorageTranslator(self.ARCH, reader)
+        tr = CodeStorageTranslator(reader)
 
         # construct dataflow graph for given function
         dfg = DFGraphBuilder(tr).traverse(self.PROC_ADDR)  

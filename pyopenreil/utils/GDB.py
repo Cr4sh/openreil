@@ -4,9 +4,10 @@ MAX_INST_LEN = 30
 
 class Reader(REIL.Reader):
 
-    def __init__(self, inferior):
+    def __init__(self, arch, inferior):
 
-        self.inferior = inferior
+        self.arch = arch
+        self.inferior = inferior        
 
         super(REIL.Reader, self).__init__()
 

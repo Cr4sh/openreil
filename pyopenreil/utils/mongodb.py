@@ -23,7 +23,7 @@ class CodeStorageMongo(REIL.CodeStorageMem):
 
     def __init__(self, arch, collection, db = None, host = None, port = None):
         
-        self.arch = REIL.get_arch(arch)
+        self.arch = arch
         self.db_name = self.DEF_DB if db is None else db
         self.collection_name = collection
 

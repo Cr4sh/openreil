@@ -5,6 +5,10 @@ MAX_INST_LEN = 30
 
 class Reader(REIL.Reader):
 
+    def __init__(self, arch):
+
+        self.arch = arch
+
     def read(self, addr, size): 
 
         return pykd.loadChars(addr, size)

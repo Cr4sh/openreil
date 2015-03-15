@@ -40,8 +40,8 @@ def main(argv):
             path = argv[i + 1]
 
     # initialize OpenREIL stuff   
-    reader = kd.Reader()
-    tr = CodeStorageTranslator(arch, reader)
+    reader = kd.Reader(arch)
+    tr = CodeStorageTranslator(reader)
 
     # translate function and enumerate it's basic blocks
     insn_list = translate[mode](tr, addr)
