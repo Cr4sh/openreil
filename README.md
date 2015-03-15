@@ -42,7 +42,7 @@ REIL was initially developed by [Zynamics](http://www.zynamics.com/) as part of 
 
 * «REIL: A platform-independent intermediate representation of disassembled code for static code analysis» ([PDF](http://static.googleusercontent.com/media/www.zynamics.com/en//downloads/csw09.pdf))
 
-However, after Zynamics was acquired by Google they abandoned BinNavi, so, I decided to develop my own implementation of REIL. I made my implementation relatively small and portable in comparison with original, the translator itself is just a single library written in C++, it can be statically linked with any program for static or dynamic code analysis. The higher level API of OpenREIL is written in Python, so, it can be easily utilized in plugins and scripts for your favourite reverse engineering tool (almost all modern debuggers and disassemblers has Python bindings).
+However, after Zynamics was acquired by Google they abandoned BinNavi, so, I decided to develop my own implementation of REIL. I made it relatively small and portable in comparison with original, the translator itself is just a single library written in C++, it can be statically linked with any program for static or dynamic code analysis. The higher level API of OpenREIL is written in Python, so, it can be easily utilized in plugins and scripts for your favourite reverse engineering tool (almost all modern debuggers and disassemblers has Python bindings).
 
 OpenREIL is not a 100% compatible with Zynamics REIL, it has the same ideology and basics, but there's some changes in IR instruction set and representation of the traget hardware platform features.
 
@@ -73,6 +73,9 @@ Example for Debian:
 
 ```
 $ sudo apt-get install gcc make nasm python python-dev python-numpy cython
+$ tar -xpvf openreil-0.1.tar.bz2
+$ cd openreil-0.1
+$ ./autogen.sh
 $ ./configure
 $ make
 $ make test
