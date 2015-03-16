@@ -407,6 +407,40 @@ $ sudo easy_install cachetools
 00000000.04      OR          V_01:32,          V_03:32,         R_EAX:32
 </code></pre>
 
+<p>Many operating systems uses <code>FS</code> segment register to access certain system structures. OpenREIL represents this segment register as <code>R_FS_BASE:32</code>. Here is an example of function that gets <code>_PEB</code> address of the current Windows process:</p>
+
+<div class="highlight highlight-cpp"><pre>ULONG_PTR <span class="pl-en">get_peb</span>(<span class="pl-st">void</span>)
+{
+#<span class="pl-k">ifdef</span> _X86_
+
+    <span class="pl-k">return</span> <span class="pl-s3">__readfsdword</span>(0x30);
+
+#<span class="pl-k">else</span> _AMD64_
+
+    <span class="pl-k">return</span> <span class="pl-s3">__readgsqword</span>(0x60);
+
+#<span class="pl-k">endif</span>
+}</pre></div>
+
+<p>And IR code of this function:</p>
+
+<pre><code>;
+; asm: mov eax, dword ptr fs:[0x30]
+; data (6): 64 a1 30 00 00 00
+;
+00401000.00     ADD     R_FS_BASE:32,            30:32,          V_04:32
+00401000.01      OR          V_04:32,             0:64,          V_05:64
+00401000.02     AND          V_05:64,      ffffffff:32,          V_10:32
+00401000.03     LDM          V_10:32,                 ,         R_EAX:32
+;
+; asm: ret
+; data (1): c3
+;
+00401006.00     LDM         R_ESP:32,                 ,          V_01:32
+00401006.01     ADD         R_ESP:32,             4:32,         R_ESP:32
+00401006.02     JCC              1:1,                 ,          V_01:32
+</code></pre>
+
 <h3>
 <a id="user-content-representation-of-x86-eflags-" class="anchor" href="#representation-of-x86-eflags-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Representation of x86 EFLAGS <a id="user-content-_3_4"></a>
 </h3>
@@ -616,7 +650,7 @@ $ sudo easy_install cachetools
 <a id="user-content-low-level-translation-api-" class="anchor" href="#low-level-translation-api-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Low level translation API <a id="user-content-_5_1"></a>
 </h3>
 
-<p>OpenREIL has low level translation API that returns IR instructions as Python tuple. Here is en example of decoding <code>push eax</code> x86 instruction using this API:</p>
+<p>OpenREIL has low level translation API that returns IR instructions as Python tuple. Here is an example of decoding <code>push eax</code> x86 instruction using this API:</p>
 
 <div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil <span class="pl-k">import</span> translator
 <span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> ARCH_X86
