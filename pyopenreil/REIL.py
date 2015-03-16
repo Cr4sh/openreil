@@ -2208,8 +2208,9 @@ class CodeStorageMem(CodeStorage):
 
     def __init__(self, arch, insn_list = None, from_file = None): 
 
+        self.arch = arch
         self.clear()
-        self.arch = get_arch(arch)
+        
         if insn_list is not None: self.put_insn(insn_list)
         if from_file is not None: self.from_file(from_file)
 
@@ -2434,13 +2435,20 @@ class CodeStorageTranslator(CodeStorage):
 
             CFGraphBuilder.traverse(self, ir_addr)
 
-    def __init__(self, reader, storage = None):
+    def __init__(self, reader = None, storage = None):        
+
+        arch = None
+
+        # determinate target architecture
+        if reader is not None: arch = reader.arch
+        elif storage is not None: arch = storage.arch
+        else: raise Error('Storage or reader instance must be specified')
 
         import translator
+        self.translator = translator.Translator(arch)
         
-        self.arch = get_arch(reader.arch)
-        self.translator = translator.Translator(reader.arch)
-        self.storage = CodeStorageMem(reader.arch) if storage is None else storage
+        self.arch = get_arch(arch)        
+        self.storage = CodeStorageMem(arch) if storage is None else storage
         self.reader = reader
 
     def translate_insn(self, data, addr):                
@@ -2544,6 +2552,34 @@ class TestCodeStorageTranslator(unittest.TestCase):
         
         from pyopenreil.utils import asm
         self.tr = CodeStorageTranslator(asm.Reader(self.arch, code))
+
+    def test_init(self):
+
+        try:
+
+            # must raise Error if storage and reader are not set
+            CodeStorageTranslator()
+            assert False
+
+        except Error: pass
+
+        reader = ReaderRaw(ARCH_X86, '\x33\xC0\xC3')
+        storage = CodeStorageMem(ARCH_X86)        
+
+        insn_list = self.tr.get_insn(0)
+        storage.put_insn(insn_list)        
+
+        # test with storage only
+        tr = CodeStorageTranslator(storage = storage)
+        assert tr.arch == x86 and tr.get_insn(0) == insn_list        
+
+        # test with reader only
+        tr = CodeStorageTranslator(reader)
+        assert tr.arch == x86 and tr.get_insn(0) == insn_list
+
+        # test with reader + storage
+        tr = CodeStorageTranslator(reader, storage)
+        assert tr.arch == x86 and tr.get_insn(0) == insn_list
 
     def test_unknown_insn_x86(self):
 

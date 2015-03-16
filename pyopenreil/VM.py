@@ -378,10 +378,6 @@ class Cpu(object):
 
             return None
 
-    def evaluate(self, op, size, a, b):
-
-        return Arg(A_CONST, size, val = self.math.eval(op, a, b))
-
     def insn_none(self, insn, a, b, c):
 
         return None
@@ -406,7 +402,7 @@ class Cpu(object):
     def insn_other(self, insn, a, b, c):
 
         # evaluate all other instructions
-        self.reg(insn.c.name).val = self.evaluate(insn.op, insn.c.size, a, b).get_val()        
+        self.reg(insn.c.name).val = self.math.eval(insn.op, a, b)      
         return None
 
     def execute(self, insn):
