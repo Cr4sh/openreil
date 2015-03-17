@@ -3,7 +3,10 @@ from pyopenreil.IR import *
 # architecture name
 name = 'x86'
 
-# pointer size
+# size of register
+size = U32
+
+# pointer length
 ptr_len = 4
 
 class Registers:

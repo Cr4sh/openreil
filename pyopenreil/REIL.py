@@ -254,7 +254,9 @@ class Insn(object):
 
         if show_asm:
 
-            ret += ('; asm: %s %s' % self.get_attr(IATTR_ASM)).strip()
+            mnem, args = self.get_attr(IATTR_ASM)
+
+            ret += ('; asm: %s %s' % (mnem, args)).strip()
 
             if self.op == I_UNK:
 
