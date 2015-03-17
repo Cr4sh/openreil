@@ -958,7 +958,7 @@ exp_eip <span class="pl-k">=</span> sym.query(SymIP())
 <span class="pl-k">assert</span> exp_zf <span class="pl-k">==</span> SymExp(I_EQ, SymVal(<span class="pl-s1"><span class="pl-pds">'</span>R_ECX<span class="pl-pds">'</span></span>), SymAny())
 <span class="pl-k">assert</span> exp_zf <span class="pl-k">==</span> SymAny()</pre></div>
 
-<p>For extracting information about input and output arguments of <code>symbolic.SymState</code> it has <code>arg_src()</code> and <code>arg_dst()</code> methods:</p>
+<p>For extracting information about input and output arguments of <code>symbolic.SymState</code> it has <code>arg_in()</code> and <code>arg_out()</code> methods:</p>
 
 <div class="highlight highlight-python"><pre><span class="pl-k">print</span> <span class="pl-s1"><span class="pl-pds">'</span>IN:<span class="pl-pds">'</span></span>, <span class="pl-s1"><span class="pl-pds">'</span>, <span class="pl-pds">'</span></span>.join(<span class="pl-s3">map</span>(<span class="pl-st">lambda</span> <span class="pl-vpf">a</span>: <span class="pl-s3">str</span>(a), sym.arg_in()))
 <span class="pl-k">print</span> <span class="pl-s1"><span class="pl-pds">'</span>OUT:<span class="pl-pds">'</span></span>, <span class="pl-s1"><span class="pl-pds">'</span>, <span class="pl-pds">'</span></span>.join(<span class="pl-s3">map</span>(<span class="pl-st">lambda</span> <span class="pl-vpf">a</span>: <span class="pl-s3">str</span>(a), sym.arg_out()))</pre></div>
@@ -1051,7 +1051,7 @@ cfg <span class="pl-k">=</span> CFGraphBuilder(tr).traverse(addr)</pre></div>
 
 <div class="highlight highlight-python"><pre>cfg.to_dot_file(<span class="pl-s1"><span class="pl-pds">'</span>cfg.dot<span class="pl-pds">'</span></span>)</pre></div>
 
-<p>Than you can render this file into the PNG image using Graphviz dot utility:</p>
+<p>Then you can render this file into the PNG image using Graphviz dot utility:</p>
 
 <pre><code>$ dot -Tpng cfg.dot &gt; cfg.png
 </code></pre>

@@ -788,7 +788,7 @@ assert exp_zf == SymExp(I_EQ, SymVal('R_ECX'), SymAny())
 assert exp_zf == SymAny()
 ```
 
-For extracting information about input and output arguments of `symbolic.SymState` it has `arg_src()` and `arg_dst()` methods:
+For extracting information about input and output arguments of `symbolic.SymState` it has `arg_in()` and `arg_out()` methods:
 
 ```python
 print 'IN:', ', '.join(map(lambda a: str(a), sym.arg_in()))
@@ -890,7 +890,7 @@ You can save generated graph as file of [Graphviz DOT format](http://www.graphvi
 cfg.to_dot_file('cfg.dot')
 ```
 
-Than you can render this file into the PNG image using Graphviz dot utility:
+Then you can render this file into the PNG image using Graphviz dot utility:
 
 ```
 $ dot -Tpng cfg.dot > cfg.png

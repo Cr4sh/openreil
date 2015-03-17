@@ -2,7 +2,7 @@ import sys, os, unittest
 
 file_dir = os.path.abspath(os.path.dirname(__file__))
 reil_dir = os.path.abspath(os.path.join(file_dir, '..'))
-if not reil_dir in sys.path: sys.path.append(reil_dir)
+if not reil_dir in sys.path: sys.path = [ reil_dir ] + sys.path
 
 from pyopenreil.REIL import *
 from pyopenreil.VM import *
