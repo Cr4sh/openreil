@@ -591,8 +591,8 @@ void CReilFromBilTranslator::process_bil_neq(reil_inst_t *reil_inst)
 
     // NOT tmp, c
     reil_inst->op = I_NOT;   
-    convert_operand(tmp, &new_inst.a);
-    convert_operand(NULL, &new_inst.b);
+    convert_operand(tmp, &reil_inst->a);
+    convert_operand(NULL, &reil_inst->b);
 
     free_bil_exp(tmp);
 }
@@ -626,8 +626,8 @@ void CReilFromBilTranslator::process_bil_le(reil_inst_t *reil_inst)
 
     // OR tmp_0, tmp_1, c
     reil_inst->op = I_OR;   
-    convert_operand(tmp_0, &new_inst.a);
-    convert_operand(tmp_1, &new_inst.b);
+    convert_operand(tmp_0, &reil_inst->a);
+    convert_operand(tmp_1, &reil_inst->b);
 
     free_bil_exp(tmp_0);
     free_bil_exp(tmp_1);

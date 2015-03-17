@@ -354,12 +354,18 @@ class Cpu(object):
 
     def reset(self, regs = None, mem = None):
 
+        self.regs = {}        
+
+        if self.arch == x86:
+
+            # By default DF is zero, so we need to set R_DFLAG to 1
+            # for indexes auto-incrementing (ffffffffh is used when DF == 1).
+            self.reg('R_DFLAG', val = 1)
+
         if regs is not None:
 
             # set up caller specified registers set
-            for name, val in regs.items(): self.reg(name, val = val)
-
-        else: self.regs = {}
+            for name, val in regs.items(): self.reg(name, val = val)        
 
         if mem is not None:
 
@@ -446,7 +452,7 @@ class Cpu(object):
         self.reg(insn.c).val = self.math.eval(insn.op, a, b)      
         return None
 
-    def execute(self, insn):
+    def execute(self, insn):        
 
         # get arguments values
         a, b, c = self.arg(insn.a), self.arg(insn.b), self.arg(insn.c)
@@ -517,10 +523,10 @@ class Cpu(object):
 
     def dump(self, show_flags = True, show_temp = False):
 
-        # dump main registers
+        # dump general purpose registers
         for name, reg in self.regs.items():
 
-            if name in self.arch.Registers.general:
+            if name in [ self.arch.Registers.ip ] + list(self.arch.Registers.general):
 
                 print '%8s: %s' % (name, reg.str_val())
 
