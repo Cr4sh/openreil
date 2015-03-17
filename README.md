@@ -344,6 +344,28 @@ Example of IR code for pushfd x86 instruction:
 00000000.2a     STM          V_38:32,                 ,          V_01:32
 ```
 
+Also, as you can see from IR code above, OpenREIL uses 32-bit `R_DFLAG` register to represent [direction flag](http://en.wikipedia.org/wiki/Direction_flag) of x86. This register is used in such instructions like `movsb`, `lodsb`, etc. as increment value for source/destination index, so, `R_DFLAG` must be `1:32` when direction flag is not set, and `ffffffff:32` (minus one) when it's set.
+
+Example of IR code for instruction that clears direction flag:
+
+```
+;
+; asm: cld
+; data (1): fc
+;
+00000000.00     STR             1:32,                 ,       R_DFLAG:32
+```
+
+... and for instruction that sets direction flag:
+
+```
+;
+; asm: std
+; data (1): fd
+;
+00000001.00     STR      ffffffff:32,                 ,       R_DFLAG:32
+```
+
 ## C API <a id="_4"></a>
 
 OpenREIL C API is declared in [reil_ir.h](../master/libopenreil/include/reil_ir.h) (IR format) and [libopenreil.h](../master/libopenreil/include/libopenreil.h) (translator API) header files. 
