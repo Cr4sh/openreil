@@ -101,7 +101,7 @@ Building OpenREIL on Windows requires [MinGW](http://www.mingw.org/) build envir
 
 You also can download compiled Win32 binaries of OpenREIL:
 
-* [libopenreil-0.1.1-win32.zip](https://github.com/Cr4sh/openreil/releases/download/0.1.1/libopenreil-0.1-win32.zip)
+* [libopenreil-0.1.1-win32.zip](https://github.com/Cr4sh/openreil/releases/download/0.1.1/libopenreil-0.1.1-win32.zip)
 * [pyopenreil-0.1.1-win32-python2.7.zip](https://github.com/Cr4sh/openreil/releases/download/0.1.1/pyopenreil-0.1.1-win32-python2.7.zip)
 
 
