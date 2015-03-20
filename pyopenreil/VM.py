@@ -35,6 +35,13 @@ class CpuError(Error):
         self.addr, self.inum, = addr, inum
 
 
+class CpuStop(CpuError):
+
+    def __str__(self):
+
+        return 'Stop at instruction %s.%.2d' % (hex(self.addr), self.inum)
+
+
 class CpuReadError(CpuError):
 
     def __str__(self):
@@ -74,9 +81,9 @@ class Mem(object):
 
         return struct.pack(self.map_format[size], val)
 
-    def unpack(self, size, val):
+    def unpack(self, size, data):
 
-        return struct.unpack(self.map_format[size], val)[0] 
+        return struct.unpack(self.map_format[size], data)[0] 
 
     def clear(self):
 
@@ -84,23 +91,23 @@ class Mem(object):
 
     def _read(self, addr, size):
 
-        data = ''
+        ret = []
 
-        for i in range(0, size):
+        for i in range(size):
 
             if not self.data.has_key(addr + i):
 
                 raise MemReadError(addr)
 
-            data += self.data[addr + i]
+            ret.append(self.data[addr + i])
 
-        return data
+        return ret
 
     def _write(self, addr, size, data):
 
-        for i in range(0, size):
+        for i in range(size):
 
-            if not self.data.has_key(addr + i):
+            if self.strict and not self.data.has_key(addr + i):
 
                 raise MemWriteError(addr)
 
@@ -110,7 +117,7 @@ class Mem(object):
 
         try:
 
-            return self._read(addr, size)
+            return ''.join(self._read(addr, size))
 
         except MemReadError:
 
@@ -130,7 +137,7 @@ class Mem(object):
 
         try:
 
-            self._write(addr, size, data)
+            self._write(addr, size, list(data))
 
         except MemWriteError:
 
@@ -341,6 +348,8 @@ class Cpu(object):
     DEF_REG = Reg
     DEF_REG_VAL = 0L
 
+    DEF_R_DFLAG = 1L
+
     def __init__(self, arch, mem = None, math = None):
 
         self.mem = Mem() if mem is None else mem
@@ -354,18 +363,19 @@ class Cpu(object):
 
     def reset(self, regs = None, mem = None):
 
-        self.regs = {}        
+        self.insn, self.regs = None, {}
+        self.set_ip(0)   
 
         if self.arch == x86:
 
             # By default DF is zero, so we need to set R_DFLAG to 1
             # for indexes auto-incrementing (ffffffffh is used when DF == 1).
-            self.reg('R_DFLAG', val = 1)
+            self.reg('R_DFLAG', self.DEF_R_DFLAG)
 
         if regs is not None:
 
             # set up caller specified registers set
-            for name, val in regs.items(): self.reg(name, val = val)        
+            for name, val in regs.items(): self.reg(name, val)        
 
         if mem is not None:
 
@@ -377,37 +387,40 @@ class Cpu(object):
 
             if reg.temp: self.regs.pop(name)
 
-    def reg(self, name, val = None):
+    def reg(self, name, val = None, size = None):
 
         if isinstance(name, Arg):
 
             assert not name.type in [ A_NONE, A_CONST ]
 
             # find register by instruction argument
-            size = name.size
-            temp = name.type == A_TEMP
-            name = name.name                  
+            name, size, temp = name.name, name.size, name.type == A_TEMP          
 
         else:
 
             # find register by name
-            size = self.arch.size            
+            size = self.arch.size if size is None else size
             temp = False
-
-        val = self.DEF_REG_VAL if val is None else val
 
         if not name[:2] in [ 'R_', 'V_' ]:
 
             # make canonical register name
             name = '%s_%s' % ( 'V' if temp else 'R', name.upper() )
 
-        if not self.regs.has_key(name): 
+        if self.regs.has_key(name): 
 
-            reg = self.regs[name] = self.DEF_REG(size, val, name = name, temp = temp)
+            reg = self.regs[name]
+
+            if val is not None:
+
+                # set value of existing register
+                reg.val = val            
 
         else: 
 
-            reg = self.regs[name]
+            # create register with specified or default value
+            val = self.DEF_REG_VAL if val is None else val
+            reg = self.regs[name] = self.DEF_REG(size, val, name = name, temp = temp)
 
         return reg
 
@@ -443,13 +456,13 @@ class Cpu(object):
     def insn_ldm(self, insn, a, b, c):
 
         # read from memory to c
-        self.reg(insn.c).val = self.mem.load(a.get_val(), insn.c.size)
+        self.reg(insn.c, self.mem.load(a.get_val(), insn.c.size))
         return None
 
     def insn_other(self, insn, a, b, c):
 
         # evaluate all other instructions
-        self.reg(insn.c).val = self.math.eval(insn.op, a, b)      
+        self.reg(insn.c, self.math.eval(insn.op, a, b))
         return None
 
     def execute(self, insn):        
@@ -484,15 +497,14 @@ class Cpu(object):
 
     def set_ip(self, val):
 
-        self.reg(self.arch.Registers.ip).val = val
+        self.reg(self.arch.Registers.ip, val)
 
-    def run(self, storage, addr = 0L):
+    def run(self, storage, addr = 0L, stop_at = None):
 
         next = addr
 
         # use specified storage instance
-        self.set_storage(storage)        
-        self.set_ip(next)
+        self.set_storage(storage)                
 
         while True:
             
@@ -507,6 +519,14 @@ class Cpu(object):
 
             for insn in insn_list:
 
+                self.insn = insn
+                self.set_ip(insn.addr)
+
+                if stop_at is not None and \
+                   (insn.addr in stop_at or insn.ir_addr() in stop_at):
+
+                    raise CpuStop(insn.addr, insn.inum)
+
                 # execute single instruction
                 next = self.execute(insn)
 
@@ -514,21 +534,24 @@ class Cpu(object):
                 if next is not None: break
                 else: next, _ = insn.next()
 
-                self.set_ip(next)
-
             # remove temp registers
             self.reset_temp()
 
         self.set_storage()
 
-    def dump(self, show_flags = True, show_temp = False):
+    def dump(self, show_flags = True, show_temp = False, show_all = False):
 
         # dump general purpose registers
         for name, reg in self.regs.items():
 
-            if name in [ self.arch.Registers.ip ] + list(self.arch.Registers.general):
+            if name in [ self.arch.Registers.ip ] + list(self.arch.Registers.general) or \
+               show_all:
 
                 print '%8s: %s' % (name, reg.str_val())
+
+        if show_all:
+
+            return
 
         if show_flags:
 
@@ -572,9 +595,9 @@ class TestCpu(unittest.TestCase):
         cpu = Cpu(self.arch)
 
         # set up stack pointer and input args
-        cpu.reg('esp').val = stack
-        cpu.reg('ecx').val = 1
-        cpu.reg('edx').val = 2
+        cpu.reg('esp', stack)
+        cpu.reg('ecx', 1)
+        cpu.reg('edx', 2)
 
         # run untill ret
         try: cpu.run(tr, addr)
@@ -603,7 +626,7 @@ class TestCpu(unittest.TestCase):
         cpu = Cpu(ARCH_X86)
 
         # set up stack pointer
-        cpu.reg('esp').val = stack
+        cpu.reg('esp', stack)
         
         # run untill ret
         try: cpu.run(tr, addr)

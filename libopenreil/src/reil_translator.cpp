@@ -318,7 +318,7 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
         reil_arg->size = convert_operand_size(temp->typ);
         strncpy(reil_arg->name, ret.c_str(), REIL_MAX_NAME_LEN - 1);
     }
-
+/*
     if (!strcmp(reil_arg->name, "R_EFLAGS") && !skip_eflags)
     {        
         vector<Stmt *> set_eflags_stmt;
@@ -344,6 +344,7 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
 
         skip_eflags = false;
     }
+*/
 }
 
 Exp *CReilFromBilTranslator::temp_operand(reg_t typ, reil_inum_t inum)
@@ -645,7 +646,7 @@ bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
             // use low half of the value
             reil_inst->op = I_AND;
             reil_inst->b.type = A_CONST;
-            reil_inst->b.size = reil_inst->c.size;
+            reil_inst->b.size = reil_inst->a.size;
             reil_inst->b.val = reil_cast_mask(reil_inst->c.size);
 
             return true;
@@ -669,7 +670,7 @@ bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
             reil_inst->op = I_AND;            
             convert_operand(tmp, &reil_inst->a);            
             reil_inst->b.type = A_CONST;
-            reil_inst->b.size = reil_inst->c.size;
+            reil_inst->b.size = reil_inst->a.size;
             reil_inst->b.val = reil_cast_mask(reil_inst->c.size);
 
             free_bil_exp(tmp);
@@ -682,7 +683,7 @@ bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
             // cast to unsigned
             reil_inst->op = I_OR;
             reil_inst->b.type = A_CONST;
-            reil_inst->b.size = reil_inst->c.size;
+            reil_inst->b.size = reil_inst->a.size;
             reil_inst->b.val = 0;
 
             return true;

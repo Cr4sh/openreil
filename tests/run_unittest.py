@@ -17,6 +17,7 @@ try:
     from pyopenreil.utils.bin_PE import *
     from test_fib import *
     from test_rc4 import *
+    from test_kao import *
     
 except ImportError, why: print '[!]', str(why)
 
