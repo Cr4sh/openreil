@@ -12,15 +12,17 @@ try:
 
     # check for pefile module (required for loading test PE binaries)
     import pefile
-
-    # load unit tests that depends on pefile
     from pyopenreil.utils.bin_PE import *
+
+    # load unit tests that depends on pefile    
     from test_fib import *
     from test_rc4 import *
     
     # check for Z3 module (required for test_kao.py)
     import z3
-    from test_kao import *
+
+    # load unit tests that depends on Z3
+    from test_kao import TestKao
     
 except ImportError, why: print '[!]', str(why)
 

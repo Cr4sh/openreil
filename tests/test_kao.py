@@ -1,6 +1,33 @@
 import sys, os, random, struct, unittest
 import z3
 
+'''
+This is a keygen for Kao's Toy Project crackme 
+(https://tuts4you.com/download.php?view.3293). 
+
+The following code is essence of this crackme (simple stream cipher with 64-bit key):
+
+void expand(u8 out[32], const u8 in[32], u32 x, u32 y)  
+{  
+    for (u32 i = 0; i < 32; ++i)  
+    {  
+        out[i] = (in[i] - x) ^ y;
+
+        x = ROL(x, 1);  
+        y = ROL(y, 1);  
+    }  
+}
+
+It accepts 32-byte plain text as in, cipher key as x and y 32-bit unsigned integers, 
+and produces 32-byte ciphered text out. Kao's Toy Project uses installation ID as plain text,
+serial number entered by user as x and y, and then compares encryption results with 
+hardcoded ciphered text.
+
+We are going to use quick and dirty symbolic execution for finding valid key for
+given installation ID.
+
+'''
+
 file_dir = os.path.abspath(os.path.dirname(__file__))
 reil_dir = os.path.abspath(os.path.join(file_dir, '..'))
 if not reil_dir in sys.path: sys.path = [ reil_dir ] + sys.path
@@ -378,11 +405,11 @@ class Cpu(VM.Cpu):
         return state
 
 
-class TestKao(unittest.TestCase):
-
-    ARCH = ARCH_X86
-    BIN_PATH = os.path.join(file_dir, 'toyproject.exe')
+def keygen(kao_binary_path, kao_installation_ID):
     '''
+        Assembly code of serial number check from Kao's Toy Project binary,
+        X and Y contains serial number that was entered by user.
+
         .text:004010EC check_serial    proc near
         .text:004010EC
         .text:004010EC ciphered        = byte ptr -21h
@@ -416,96 +443,143 @@ class TestKao(unittest.TestCase):
         .text:00401123 check_serial    endp
 
     '''
-    def test(self):
 
-        check_serial = 0x004010EC       
-        stop_at = 0x0040111D
+    # address of the check_serial() function
+    check_serial = 0x004010EC       
 
-        installation_ID = 0x004093A8        
+    # address of the strcmp() call inside check_serial()
+    stop_at = 0x0040111D
 
-        from pyopenreil.utils import bin_PE        
-        tr = CodeStorageTranslator(bin_PE.Reader(self.BIN_PATH))
+    # address of the global buffer with installation ID
+    installation_ID = 0x004093A8        
 
-        # Construct DFG, run all available code optimizations
-        # and update storage with new function code.
-        dfg = DFGraphBuilder(tr).traverse(check_serial)
-        dfg.optimize_all(tr.storage)        
+    # load Kao's PE binary
+    from pyopenreil.utils import bin_PE        
+    tr = CodeStorageTranslator(bin_PE.Reader(kao_binary_path))
 
-        print tr.get_func(check_serial)
+    # Construct DFG, run all available code optimizations
+    # and update storage with new function code.
+    dfg = DFGraphBuilder(tr).traverse(check_serial)
+    dfg.optimize_all(tr.storage)        
 
-        # create CPU and ABI
-        cpu = Cpu(self.ARCH)
-        abi = VM.Abi(cpu, tr, no_reset = True)   
+    print tr.get_func(check_serial)
 
-        # hardcoded constant
-        kao_out_data = '0how4zdy81jpe5xfu92kar6cgiq3lst7'
+    # create CPU and ABI
+    cpu = Cpu(ARCH_X86)
+    abi = VM.Abi(cpu, tr, no_reset = True)   
 
-        # generated installation ID
-        kao_id = '97FF58287E87FB74-979950C854E3E8B3-55A3F121A5590339-6A8DF5ABA981F7CE'
-        kao_id_data = ''
+    # hardcoded ciphered text constant from Kao's binary
+    out_data = '0how4zdy81jpe5xfu92kar6cgiq3lst7'
+    in_data = ''
 
-        for s in kao_id.split('-'):
+    try:
+
+        # convert installation ID into the binary form
+        for s in kao_installation_ID.split('-'):
         
-            kao_id_data += struct.pack('L', int(s[:8], 16))
-            kao_id_data += struct.pack('L', int(s[8:], 16))
+            in_data += struct.pack('L', int(s[:8], 16))
+            in_data += struct.pack('L', int(s[8:], 16))
+
+        assert len(in_data) == 32
+
+    except:
+
+        raise Exception('Invalid instllation ID string')
+
+    # copy installation ID into the emulator's memory
+    for i in range(32):
+
+        cpu.mem.store(installation_ID + i, U8, 
+            cpu.mem._Val(U8, 0, ord(in_data[i])))
+
+    ret, ebp = 0x41414141, 0x42424242
+
+    # create stack with symbolic arguments for check_serial()
+    stack = abi.pushargs(( Val(exp = SymVal('ARG_0', U32)), \
+                           Val(exp = SymVal('ARG_1', U32)) ))
+
+    # dummy return address
+    stack.push(Val(ret))
+
+    # initialize emulator's registers
+    cpu.reg('ebp', Val(ebp))
+    cpu.reg('esp', Val(stack.top))
+
+    # run until stop
+    try: cpu.run(tr, check_serial, stop_at = [ stop_at ])
+    except VM.CpuStop as e:            
+
+        print 'STOP at', hex(cpu.reg('eip').get_val())
+            
+        # get Z3 expressions list for current CPU state
+        state = cpu.to_z3()
+        cpu.dump(show_all = True)                
+
+        # read symbolic expressions for contents of the output buffer
+        addr = cpu.reg('eax').val
+        data = cpu.mem.read(addr.val, 32)
+        
+        for i in range(32):
+
+            print '*' + hex(addr.val + i), '=', data[i].exp                  
+
+        # create SMT solver
+        solver = z3.Solver()
 
         for i in range(32):
 
-            cpu.mem.store(installation_ID + i, U8, 
-                cpu.mem._Val(U8, 0, ord(kao_id_data[i])))
+            # add constraint for each output byte
+            solver.add(data[i].to_z3(state, U8) == z3.BitVecVal(ord(out_data[i]), 8))
+        
+        # solve constraints
+        solver.check()
 
-        ret, ebp = 0x41414141, 0x42424242
+        # get solution
+        model = solver.model()
 
-        stack = abi.pushargs(( Val(exp = SymVal('ARG_0', U32)), \
-                               Val(exp = SymVal('ARG_1', U32)) ))
-        stack.push(Val(ret))
+        # get and print serial number
+        serial = map(lambda d: model[d].as_long(), model.decls())
+        serial[1] = serial[0] ^ serial[1]
 
-        cpu.reg('ebp', Val(ebp))
-        cpu.reg('esp', Val(stack.top))
+        print '\nSerial number: %s\n' % '-'.join([ '%.8X' % serial[0], 
+                                                   '%.8X' % serial[1] ])
 
-        # run untill ret
-        try: cpu.run(tr, check_serial, stop_at = [ stop_at ])
-        except VM.CpuStop as e:            
+        return serial
 
-            print 'STOP at', hex(cpu.reg('eip').get_val())
-                
-            state = cpu.to_z3()
-            cpu.dump(show_all = True)                
+    assert False
 
-            addr = cpu.reg('eax').val
-            data = cpu.mem.read(addr.val, 32)
-            
-            for i in range(32):
 
-                print '*' + hex(addr.val + i), '=', data[i].exp                  
+class TestKao(unittest.TestCase):
 
-            solver = z3.Solver()
+    BIN_PATH = os.path.join(file_dir, 'toyproject.exe')
 
-            for i in range(32):
+    INSTALLATION_ID = '97FF58287E87FB74-979950C854E3E8B3-55A3F121A5590339-6A8DF5ABA981F7CE'
+    
+    def test(self):
 
-                # add constraint for each output byte
-                solver.add(data[i].to_z3(state, U8) == z3.BitVecVal(ord(kao_out_data[i]), 8))
-            
-            # solve constraints
-            solver.check()
+        # run keygen with the reference test data
+        serial = keygen(self.BIN_PATH, self.INSTALLATION_ID)
 
-            # get solution
-            model = solver.model()
+        # check for valid result
+        assert serial[0] == 0x47A8A5AA and serial[1] == 0x0EEC4C24
 
-            # get serial number value
-            serial = map(lambda d: model[d].as_long(), model.decls())
-            serial[1] = serial[0] ^ serial[1]
 
-            print 'Serial number:', '-'.join([ '%.8X' % serial[0], 
-                                               '%.8X' % serial[1] ])
+def main():
 
-            assert serial[0] == 0x47A8A5AA and serial[1] == 0x0EEC4C24
+    if len(sys.argv) >= 2:
+
+        keygen(TestKao.BIN_PATH, sys.argv[1])
+
+    else:
+
+        print 'USAGE: python test_kao.py <your_installation_ID>'
+
+    return 0
 
 
 if __name__ == '__main__':    
 
-    suite = unittest.TestSuite([ TestKao('test') ])
-    unittest.TextTestRunner(verbosity = 2).run(suite)
+    exit(main())
 
 #
 # EoF

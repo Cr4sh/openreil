@@ -318,7 +318,9 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
         reil_arg->size = convert_operand_size(temp->typ);
         strncpy(reil_arg->name, ret.c_str(), REIL_MAX_NAME_LEN - 1);
     }
-/*
+
+#ifdef EXPAND_EFLAGS
+
     if (!strcmp(reil_arg->name, "R_EFLAGS") && !skip_eflags)
     {        
         vector<Stmt *> set_eflags_stmt;
@@ -344,7 +346,9 @@ void CReilFromBilTranslator::convert_operand(Exp *exp, reil_arg_t *reil_arg)
 
         skip_eflags = false;
     }
-*/
+
+#endif // EXPAND_EFLAGS
+
 }
 
 Exp *CReilFromBilTranslator::temp_operand(reg_t typ, reil_inum_t inum)
