@@ -92,7 +92,8 @@
 <li><a href="#_6_3">WinDbg (kd, cdb)</a></li>
 </ul>
 </li>
-<li><a href="#_7">TODO</a></li>
+<li><a href="#_7">Links and examples</a></li>
+<li><a href="#_8">TODO</a></li>
 </ul>
 
 <h2>
@@ -409,15 +410,15 @@ $ sudo easy_install cachetools
 
 <p>Many operating systems uses <code>FS</code> segment register to access certain system structures. OpenREIL represents this segment register as <code>R_FS_BASE:32</code>. Here is an example of function that gets <code>_PEB</code> address of the current Windows process:</p>
 
-<div class="highlight highlight-cpp"><pre>ULONG_PTR <span class="pl-en">get_peb</span>(<span class="pl-st">void</span>)
+<div class="highlight highlight-cpp"><pre>ULONG_PTR <span class="pl-en">get_peb</span>(<span class="pl-k">void</span>)
 {
 #<span class="pl-k">ifdef</span> _X86_
 
-    <span class="pl-k">return</span> <span class="pl-s3">__readfsdword</span>(0x30);
+    <span class="pl-k">return</span> <span class="pl-c1">__readfsdword</span>(0x30);
 
 #<span class="pl-k">else</span> _AMD64_
 
-    <span class="pl-k">return</span> <span class="pl-s3">__readgsqword</span>(0x60);
+    <span class="pl-k">return</span> <span class="pl-c1">__readgsqword</span>(0x60);
 
 #<span class="pl-k">endif</span>
 }</pre></div>
@@ -561,100 +562,100 @@ $ sudo easy_install cachetools
 
 <p>Here is an example of the test program that translates machine code to IR instructions and prints them to stdout:</p>
 
-<div class="highlight highlight-cpp"><pre>#<span class="pl-k">include</span> <span class="pl-s1"><span class="pl-pds">&lt;</span>stdio.h<span class="pl-pds">&gt;</span></span>
-#<span class="pl-k">include</span> <span class="pl-s1"><span class="pl-pds">&lt;</span>libopenreil.h<span class="pl-pds">&gt;</span></span>
+<div class="highlight highlight-cpp"><pre>#<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>stdio.h<span class="pl-pds">&gt;</span></span>
+#<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>libopenreil.h<span class="pl-pds">&gt;</span></span>
 
 #<span class="pl-k">define</span> <span class="pl-en">MAX_ARG_STR</span> <span class="pl-c1">50</span>
 
-<span class="pl-s">const</span> <span class="pl-st">char</span> *inst_op[] =
+<span class="pl-k">const</span> <span class="pl-k">char</span> *inst_op[] =
 {
-    <span class="pl-s1"><span class="pl-pds">"</span>NONE<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>UNK<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>JCC<span class="pl-pds">"</span></span>,
-    <span class="pl-s1"><span class="pl-pds">"</span>STR<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>STM<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>LDM<span class="pl-pds">"</span></span>,
-    <span class="pl-s1"><span class="pl-pds">"</span>ADD<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>SUB<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>NEG<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>MUL<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>DIV<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>MOD<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>SMUL<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>SDIV<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>SMOD<span class="pl-pds">"</span></span>,
-    <span class="pl-s1"><span class="pl-pds">"</span>SHL<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>SHR<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>AND<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>OR<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>XOR<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>NOT<span class="pl-pds">"</span></span>,
-    <span class="pl-s1"><span class="pl-pds">"</span>EQ<span class="pl-pds">"</span></span>, <span class="pl-s1"><span class="pl-pds">"</span>LT<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>NONE<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>UNK<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>JCC<span class="pl-pds">"</span></span>,
+    <span class="pl-s"><span class="pl-pds">"</span>STR<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>STM<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>LDM<span class="pl-pds">"</span></span>,
+    <span class="pl-s"><span class="pl-pds">"</span>ADD<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>SUB<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>NEG<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>MUL<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>DIV<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>MOD<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>SMUL<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>SDIV<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>SMOD<span class="pl-pds">"</span></span>,
+    <span class="pl-s"><span class="pl-pds">"</span>SHL<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>SHR<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>AND<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>OR<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>XOR<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>NOT<span class="pl-pds">"</span></span>,
+    <span class="pl-s"><span class="pl-pds">"</span>EQ<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>LT<span class="pl-pds">"</span></span>
 };
 
-<span class="pl-st">int</span> arg_size[] = { <span class="pl-c1">1</span>, <span class="pl-c1">8</span>, <span class="pl-c1">16</span>, <span class="pl-c1">32</span>, <span class="pl-c1">64</span> };
+<span class="pl-k">int</span> arg_size[] = { <span class="pl-c1">1</span>, <span class="pl-c1">8</span>, <span class="pl-c1">16</span>, <span class="pl-c1">32</span>, <span class="pl-c1">64</span> };
 
-<span class="pl-st">char</span> *<span class="pl-en">arg_print</span>(<span class="pl-s3">reil_arg_t</span> *arg, <span class="pl-st">char</span> *arg_str)
+<span class="pl-k">char</span> *<span class="pl-en">arg_print</span>(<span class="pl-c1">reil_arg_t</span> *arg, <span class="pl-k">char</span> *arg_str)
 {
-    <span class="pl-s3">memset</span>(arg_str, <span class="pl-c1">0</span>, MAX_ARG_STR);
+    <span class="pl-c1">memset</span>(arg_str, <span class="pl-c1">0</span>, MAX_ARG_STR);
 
     <span class="pl-k">switch</span> (arg-&gt;type)
     {
     <span class="pl-k">case</span> A_NONE:
 
-        <span class="pl-s3">snprintf</span>(arg_str, MAX_ARG_STR - <span class="pl-c1">1</span>, <span class="pl-s1"><span class="pl-pds">"</span><span class="pl-pds">"</span></span>);
+        <span class="pl-c1">snprintf</span>(arg_str, MAX_ARG_STR - <span class="pl-c1">1</span>, <span class="pl-s"><span class="pl-pds">"</span><span class="pl-pds">"</span></span>);
         <span class="pl-k">break</span>;
 
     <span class="pl-k">case</span> A_REG:
     <span class="pl-k">case</span> A_TEMP:
 
-        <span class="pl-s3">snprintf</span>(arg_str, MAX_ARG_STR - <span class="pl-c1">1</span>, <span class="pl-s1"><span class="pl-pds">"</span><span class="pl-c1">%s</span>:<span class="pl-c1">%d</span><span class="pl-pds">"</span></span>, arg-&gt;name, arg_size[arg-&gt;size]);
+        <span class="pl-c1">snprintf</span>(arg_str, MAX_ARG_STR - <span class="pl-c1">1</span>, <span class="pl-s"><span class="pl-pds">"</span><span class="pl-c1">%s</span>:<span class="pl-c1">%d</span><span class="pl-pds">"</span></span>, arg-&gt;name, arg_size[arg-&gt;size]);
         <span class="pl-k">break</span>;
 
     <span class="pl-k">case</span> A_CONST:
 
-        <span class="pl-s3">snprintf</span>(arg_str, MAX_ARG_STR - <span class="pl-c1">1</span>, <span class="pl-s1"><span class="pl-pds">"</span><span class="pl-c1">%llx</span>:<span class="pl-c1">%d</span><span class="pl-pds">"</span></span>, arg-&gt;val, arg_size[arg-&gt;size]);
+        <span class="pl-c1">snprintf</span>(arg_str, MAX_ARG_STR - <span class="pl-c1">1</span>, <span class="pl-s"><span class="pl-pds">"</span><span class="pl-c1">%llx</span>:<span class="pl-c1">%d</span><span class="pl-pds">"</span></span>, arg-&gt;val, arg_size[arg-&gt;size]);
         <span class="pl-k">break</span>;
     }
 
     <span class="pl-k">return</span> arg_str;
 }
 
-<span class="pl-st">void</span> <span class="pl-en">inst_print</span>(<span class="pl-s3">reil_inst_t</span> *inst)
+<span class="pl-k">void</span> <span class="pl-en">inst_print</span>(<span class="pl-c1">reil_inst_t</span> *inst)
 {
-    <span class="pl-st">char</span> arg_str[MAX_ARG_STR];
+    <span class="pl-k">char</span> arg_str[MAX_ARG_STR];
 
     <span class="pl-c">// print address and mnemonic</span>
-    <span class="pl-s3">printf</span>(
-        <span class="pl-s1"><span class="pl-pds">"</span><span class="pl-c1">%.8llx</span>.<span class="pl-c1">%.2x</span> <span class="pl-c1">%7s</span> <span class="pl-pds">"</span></span>,
-        inst-&gt;raw_info.<span class="pl-vo">addr</span>, inst-&gt;inum, inst_op[inst-&gt;op]
+    <span class="pl-c1">printf</span>(
+        <span class="pl-s"><span class="pl-pds">"</span><span class="pl-c1">%.8llx</span>.<span class="pl-c1">%.2x</span> <span class="pl-c1">%7s</span> <span class="pl-pds">"</span></span>,
+        inst-&gt;raw_info.<span class="pl-smi">addr</span>, inst-&gt;inum, inst_op[inst-&gt;op]
     );
 
     <span class="pl-c">// print instruction arguments</span>
-    <span class="pl-s3">printf</span>(<span class="pl-s1"><span class="pl-pds">"</span><span class="pl-c1">%16s</span>, <span class="pl-pds">"</span></span>, <span class="pl-s3">arg_print</span>(&amp;inst-&gt;a, arg_str));
-    <span class="pl-s3">printf</span>(<span class="pl-s1"><span class="pl-pds">"</span><span class="pl-c1">%16s</span>, <span class="pl-pds">"</span></span>, <span class="pl-s3">arg_print</span>(&amp;inst-&gt;b, arg_str));
-    <span class="pl-s3">printf</span>(<span class="pl-s1"><span class="pl-pds">"</span><span class="pl-c1">%16s</span>  <span class="pl-pds">"</span></span>, <span class="pl-s3">arg_print</span>(&amp;inst-&gt;c, arg_str));
+    <span class="pl-c1">printf</span>(<span class="pl-s"><span class="pl-pds">"</span><span class="pl-c1">%16s</span>, <span class="pl-pds">"</span></span>, <span class="pl-c1">arg_print</span>(&amp;inst-&gt;a, arg_str));
+    <span class="pl-c1">printf</span>(<span class="pl-s"><span class="pl-pds">"</span><span class="pl-c1">%16s</span>, <span class="pl-pds">"</span></span>, <span class="pl-c1">arg_print</span>(&amp;inst-&gt;b, arg_str));
+    <span class="pl-c1">printf</span>(<span class="pl-s"><span class="pl-pds">"</span><span class="pl-c1">%16s</span>  <span class="pl-pds">"</span></span>, <span class="pl-c1">arg_print</span>(&amp;inst-&gt;c, arg_str));
 
-    <span class="pl-s3">printf</span>(<span class="pl-s1"><span class="pl-pds">"</span><span class="pl-cce">\n</span><span class="pl-pds">"</span></span>);
+    <span class="pl-c1">printf</span>(<span class="pl-s"><span class="pl-pds">"</span><span class="pl-cce">\n</span><span class="pl-pds">"</span></span>);
 }
 
-<span class="pl-st">int</span> <span class="pl-en">inst_handler</span>(<span class="pl-s3">reil_inst_t</span> *inst, <span class="pl-st">void</span> *context)
+<span class="pl-k">int</span> <span class="pl-en">inst_handler</span>(<span class="pl-c1">reil_inst_t</span> *inst, <span class="pl-k">void</span> *context)
 {
     <span class="pl-c">// increment IR instruction counter</span>
-    *(<span class="pl-st">int</span> *)context += <span class="pl-c1">1</span>;
+    *(<span class="pl-k">int</span> *)context += <span class="pl-c1">1</span>;
 
     <span class="pl-c">// print IR instruction to the stdout</span>
-    <span class="pl-s3">inst_print</span>(inst);
+    <span class="pl-c1">inst_print</span>(inst);
 
     <span class="pl-k">return</span> <span class="pl-c1">0</span>;
 }
 
-<span class="pl-st">int</span> <span class="pl-en">translate_inst</span>(<span class="pl-s3">reil_arch_t</span> arch, <span class="pl-st">unsigned</span> <span class="pl-st">char</span> *data, <span class="pl-st">int</span> len)
+<span class="pl-k">int</span> <span class="pl-en">translate_inst</span>(<span class="pl-c1">reil_arch_t</span> arch, <span class="pl-k">unsigned</span> <span class="pl-k">char</span> *data, <span class="pl-k">int</span> len)
 {
-    <span class="pl-st">int</span> translated = <span class="pl-c1">0</span>;
+    <span class="pl-k">int</span> translated = <span class="pl-c1">0</span>;
 
     <span class="pl-c">// initialize REIL translator</span>
-    <span class="pl-s3">reil_t</span> reil = <span class="pl-s3">reil_init</span>(arch, inst_handler, (<span class="pl-st">void</span> *)&amp;translated);
+    <span class="pl-c1">reil_t</span> reil = <span class="pl-c1">reil_init</span>(arch, inst_handler, (<span class="pl-k">void</span> *)&amp;translated);
     <span class="pl-k">if</span> (reil)
     {
         <span class="pl-c">// translate single instruction to REIL</span>
-        <span class="pl-s3">reil_translate</span>(reil, <span class="pl-c1">0</span>, data, len);
-        <span class="pl-s3">reil_close</span>(reil);
+        <span class="pl-c1">reil_translate</span>(reil, <span class="pl-c1">0</span>, data, len);
+        <span class="pl-c1">reil_close</span>(reil);
         <span class="pl-k">return</span> translated;
     }
 
     <span class="pl-k">return</span> -<span class="pl-c1">1</span>;
 }
 
-<span class="pl-st">int</span> <span class="pl-en">main</span>(<span class="pl-st">int</span> argc, <span class="pl-st">char</span> *argv[])
+<span class="pl-k">int</span> <span class="pl-en">main</span>(<span class="pl-k">int</span> argc, <span class="pl-k">char</span> *argv[])
 {
-    <span class="pl-st">unsigned</span> <span class="pl-st">char</span> *test_data = <span class="pl-s1"><span class="pl-pds">"</span><span class="pl-cce">\x33\xC0</span><span class="pl-pds">"</span></span>; <span class="pl-c">// xor eax, eax</span>
-    <span class="pl-st">int</span> len = <span class="pl-c1">2</span>;
+    <span class="pl-k">unsigned</span> <span class="pl-k">char</span> *test_data = <span class="pl-s"><span class="pl-pds">"</span><span class="pl-cce">\x33\xC0</span><span class="pl-pds">"</span></span>; <span class="pl-c">// xor eax, eax</span>
+    <span class="pl-k">int</span> len = <span class="pl-c1">2</span>;
 
-    <span class="pl-k">if</span> (<span class="pl-s3">translate_inst</span>(ARCH_X86, test_data, len) &gt;= <span class="pl-c1">0</span>)
+    <span class="pl-k">if</span> (<span class="pl-c1">translate_inst</span>(ARCH_X86, test_data, len) &gt;= <span class="pl-c1">0</span>)
     {
         <span class="pl-k">return</span> <span class="pl-c1">0</span>;
     }
@@ -679,7 +680,7 @@ $ sudo easy_install cachetools
 tr <span class="pl-k">=</span> translator.Translator(ARCH_X86)
 
 <span class="pl-c"># translate machine instruction to REIL</span>
-insn_lst <span class="pl-k">=</span> tr.to_reil(<span class="pl-s1"><span class="pl-pds">'</span><span class="pl-cce">\x50</span><span class="pl-pds">'</span></span>, <span class="pl-vpf">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
+insn_lst <span class="pl-k">=</span> tr.to_reil(<span class="pl-s"><span class="pl-pds">'</span><span class="pl-cce">\x50</span><span class="pl-pds">'</span></span>, <span class="pl-smi">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
 
 <span class="pl-k">for</span> insn <span class="pl-k">in</span> insn_lst:
 
@@ -743,7 +744,7 @@ insn_lst <span class="pl-k">=</span> tr.to_reil(<span class="pl-s1"><span class=
 storage <span class="pl-k">=</span> CodeStorageMem(ARCH_X86)
 
 <span class="pl-c"># initialise raw instruction reader</span>
-reader <span class="pl-k">=</span> ReaderRaw(ARCH_X86, <span class="pl-s1"><span class="pl-pds">'</span><span class="pl-cce">\x50</span><span class="pl-pds">'</span></span>, <span class="pl-vpf">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
+reader <span class="pl-k">=</span> ReaderRaw(ARCH_X86, <span class="pl-s"><span class="pl-pds">'</span><span class="pl-cce">\x50</span><span class="pl-pds">'</span></span>, <span class="pl-smi">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
 
 <span class="pl-c"># create translator instance</span>
 tr <span class="pl-k">=</span> CodeStorageTranslator(reader, storage)
@@ -778,22 +779,22 @@ storage_3.from_storage(storage_2)</pre></div>
 
 <p>In memory storage contents also can be saved into the JSON file:</p>
 
-<div class="highlight highlight-python"><pre>storage.to_file(<span class="pl-s1"><span class="pl-pds">'</span>test.json<span class="pl-pds">'</span></span>)</pre></div>
+<div class="highlight highlight-python"><pre>storage.to_file(<span class="pl-s"><span class="pl-pds">'</span>test.json<span class="pl-pds">'</span></span>)</pre></div>
 
 <p>Loading storage contents from JSON file:</p>
 
 <div class="highlight highlight-python"><pre><span class="pl-c"># using new instance</span>
-storage <span class="pl-k">=</span> CodeStorageMem(ARCH_X86, <span class="pl-vpf">from_file</span> <span class="pl-k">=</span> <span class="pl-s1"><span class="pl-pds">'</span>test.json<span class="pl-pds">'</span></span>)
+storage <span class="pl-k">=</span> CodeStorageMem(ARCH_X86, <span class="pl-smi">from_file</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">'</span>test.json<span class="pl-pds">'</span></span>)
 
 <span class="pl-c"># using existing instance</span>
-storage.from_file(<span class="pl-s1"><span class="pl-pds">'</span>test.json<span class="pl-pds">'</span></span>)</pre></div>
+storage.from_file(<span class="pl-s"><span class="pl-pds">'</span>test.json<span class="pl-pds">'</span></span>)</pre></div>
 
 <p>Instead of raw instruction reader you also can use x86 assembly instruction reader which based on nasm. OpenREIL uses this reader in unit tests, it also might be useful for other purposes:</p>
 
 <div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> asm
 
 <span class="pl-c"># create reader instance</span>
-reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s1"><span class="pl-pds">'</span>push eax<span class="pl-pds">'</span></span> ), <span class="pl-vpf">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)</pre></div>
+reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s"><span class="pl-pds">'</span>push eax<span class="pl-pds">'</span></span> ), <span class="pl-smi">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)</pre></div>
 
 <h3>
 <a id="user-content-mongodb-as-ir-code-storage-" class="anchor" href="#mongodb-as-ir-code-storage-" aria-hidden="true"><span class="octicon octicon-link"></span></a>MongoDB as IR code storage <a id="user-content-_5_3"></a>
@@ -807,8 +808,8 @@ reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s1"><s
 
 <span class="pl-c"># create storage instance</span>
 storage <span class="pl-k">=</span> mongodb.CodeStorageMongo(ARCH_X86,
-          <span class="pl-vpf">collection</span> <span class="pl-k">=</span> <span class="pl-s1"><span class="pl-pds">'</span>test_fib<span class="pl-pds">'</span></span>, <span class="pl-vpf">db</span> <span class="pl-k">=</span> <span class="pl-s1"><span class="pl-pds">'</span>openreil<span class="pl-pds">'</span></span>,
-          <span class="pl-vpf">host</span> <span class="pl-k">=</span> <span class="pl-s1"><span class="pl-pds">'</span>localhost<span class="pl-pds">'</span></span>, <span class="pl-vpf">port</span> <span class="pl-k">=</span> <span class="pl-c1">27017</span>) 
+          <span class="pl-smi">collection</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">'</span>test_fib<span class="pl-pds">'</span></span>, <span class="pl-smi">db</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">'</span>openreil<span class="pl-pds">'</span></span>,
+          <span class="pl-smi">host</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">'</span>localhost<span class="pl-pds">'</span></span>, <span class="pl-smi">port</span> <span class="pl-k">=</span> <span class="pl-c1">27017</span>) 
 
 <span class="pl-c"># clear old contents of collection</span>
 storage.clear()</pre></div>
@@ -842,7 +843,7 @@ storage.clear()</pre></div>
 <p><code>CodeStorageTranslator</code> class of <code>pyopenreil.REIL</code> is also can do code translation at basic blocks or functions level. Example of basic block translation:</p>
 
 <div class="highlight highlight-python"><pre><span class="pl-c"># initialise raw instruction reader</span>
-reader <span class="pl-k">=</span> ReaderRaw(ARCH_X86, <span class="pl-s1"><span class="pl-pds">'</span><span class="pl-cce">\x33\xC0\xC3</span><span class="pl-pds">'</span></span>, <span class="pl-vpf">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
+reader <span class="pl-k">=</span> ReaderRaw(ARCH_X86, <span class="pl-s"><span class="pl-pds">'</span><span class="pl-cce">\x33\xC0\xC3</span><span class="pl-pds">'</span></span>, <span class="pl-smi">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
 
 <span class="pl-c"># Create translator instance.</span>
 <span class="pl-c"># We are not passing storage instance, translator will create</span>
@@ -853,10 +854,10 @@ tr <span class="pl-k">=</span> CodeStorageTranslator(reader)
 bb <span class="pl-k">=</span> tr.get_bb(<span class="pl-c1">0</span>)
 
 <span class="pl-c"># print basic block information</span>
-<span class="pl-k">print</span> <span class="pl-s1"><span class="pl-pds">'</span>addr = <span class="pl-c1">%s</span>, size = <span class="pl-c1">%d</span> bytes<span class="pl-pds">'</span></span> <span class="pl-k">%</span> (bb.ir_addr, bb.size)
+<span class="pl-k">print</span> <span class="pl-s"><span class="pl-pds">'</span>addr = <span class="pl-c1">%s</span>, size = <span class="pl-c1">%d</span> bytes<span class="pl-pds">'</span></span> <span class="pl-k">%</span> (bb.ir_addr, bb.size)
 
 <span class="pl-c"># print address of the first and last instruction</span>
-<span class="pl-k">print</span> <span class="pl-s1"><span class="pl-pds">'</span>first = 0x<span class="pl-c1">%x</span>, last = 0x<span class="pl-c1">%x</span><span class="pl-pds">'</span></span> <span class="pl-k">%</span> (bb.first.addr, bb.last.addr)</pre></div>
+<span class="pl-k">print</span> <span class="pl-s"><span class="pl-pds">'</span>first = 0x<span class="pl-c1">%x</span>, last = 0x<span class="pl-c1">%x</span><span class="pl-pds">'</span></span> <span class="pl-k">%</span> (bb.first.addr, bb.last.addr)</pre></div>
 
 <p>Example of function translation:</p>
 
@@ -864,14 +865,14 @@ bb <span class="pl-k">=</span> tr.get_bb(<span class="pl-c1">0</span>)
 func <span class="pl-k">=</span> tr.get_func(<span class="pl-c1">0</span>)
 
 <span class="pl-c"># print function information</span>
-<span class="pl-k">print</span> <span class="pl-s1"><span class="pl-pds">'</span>function at 0x<span class="pl-c1">%x</span>, stack args count: <span class="pl-c1">%d</span><span class="pl-pds">'</span></span> <span class="pl-k">%</span> (func.addr, func.stack_args)
+<span class="pl-k">print</span> <span class="pl-s"><span class="pl-pds">'</span>function at 0x<span class="pl-c1">%x</span>, stack args count: <span class="pl-c1">%d</span><span class="pl-pds">'</span></span> <span class="pl-k">%</span> (func.addr, func.stack_args)
 
 <span class="pl-c"># enumerate function code chunks</span>
 nun <span class="pl-k">=</span> <span class="pl-c1">0</span>
 <span class="pl-k">for</span> ch <span class="pl-k">in</span> func.chunks:
 
     <span class="pl-c"># print chunk information</span>
-    <span class="pl-k">print</span> <span class="pl-s1"><span class="pl-pds">'</span>chunk <span class="pl-c1">%d</span>: addr = 0x<span class="pl-c1">%x</span>, size = <span class="pl-c1">%d</span><span class="pl-pds">'</span></span> <span class="pl-k">%</span> (ch.addr, ch.size)
+    <span class="pl-k">print</span> <span class="pl-s"><span class="pl-pds">'</span>chunk <span class="pl-c1">%d</span>: addr = 0x<span class="pl-c1">%x</span>, size = <span class="pl-c1">%d</span><span class="pl-pds">'</span></span> <span class="pl-k">%</span> (ch.addr, ch.size)
     num <span class="pl-k">+=</span> <span class="pl-c1">1</span>
 
 <span class="pl-c"># enumerate function basic blocks</span>
@@ -893,14 +894,14 @@ nun <span class="pl-k">=</span> <span class="pl-c1">0</span>
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> asm
 
 <span class="pl-c"># create assembly instruction reader</span>
-reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s1"><span class="pl-pds">'</span>push ebp<span class="pl-pds">'</span></span>,
-                                <span class="pl-s1"><span class="pl-pds">'</span>mov ebp, esp<span class="pl-pds">'</span></span>,
-                                <span class="pl-s1"><span class="pl-pds">'</span>xor eax, eax<span class="pl-pds">'</span></span>,
-                                <span class="pl-s1"><span class="pl-pds">'</span>test ecx, ecx<span class="pl-pds">'</span></span>, 
-                                <span class="pl-s1"><span class="pl-pds">'</span>jz _quit<span class="pl-pds">'</span></span>,
-                                <span class="pl-s1"><span class="pl-pds">'</span>inc eax<span class="pl-pds">'</span></span>,
-                                <span class="pl-s1"><span class="pl-pds">'</span>_quit: leave<span class="pl-pds">'</span></span>,
-                                <span class="pl-s1"><span class="pl-pds">'</span>ret<span class="pl-pds">'</span></span>), <span class="pl-vpf">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
+reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s"><span class="pl-pds">'</span>push ebp<span class="pl-pds">'</span></span>,
+                                <span class="pl-s"><span class="pl-pds">'</span>mov ebp, esp<span class="pl-pds">'</span></span>,
+                                <span class="pl-s"><span class="pl-pds">'</span>xor eax, eax<span class="pl-pds">'</span></span>,
+                                <span class="pl-s"><span class="pl-pds">'</span>test ecx, ecx<span class="pl-pds">'</span></span>, 
+                                <span class="pl-s"><span class="pl-pds">'</span>jz _quit<span class="pl-pds">'</span></span>,
+                                <span class="pl-s"><span class="pl-pds">'</span>inc eax<span class="pl-pds">'</span></span>,
+                                <span class="pl-s"><span class="pl-pds">'</span>_quit: leave<span class="pl-pds">'</span></span>,
+                                <span class="pl-s"><span class="pl-pds">'</span>ret<span class="pl-pds">'</span></span>), <span class="pl-smi">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
 
 <span class="pl-c"># create translator instance</span>
 tr <span class="pl-k">=</span> CodeStorageTranslator(reader)
@@ -911,7 +912,7 @@ bb <span class="pl-k">=</span> tr.get_bb(<span class="pl-c1">0</span>)
 <span class="pl-c"># Get symbolic representation of basic block.</span>
 <span class="pl-c"># False value of temp_regs argument indicates that</span>
 <span class="pl-c"># we don't need expressions for REIL temp registers.</span>
-sym <span class="pl-k">=</span> bb.to_symbolic(<span class="pl-vpf">temp_regs</span> <span class="pl-k">=</span> <span class="pl-c1">False</span>)
+sym <span class="pl-k">=</span> bb.to_symbolic(<span class="pl-smi">temp_regs</span> <span class="pl-k">=</span> <span class="pl-c1">False</span>)
 
 <span class="pl-c"># print SymState object</span>
 <span class="pl-k">print</span> sym</pre></div>
@@ -938,7 +939,7 @@ R_OF = 0x0
 <div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.symbolic <span class="pl-k">import</span> <span class="pl-k">*</span>
 
 <span class="pl-c"># get expression for ZF register value</span>
-exp_zf <span class="pl-k">=</span> sym.query(SymVal(<span class="pl-s1"><span class="pl-pds">'</span>R_ZF<span class="pl-pds">'</span></span>))
+exp_zf <span class="pl-k">=</span> sym.query(SymVal(<span class="pl-s"><span class="pl-pds">'</span>R_ZF<span class="pl-pds">'</span></span>))
 
 <span class="pl-c"># prints (R_ECX == 0x0)</span>
 <span class="pl-k">print</span> exp_zf</pre></div>
@@ -954,14 +955,14 @@ exp_eip <span class="pl-k">=</span> sym.query(SymIP())
 <p>You also can compare expressions, OpenREIL will care about commutativity and other important things. To match any valid expression <code>symbolic.SymAny</code> object is used:</p>
 
 <div class="highlight highlight-python"><pre><span class="pl-c"># compare expressions</span>
-<span class="pl-k">assert</span> exp_zf <span class="pl-k">==</span> SymExp(I_EQ, SymVal(<span class="pl-s1"><span class="pl-pds">'</span>R_ECX<span class="pl-pds">'</span></span>), SymConst(<span class="pl-c1">0</span>, U32))
-<span class="pl-k">assert</span> exp_zf <span class="pl-k">==</span> SymExp(I_EQ, SymVal(<span class="pl-s1"><span class="pl-pds">'</span>R_ECX<span class="pl-pds">'</span></span>), SymAny())
+<span class="pl-k">assert</span> exp_zf <span class="pl-k">==</span> SymExp(I_EQ, SymVal(<span class="pl-s"><span class="pl-pds">'</span>R_ECX<span class="pl-pds">'</span></span>), SymConst(<span class="pl-c1">0</span>, U32))
+<span class="pl-k">assert</span> exp_zf <span class="pl-k">==</span> SymExp(I_EQ, SymVal(<span class="pl-s"><span class="pl-pds">'</span>R_ECX<span class="pl-pds">'</span></span>), SymAny())
 <span class="pl-k">assert</span> exp_zf <span class="pl-k">==</span> SymAny()</pre></div>
 
 <p>For extracting information about input and output arguments of <code>symbolic.SymState</code> it has <code>arg_in()</code> and <code>arg_out()</code> methods:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">print</span> <span class="pl-s1"><span class="pl-pds">'</span>IN:<span class="pl-pds">'</span></span>, <span class="pl-s1"><span class="pl-pds">'</span>, <span class="pl-pds">'</span></span>.join(<span class="pl-s3">map</span>(<span class="pl-st">lambda</span> <span class="pl-vpf">a</span>: <span class="pl-s3">str</span>(a), sym.arg_in()))
-<span class="pl-k">print</span> <span class="pl-s1"><span class="pl-pds">'</span>OUT:<span class="pl-pds">'</span></span>, <span class="pl-s1"><span class="pl-pds">'</span>, <span class="pl-pds">'</span></span>.join(<span class="pl-s3">map</span>(<span class="pl-st">lambda</span> <span class="pl-vpf">a</span>: <span class="pl-s3">str</span>(a), sym.arg_out()))</pre></div>
+<div class="highlight highlight-python"><pre><span class="pl-k">print</span> <span class="pl-s"><span class="pl-pds">'</span>IN:<span class="pl-pds">'</span></span>, <span class="pl-s"><span class="pl-pds">'</span>, <span class="pl-pds">'</span></span>.join(<span class="pl-c1">map</span>(<span class="pl-k">lambda</span> <span class="pl-smi">a</span>: <span class="pl-c1">str</span>(a), sym.arg_in()))
+<span class="pl-k">print</span> <span class="pl-s"><span class="pl-pds">'</span>OUT:<span class="pl-pds">'</span></span>, <span class="pl-s"><span class="pl-pds">'</span>, <span class="pl-pds">'</span></span>.join(<span class="pl-c1">map</span>(<span class="pl-k">lambda</span> <span class="pl-smi">a</span>: <span class="pl-c1">str</span>(a), sym.arg_out()))</pre></div>
 
 <p>Console output:</p>
 
@@ -975,17 +976,17 @@ OUT: R_ESP, *(R_ESP - 0x4), R_EBP, R_EAX, R_CF, R_PF, R_AF, R_ZF, R_SF, R_OF, @I
 
 <p>OpenREIL can build <a href="http://en.wikipedia.org/wiki/Control_flow_graph">control flow graph</a> (CFG) of IR code. Let's write some test program in C to demonstrate it:</p>
 
-<div class="highlight highlight-cpp"><pre>#<span class="pl-k">include</span> <span class="pl-s1"><span class="pl-pds">&lt;</span>stdio.h<span class="pl-pds">&gt;</span></span>
-#<span class="pl-k">include</span> <span class="pl-s1"><span class="pl-pds">&lt;</span>stdlib.h<span class="pl-pds">&gt;</span></span>
+<div class="highlight highlight-cpp"><pre>#<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>stdio.h<span class="pl-pds">&gt;</span></span>
+#<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>stdlib.h<span class="pl-pds">&gt;</span></span>
 
 <span class="pl-c">// computes a member of fibbonnaci sequence at given position</span>
-<span class="pl-st">int</span> <span class="pl-en">fib</span>(<span class="pl-st">int</span> n)
+<span class="pl-k">int</span> <span class="pl-en">fib</span>(<span class="pl-k">int</span> n)
 {
-    <span class="pl-st">int</span> result = <span class="pl-c1">1</span>, prev = <span class="pl-c1">0</span>;
+    <span class="pl-k">int</span> result = <span class="pl-c1">1</span>, prev = <span class="pl-c1">0</span>;
 
     <span class="pl-k">while</span> (n &gt; <span class="pl-c1">0</span>)
     {
-        <span class="pl-st">int</span> current = result;
+        <span class="pl-k">int</span> current = result;
 
         result += prev;
         prev = current;
@@ -996,9 +997,9 @@ OUT: R_ESP, *(R_ESP - 0x4), R_EBP, R_EAX, R_CF, R_PF, R_AF, R_ZF, R_SF, R_OF, @I
     <span class="pl-k">return</span> result;
 }
 
-<span class="pl-st">int</span> <span class="pl-en">main</span>(<span class="pl-st">int</span> argc, <span class="pl-st">char</span> *argv[])
+<span class="pl-k">int</span> <span class="pl-en">main</span>(<span class="pl-k">int</span> argc, <span class="pl-k">char</span> *argv[])
 {
-    <span class="pl-st">int</span> n = <span class="pl-c1">0</span>, val = <span class="pl-c1">0</span>;
+    <span class="pl-k">int</span> n = <span class="pl-c1">0</span>, val = <span class="pl-c1">0</span>;
 
     <span class="pl-k">if</span> (argc &lt; <span class="pl-c1">2</span>)
     {
@@ -1006,10 +1007,10 @@ OUT: R_ESP, *(R_ESP - 0x4), R_EBP, R_EAX, R_CF, R_PF, R_AF, R_ZF, R_SF, R_OF, @I
         <span class="pl-k">return</span> -<span class="pl-c1">1</span>;
     }
 
-    n = <span class="pl-s3">atoi</span>(argv[<span class="pl-c1">1</span>]);
+    n = <span class="pl-c1">atoi</span>(argv[<span class="pl-c1">1</span>]);
 
     <span class="pl-c">// call test function</span>
-    <span class="pl-k">return</span> <span class="pl-s3">fib</span>(n);
+    <span class="pl-k">return</span> <span class="pl-c1">fib</span>(n);
 }</pre></div>
 
 <p>Now compile it with GCC and get virtual address of <code>fib()</code> function using objdump:</p>
@@ -1036,7 +1037,7 @@ $ objdump -t tests/fib | grep '.text'
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> bin_BFD
 
 <span class="pl-c"># create executable image reader </span>
-reader <span class="pl-k">=</span> bin_BFD.Reader(<span class="pl-s1"><span class="pl-pds">'</span>tests/fib<span class="pl-pds">'</span></span>)
+reader <span class="pl-k">=</span> bin_BFD.Reader(<span class="pl-s"><span class="pl-pds">'</span>tests/fib<span class="pl-pds">'</span></span>)
 
 <span class="pl-c"># VA of the fib() function inside fib executable</span>
 addr <span class="pl-k">=</span> <span class="pl-c1">0x</span>08048414
@@ -1049,7 +1050,7 @@ cfg <span class="pl-k">=</span> CFGraphBuilder(tr).traverse(addr)</pre></div>
 
 <p>You can save generated graph as file of <a href="http://www.graphviz.org/content/dot-language">Graphviz DOT format</a>:</p>
 
-<div class="highlight highlight-python"><pre>cfg.to_dot_file(<span class="pl-s1"><span class="pl-pds">'</span>cfg.dot<span class="pl-pds">'</span></span>)</pre></div>
+<div class="highlight highlight-python"><pre>cfg.to_dot_file(<span class="pl-s"><span class="pl-pds">'</span>cfg.dot<span class="pl-pds">'</span></span>)</pre></div>
 
 <p>Then you can render this file into the PNG image using Graphviz dot utility:</p>
 
@@ -1102,7 +1103,7 @@ cfg <span class="pl-k">=</span> CFGraphBuilder(tr).traverse(addr)</pre></div>
 
 <p>As example, let's take a simple function that returns sum of two arguments:</p>
 
-<div class="highlight highlight-cpp"><pre><span class="pl-st">long</span> __fastcall <span class="pl-en">sum</span>(<span class="pl-st">long</span> a, <span class="pl-st">long</span> b)
+<div class="highlight highlight-cpp"><pre><span class="pl-k">long</span> __fastcall <span class="pl-en">sum</span>(<span class="pl-k">long</span> a, <span class="pl-k">long</span> b)
 {
     <span class="pl-c">// a comes in ECX, b in EDX</span>
     <span class="pl-k">return</span> a + b;
@@ -1184,9 +1185,9 @@ ret
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> asm
 
 <span class="pl-c"># create assembly instruction reader</span>
-reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s1"><span class="pl-pds">'</span>mov eax, ecx<span class="pl-pds">'</span></span>,
-                                <span class="pl-s1"><span class="pl-pds">'</span>add eax, edx<span class="pl-pds">'</span></span>, 
-                                <span class="pl-s1"><span class="pl-pds">'</span>ret<span class="pl-pds">'</span></span> ), <span class="pl-vpf">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
+reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s"><span class="pl-pds">'</span>mov eax, ecx<span class="pl-pds">'</span></span>,
+                                <span class="pl-s"><span class="pl-pds">'</span>add eax, edx<span class="pl-pds">'</span></span>, 
+                                <span class="pl-s"><span class="pl-pds">'</span>ret<span class="pl-pds">'</span></span> ), <span class="pl-smi">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
 
 <span class="pl-c"># create translator instance</span>
 tr <span class="pl-k">=</span> CodeStorageTranslator(reader)
@@ -1241,7 +1242,7 @@ dfg.store(tr.storage)
 
 <p>Let's export and view DFG of achieved code:</p>
 
-<div class="highlight highlight-python"><pre>dfg.to_dot_file(<span class="pl-s1"><span class="pl-pds">'</span>dfg.dot<span class="pl-pds">'</span></span>)</pre></div>
+<div class="highlight highlight-python"><pre>dfg.to_dot_file(<span class="pl-s"><span class="pl-pds">'</span>dfg.dot<span class="pl-pds">'</span></span>)</pre></div>
 
 <p><a href="https://camo.githubusercontent.com/c5cc7c3e1392ca54ba2557bce9c6677754807ae3/68747470733a2f2f646c2e64726f70626f7875736572636f6e74656e742e636f6d2f752f32323930333039332f6f70656e7265696c2f6466675f312e706e67" target="_blank"><img src="https://camo.githubusercontent.com/c5cc7c3e1392ca54ba2557bce9c6677754807ae3/68747470733a2f2f646c2e64726f70626f7875736572636f6e74656e742e636f6d2f752f32323930333039332f6f70656e7265696c2f6466675f312e706e67" alt="OpenREIL Python API diagram" width="242" height="536" data-canonical-src="https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_1.png" style="max-width:100%;"></a></p>
 
@@ -1299,11 +1300,11 @@ dfg.store(tr.storage)
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> asm
 
 <span class="pl-c"># create assembly instruction reader</span>
-reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s1"><span class="pl-pds">'</span>mov eax, 00000001h<span class="pl-pds">'</span></span>,
-                                <span class="pl-s1"><span class="pl-pds">'</span>mov ecx, 0<span class="pl-pds">'</span></span>,
-                                <span class="pl-s1"><span class="pl-pds">'</span>cpuid<span class="pl-pds">'</span></span>,
-                                <span class="pl-s1"><span class="pl-pds">'</span>mov eax, ecx<span class="pl-pds">'</span></span>,
-                                <span class="pl-s1"><span class="pl-pds">'</span>ret<span class="pl-pds">'</span></span> ), <span class="pl-vpf">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
+reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s"><span class="pl-pds">'</span>mov eax, 00000001h<span class="pl-pds">'</span></span>,
+                                <span class="pl-s"><span class="pl-pds">'</span>mov ecx, 0<span class="pl-pds">'</span></span>,
+                                <span class="pl-s"><span class="pl-pds">'</span>cpuid<span class="pl-pds">'</span></span>,
+                                <span class="pl-s"><span class="pl-pds">'</span>mov eax, ecx<span class="pl-pds">'</span></span>,
+                                <span class="pl-s"><span class="pl-pds">'</span>ret<span class="pl-pds">'</span></span> ), <span class="pl-smi">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
 
 <span class="pl-c"># create translator instance</span>
 tr <span class="pl-k">=</span> CodeStorageTranslator(reader)
@@ -1372,9 +1373,9 @@ stack_addr <span class="pl-k">=</span> <span class="pl-c1">0x</span>50000
 func_addr <span class="pl-k">=</span> <span class="pl-c1">0x</span>1000
 
 <span class="pl-c"># create assembly instruction reader</span>
-reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s1"><span class="pl-pds">'</span>mov eax, ecx<span class="pl-pds">'</span></span>,
-                                <span class="pl-s1"><span class="pl-pds">'</span>add eax, edx<span class="pl-pds">'</span></span>, 
-                                <span class="pl-s1"><span class="pl-pds">'</span>ret<span class="pl-pds">'</span></span> ), <span class="pl-vpf">addr</span> <span class="pl-k">=</span> func_addr)
+reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s"><span class="pl-pds">'</span>mov eax, ecx<span class="pl-pds">'</span></span>,
+                                <span class="pl-s"><span class="pl-pds">'</span>add eax, edx<span class="pl-pds">'</span></span>, 
+                                <span class="pl-s"><span class="pl-pds">'</span>ret<span class="pl-pds">'</span></span> ), <span class="pl-smi">addr</span> <span class="pl-k">=</span> func_addr)
 
 <span class="pl-c"># create translator instance</span>
 tr <span class="pl-k">=</span> CodeStorageTranslator(reader)
@@ -1383,9 +1384,9 @@ tr <span class="pl-k">=</span> CodeStorageTranslator(reader)
 cpu <span class="pl-k">=</span> Cpu(ARCH_X86)
 
 <span class="pl-c"># set up stack pointer and input args</span>
-cpu.reg(<span class="pl-s1"><span class="pl-pds">'</span>esp<span class="pl-pds">'</span></span>).val <span class="pl-k">=</span> stack_addr
-cpu.reg(<span class="pl-s1"><span class="pl-pds">'</span>ecx<span class="pl-pds">'</span></span>).val <span class="pl-k">=</span> <span class="pl-c1">1</span> <span class="pl-c"># first arg of test function</span>
-cpu.reg(<span class="pl-s1"><span class="pl-pds">'</span>edx<span class="pl-pds">'</span></span>).val <span class="pl-k">=</span> <span class="pl-c1">2</span> <span class="pl-c"># second arg of test function</span>
+cpu.reg(<span class="pl-s"><span class="pl-pds">'</span>esp<span class="pl-pds">'</span></span>).val <span class="pl-k">=</span> stack_addr
+cpu.reg(<span class="pl-s"><span class="pl-pds">'</span>ecx<span class="pl-pds">'</span></span>).val <span class="pl-k">=</span> <span class="pl-c1">1</span> <span class="pl-c"># first arg of test function</span>
+cpu.reg(<span class="pl-s"><span class="pl-pds">'</span>edx<span class="pl-pds">'</span></span>).val <span class="pl-k">=</span> <span class="pl-c1">2</span> <span class="pl-c"># second arg of test function</span>
 
 <span class="pl-c"># run test code until ret</span>
 <span class="pl-k">try</span>: cpu.run(tr, func_addr)
@@ -1399,7 +1400,7 @@ cpu.reg(<span class="pl-s1"><span class="pl-pds">'</span>edx<span class="pl-pds"
     <span class="pl-k">if</span> e.addr <span class="pl-k">!=</span> stack_addr: <span class="pl-k">raise</span>
 
 <span class="pl-c"># check for correct return value (1 + 2 = 3)</span>
-<span class="pl-k">assert</span> cpu.reg(<span class="pl-s1"><span class="pl-pds">'</span>eax<span class="pl-pds">'</span></span>).val <span class="pl-k">==</span> <span class="pl-c1">3</span>
+<span class="pl-k">assert</span> cpu.reg(<span class="pl-s"><span class="pl-pds">'</span>eax<span class="pl-pds">'</span></span>).val <span class="pl-k">==</span> <span class="pl-c1">3</span>
 
 <span class="pl-c"># print current CPU context info into console</span>
 cpu.dump()</pre></div>
@@ -1433,62 +1434,62 @@ ret <span class="pl-k">=</span> abi.fastcall(func_addr, <span class="pl-c1">1</s
 
 <p>Let's try more complex IR code emulation example. Here is the source code of test program that performs RC4 encryption/decryption of some data:</p>
 
-<div class="highlight highlight-cpp"><pre>#<span class="pl-k">include</span> <span class="pl-s1"><span class="pl-pds">&lt;</span>stdio.h<span class="pl-pds">&gt;</span></span>
-#<span class="pl-k">include</span> <span class="pl-s1"><span class="pl-pds">&lt;</span>string.h<span class="pl-pds">&gt;</span></span>
+<div class="highlight highlight-cpp"><pre>#<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>stdio.h<span class="pl-pds">&gt;</span></span>
+#<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>string.h<span class="pl-pds">&gt;</span></span>
 
 #<span class="pl-k">define</span> <span class="pl-en">MIN</span>(<span class="pl-v">a, b</span>) (((a) &lt; (b)) ? (a) : (b))
 
-<span class="pl-st">typedef</span> <span class="pl-st">struct</span> <span class="pl-en">_RC4_CTX</span> 
+<span class="pl-k">typedef</span> <span class="pl-k">struct</span> <span class="pl-en">_RC4_CTX</span> 
 {
-    <span class="pl-st">unsigned</span> <span class="pl-st">char</span> S[<span class="pl-c1">256</span>];
-    <span class="pl-st">unsigned</span> <span class="pl-st">char</span> x, y;
+    <span class="pl-k">unsigned</span> <span class="pl-k">char</span> S[<span class="pl-c1">256</span>];
+    <span class="pl-k">unsigned</span> <span class="pl-k">char</span> x, y;
 
 } RC4_CTX;
 
-<span class="pl-st">void</span> <span class="pl-en">rc4_swap</span>(<span class="pl-st">unsigned</span> <span class="pl-st">char</span> *a, <span class="pl-st">unsigned</span> <span class="pl-st">char</span> *b)
+<span class="pl-k">void</span> <span class="pl-en">rc4_swap</span>(<span class="pl-k">unsigned</span> <span class="pl-k">char</span> *a, <span class="pl-k">unsigned</span> <span class="pl-k">char</span> *b)
 {
-    <span class="pl-st">unsigned</span> <span class="pl-st">char</span> c = *a;
+    <span class="pl-k">unsigned</span> <span class="pl-k">char</span> c = *a;
 
     *a = *b;
     *b = c;
 }
 
-<span class="pl-st">void</span> <span class="pl-en">rc4_set_key</span>(RC4_CTX *ctx, <span class="pl-st">unsigned</span> <span class="pl-st">char</span> *key, <span class="pl-st">int</span> key_len)
+<span class="pl-k">void</span> <span class="pl-en">rc4_set_key</span>(RC4_CTX *ctx, <span class="pl-k">unsigned</span> <span class="pl-k">char</span> *key, <span class="pl-k">int</span> key_len)
 {
-    <span class="pl-st">int</span> i = <span class="pl-c1">0</span>;
-    <span class="pl-st">unsigned</span> <span class="pl-st">char</span> x = <span class="pl-c1">0</span>, y = <span class="pl-c1">0</span>;    
-    <span class="pl-st">unsigned</span> <span class="pl-st">char</span> *S = ctx-&gt;S;
+    <span class="pl-k">int</span> i = <span class="pl-c1">0</span>;
+    <span class="pl-k">unsigned</span> <span class="pl-k">char</span> x = <span class="pl-c1">0</span>, y = <span class="pl-c1">0</span>;    
+    <span class="pl-k">unsigned</span> <span class="pl-k">char</span> *S = ctx-&gt;S;
 
     ctx-&gt;x = x = <span class="pl-c1">0</span>;
     ctx-&gt;y = y = <span class="pl-c1">0</span>;
 
     <span class="pl-k">for</span> (i = <span class="pl-c1">0</span>; i &lt; <span class="pl-c1">256</span>; i++)
     {
-        S[i] = (<span class="pl-st">unsigned</span> <span class="pl-st">char</span>)i;
+        S[i] = (<span class="pl-k">unsigned</span> <span class="pl-k">char</span>)i;
     }
 
     <span class="pl-k">for</span> (i = <span class="pl-c1">0</span>; i &lt; <span class="pl-c1">256</span>; i++)
     {
         y = (y + S[i] + key[x]) % <span class="pl-c1">256</span>;
 
-        <span class="pl-s3">rc4_swap</span>(&amp;S[i], &amp;S[y]);
+        <span class="pl-c1">rc4_swap</span>(&amp;S[i], &amp;S[y]);
 
         x = (x + <span class="pl-c1">1</span>) % key_len;
     }
 }
 
-<span class="pl-st">void</span> <span class="pl-en">rc4_crypt</span>(RC4_CTX *ctx, <span class="pl-st">unsigned</span> <span class="pl-st">char</span> *data, <span class="pl-st">int</span> data_len)
+<span class="pl-k">void</span> <span class="pl-en">rc4_crypt</span>(RC4_CTX *ctx, <span class="pl-k">unsigned</span> <span class="pl-k">char</span> *data, <span class="pl-k">int</span> data_len)
 {
-    <span class="pl-st">int</span> i = <span class="pl-c1">0</span>;
-    <span class="pl-st">unsigned</span> <span class="pl-st">char</span> x = <span class="pl-c1">0</span>, y = <span class="pl-c1">0</span>;
-    <span class="pl-st">unsigned</span> <span class="pl-st">char</span> *S = ctx-&gt;S;
+    <span class="pl-k">int</span> i = <span class="pl-c1">0</span>;
+    <span class="pl-k">unsigned</span> <span class="pl-k">char</span> x = <span class="pl-c1">0</span>, y = <span class="pl-c1">0</span>;
+    <span class="pl-k">unsigned</span> <span class="pl-k">char</span> *S = ctx-&gt;S;
 
     <span class="pl-k">for</span> (i = <span class="pl-c1">0</span>; i &lt; data_len; i++)
     {
         x = (x + <span class="pl-c1">1</span>) % <span class="pl-c1">256</span>;
         y = (y + S[x]) % <span class="pl-c1">256</span>;
 
-        <span class="pl-s3">rc4_swap</span>(&amp;S[x], &amp;S[y]);
+        <span class="pl-c1">rc4_swap</span>(&amp;S[x], &amp;S[y]);
 
         data[i] ^= S[(S[x] + S[y]) % <span class="pl-c1">256</span>];
     }
@@ -1501,7 +1502,7 @@ ret <span class="pl-k">=</span> abi.fastcall(func_addr, <span class="pl-c1">1</s
 
 RC4_CTX m_ctx;
 
-<span class="pl-st">int</span> <span class="pl-en">main</span>(<span class="pl-st">int</span> argc, <span class="pl-st">char</span> *argv[])
+<span class="pl-k">int</span> <span class="pl-en">main</span>(<span class="pl-k">int</span> argc, <span class="pl-k">char</span> *argv[])
 {
     <span class="pl-k">if</span> (argc &lt; <span class="pl-c1">3</span>)
     {
@@ -1509,26 +1510,26 @@ RC4_CTX m_ctx;
     }
 
     <span class="pl-c">// get encryption key and data</span>
-    <span class="pl-st">char</span> *key = argv[<span class="pl-c1">1</span>], *data = argv[<span class="pl-c1">2</span>];
-    <span class="pl-st">int</span> key_len = <span class="pl-s3">strlen</span>(key);
-    <span class="pl-st">int</span> data_len = <span class="pl-s3">strlen</span>(data);
+    <span class="pl-k">char</span> *key = argv[<span class="pl-c1">1</span>], *data = argv[<span class="pl-c1">2</span>];
+    <span class="pl-k">int</span> key_len = <span class="pl-c1">strlen</span>(key);
+    <span class="pl-k">int</span> data_len = <span class="pl-c1">strlen</span>(data);
 
     <span class="pl-c">// copy data to local in/out buffer</span>
-    <span class="pl-st">unsigned</span> <span class="pl-st">char</span> buff[MAX_DATA_LEN];
-    <span class="pl-s3">memcpy</span>(buff, data, <span class="pl-s3">MIN</span>(MAX_DATA_LEN, data_len));
+    <span class="pl-k">unsigned</span> <span class="pl-k">char</span> buff[MAX_DATA_LEN];
+    <span class="pl-c1">memcpy</span>(buff, data, <span class="pl-c1">MIN</span>(MAX_DATA_LEN, data_len));
 
     <span class="pl-c">// perform encryption</span>
-    <span class="pl-s3">rc4_set_key</span>(&amp;m_ctx, (<span class="pl-st">unsigned</span> <span class="pl-st">char</span> *)key, key_len);
-    <span class="pl-s3">rc4_crypt</span>(&amp;m_ctx, buff, data_len);
+    <span class="pl-c1">rc4_set_key</span>(&amp;m_ctx, (<span class="pl-k">unsigned</span> <span class="pl-k">char</span> *)key, key_len);
+    <span class="pl-c1">rc4_crypt</span>(&amp;m_ctx, buff, data_len);
 
-    <span class="pl-s3">printf</span>(<span class="pl-s1"><span class="pl-pds">"</span>Encrypted data: <span class="pl-pds">"</span></span>);
+    <span class="pl-c1">printf</span>(<span class="pl-s"><span class="pl-pds">"</span>Encrypted data: <span class="pl-pds">"</span></span>);
 
     <span class="pl-k">for</span> (i = <span class="pl-c1">0</span>; i &lt; data_len; i++)
     {
-        <span class="pl-s3">printf</span>(<span class="pl-s1"><span class="pl-pds">"</span><span class="pl-c1">%.2x</span> <span class="pl-pds">"</span></span>, buff[i]);
+        <span class="pl-c1">printf</span>(<span class="pl-s"><span class="pl-pds">"</span><span class="pl-c1">%.2x</span> <span class="pl-pds">"</span></span>, buff[i]);
     }
 
-    <span class="pl-s3">printf</span>(<span class="pl-s1"><span class="pl-pds">"</span><span class="pl-cce">\n</span><span class="pl-pds">"</span></span>);
+    <span class="pl-c1">printf</span>(<span class="pl-s"><span class="pl-pds">"</span><span class="pl-cce">\n</span><span class="pl-pds">"</span></span>);
 
     <span class="pl-k">return</span> <span class="pl-c1">0</span>;
 }</pre></div>
@@ -1559,18 +1560,18 @@ $ objdump -t tests/rc4 | grep '.text'
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> bin_BFD
 
 <span class="pl-c"># test input data for RC4 encryption</span>
-test_key <span class="pl-k">=</span> <span class="pl-s1"><span class="pl-pds">'</span>somekey<span class="pl-pds">'</span></span>
-test_val <span class="pl-k">=</span> <span class="pl-s1"><span class="pl-pds">'</span>foobar<span class="pl-pds">'</span></span>
+test_key <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">'</span>somekey<span class="pl-pds">'</span></span>
+test_val <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">'</span>foobar<span class="pl-pds">'</span></span>
 
 <span class="pl-c"># VA's of required functions</span>
 rc4_set_key <span class="pl-k">=</span> <span class="pl-c1">0x</span>080484b9
 rc4_crypt <span class="pl-k">=</span> <span class="pl-c1">0x</span>08048598
 
 <span class="pl-c"># load test program image</span>
-reader <span class="pl-k">=</span> bin_BFD.Reader(<span class="pl-s1"><span class="pl-pds">'</span>tests/rc4<span class="pl-pds">'</span></span>)
+reader <span class="pl-k">=</span> bin_BFD.Reader(<span class="pl-s"><span class="pl-pds">'</span>tests/rc4<span class="pl-pds">'</span></span>)
 tr <span class="pl-k">=</span> CodeStorageTranslator(reader)
 
-<span class="pl-st">def</span> <span class="pl-en">code_optimization</span>(<span class="pl-vpf">addr</span>):
+<span class="pl-k">def</span> <span class="pl-en">code_optimization</span>(<span class="pl-smi">addr</span>):
 
     <span class="pl-c"># construct dataflow graph for given function</span>
     dfg <span class="pl-k">=</span> DFGraphBuilder(tr).traverse(addr)
@@ -1590,14 +1591,14 @@ ctx <span class="pl-k">=</span> abi.buff(<span class="pl-c1">256</span> <span cl
 val <span class="pl-k">=</span> abi.buff(test_val) <span class="pl-c"># data to encrypt</span>
 
 <span class="pl-c"># emulate rc4_set_key() function call</span>
-abi.cdecl(rc4_set_key, ctx, test_key, <span class="pl-s3">len</span>(test_key))
+abi.cdecl(rc4_set_key, ctx, test_key, <span class="pl-c1">len</span>(test_key))
 
 <span class="pl-c"># emulate rc4_crypt() function call</span>
-abi.cdecl(rc4_crypt, ctx, val, <span class="pl-s3">len</span>(test_val))
+abi.cdecl(rc4_crypt, ctx, val, <span class="pl-c1">len</span>(test_val))
 
 <span class="pl-c"># read results of RC4 encryption</span>
-val_1 <span class="pl-k">=</span> abi.read(val, <span class="pl-s3">len</span>(test_val))
-<span class="pl-k">print</span> <span class="pl-s1"><span class="pl-pds">'</span>Encrypted value:<span class="pl-pds">'</span></span>, <span class="pl-s3">repr</span>(val_1)
+val_1 <span class="pl-k">=</span> abi.read(val, <span class="pl-c1">len</span>(test_val))
+<span class="pl-k">print</span> <span class="pl-s"><span class="pl-pds">'</span>Encrypted value:<span class="pl-pds">'</span></span>, <span class="pl-c1">repr</span>(val_1)
 
 <span class="pl-c"># compare results with Python build-in RC4 module</span>
 <span class="pl-k">from</span> Crypto.Cipher <span class="pl-k">import</span> ARC4
@@ -1631,7 +1632,7 @@ DEF_ARCH <span class="pl-k">=</span> ARCH_X86
 addr <span class="pl-k">=</span> idc.ScreenEA()
 
 arch <span class="pl-k">=</span> DEF_ARCH
-path <span class="pl-k">=</span> os.path.join(os.getcwd(), <span class="pl-s1"><span class="pl-pds">'</span>sub_<span class="pl-c1">%.8X</span>.ir<span class="pl-pds">'</span></span> <span class="pl-k">%</span> addr)
+path <span class="pl-k">=</span> os.path.join(os.getcwd(), <span class="pl-s"><span class="pl-pds">'</span>sub_<span class="pl-c1">%.8X</span>.ir<span class="pl-pds">'</span></span> <span class="pl-k">%</span> addr)
 
 <span class="pl-c"># initialise OpenREIL stuff</span>
 reader <span class="pl-k">=</span> IDA.Reader(arch)
@@ -1643,8 +1644,8 @@ func <span class="pl-k">=</span> tr.get_func(addr)
 
 <span class="pl-k">for</span> bb <span class="pl-k">in</span> func.bb_list: <span class="pl-k">print</span> bb
 
-<span class="pl-k">print</span> <span class="pl-s1"><span class="pl-pds">'</span>[*] Saving instructions into the <span class="pl-c1">%s</span><span class="pl-pds">'</span></span> <span class="pl-k">%</span> path
-<span class="pl-k">print</span> <span class="pl-s1"><span class="pl-pds">'</span>[*] <span class="pl-c1">%d</span> IR instructions in <span class="pl-c1">%d</span> basic blocks translated<span class="pl-pds">'</span></span> <span class="pl-k">%</span> (<span class="pl-s3">len</span>(func), <span class="pl-s3">len</span>(func.bb_list))
+<span class="pl-k">print</span> <span class="pl-s"><span class="pl-pds">'</span>[*] Saving instructions into the <span class="pl-c1">%s</span><span class="pl-pds">'</span></span> <span class="pl-k">%</span> path
+<span class="pl-k">print</span> <span class="pl-s"><span class="pl-pds">'</span>[*] <span class="pl-c1">%d</span> IR instructions in <span class="pl-c1">%d</span> basic blocks translated<span class="pl-pds">'</span></span> <span class="pl-k">%</span> (<span class="pl-c1">len</span>(func), <span class="pl-c1">len</span>(func.bb_list))
 
 <span class="pl-c"># save function IR into the JSON file</span>
 storage.to_file(path)</pre></div>
@@ -1717,7 +1718,20 @@ reader <span class="pl-k">=</span> GDB.Reader(ARCH_X86, inferrior)</pre></div>
 reader <span class="pl-k">=</span> kd.Reader(ARCH_X86)</pre></div>
 
 <h2>
-<a id="user-content-todo-" class="anchor" href="#todo-" aria-hidden="true"><span class="octicon octicon-link"></span></a>TODO <a id="user-content-_7"></a>
+<a id="user-content-links-and-examples-" class="anchor" href="#links-and-examples-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Links and examples <a id="user-content-_7"></a>
+</h2>
+
+<p>I made a test program that uses OpenREIL and <a href="http://z3.codeplex.com/">Microsoft Z3</a> to implement a simple <a href="http://en.wikipedia.org/wiki/Symbolic_execution">symbolic execution</a> engine for solving <a href="https://tuts4you.com/download.php?view.3293">Kao's Toy Project crackme</a>.</p>
+
+<ul>
+<li>
+<code>tests/test_kao.py</code> - program source code (<a href="../master/tests/test_kao.py">link</a>).</li>
+<li>«Automated algebraic cryptanalysis with OpenREIL and Z3» - my article that explains how the program works (<a href="http://blog.cr4.sh/2015/03/automated-algebraic-cryptanalysis-with.html">link</a>).</li>
+<li>«Kkao’s “Toy Project” and Algebraic Cryptanalysis» - <a href="dcodr@lavabit.com">Dcoder's</a> article with detailed description of Kao's Toy Project crackme and it's solution (<a href="https://dl.dropboxusercontent.com/u/22903093/blog/openreil-kao-crackme/solution.pdf">PDF</a>).</li>
+</ul>
+
+<h2>
+<a id="user-content-todo-" class="anchor" href="#todo-" aria-hidden="true"><span class="octicon octicon-link"></span></a>TODO <a id="user-content-_8"></a>
 </h2>
 
 <ul>

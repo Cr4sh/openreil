@@ -26,7 +26,8 @@ OpenREIL is open source library that implements translator and tools for REIL (R
   - [IDA Pro](#_6_1)
   - [GDB](#_6_2)
   - [WinDbg (kd, cdb)](#_6_3)
-+ [TODO](#_7)
++ [Links and examples](#_7)
++ [TODO](#_8)
 
 
 ## About <a id="_1"></a>
@@ -1582,7 +1583,17 @@ from pyopenreil.utils import kd
 reader = kd.Reader(ARCH_X86)
 ```
 
-## TODO <a id="_7"></a>
+
+## Links and examples <a id="_7"></a>
+
+I made a test program that uses OpenREIL and [Microsoft Z3](http://z3.codeplex.com/) to implement a simple [symbolic execution](http://en.wikipedia.org/wiki/Symbolic_execution) engine for solving [Kao's Toy Project crackme](https://tuts4you.com/download.php?view.3293).
+
+* `tests/test_kao.py` - program source code ([link](../master/tests/test_kao.py)).
+* «Automated algebraic cryptanalysis with OpenREIL and Z3» - my article that explains how the program works ([link](http://blog.cr4.sh/2015/03/automated-algebraic-cryptanalysis-with.html)).
+* «Kkao’s “Toy Project” and Algebraic Cryptanalysis» - [Dcoder's](dcodr@lavabit.com) article with detailed description of Kao's Toy Project crackme and it's solution ([PDF](https://dl.dropboxusercontent.com/u/22903093/blog/openreil-kao-crackme/solution.pdf)).
+
+
+## TODO <a id="_8"></a>
 
 * ARMv5 support (VEX and libasmir already has it).
 * x86_64 support (VEX already has it).

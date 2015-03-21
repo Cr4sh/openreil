@@ -5,6 +5,11 @@ import z3
 This is a keygen for Kao's Toy Project crackme 
 (https://tuts4you.com/download.php?view.3293). 
 
+Detailed article that explains how it works and
+how to solve it was published in my blog:
+
+http://blog.cr4.sh/2015/03/automated-algebraic-cryptanalysis-with.html
+
 The following code is essence of this crackme (simple stream cipher with 64-bit key):
 
 void expand(u8 out[32], const u8 in[32], u32 x, u32 y)  
