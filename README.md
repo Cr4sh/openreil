@@ -1590,7 +1590,7 @@ I made a test program that uses OpenREIL and [Microsoft Z3](http://z3.codeplex.c
 
 * `tests/test_kao.py` - program source code ([link](../master/tests/test_kao.py)).
 * «Automated algebraic cryptanalysis with OpenREIL and Z3» - my article that explains how the program works ([link](http://blog.cr4.sh/2015/03/automated-algebraic-cryptanalysis-with.html)).
-* «Kkao’s “Toy Project” and Algebraic Cryptanalysis» - [Dcoder's](dcodr@lavabit.com) article with detailed description of Kao's Toy Project crackme and it's solution ([PDF](https://dl.dropboxusercontent.com/u/22903093/blog/openreil-kao-crackme/solution.pdf)).
+* «Kkao’s “Toy Project” and Algebraic Cryptanalysis» - [Dcoder's](mailto:dcodr@lavabit.com) article with detailed description of Kao's Toy Project crackme and it's solution ([PDF](https://dl.dropboxusercontent.com/u/22903093/blog/openreil-kao-crackme/solution.pdf)).
 
 
 ## TODO <a id="_8"></a>
