@@ -2,6 +2,8 @@
 #ifndef _REIL_TRANSLATOR_H_
 #define _REIL_TRANSLATOR_H_
 
+#define EXPAND_EFLAGS
+
 #define MAX_REG_NAME_LEN 20
 
 string to_string_constant(reil_const_t val, reil_size_t size);

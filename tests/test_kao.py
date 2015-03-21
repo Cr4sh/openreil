@@ -30,7 +30,6 @@ hardcoded ciphered text.
 
 We are going to use quick and dirty symbolic execution for finding valid key for
 given installation ID.
-
 '''
 
 file_dir = os.path.abspath(os.path.dirname(__file__))
@@ -100,6 +99,9 @@ class Val(object):
                 a = a if a is None else _z3_exp(a, a.size)
                 b = b if b is None else _z3_exp(b, b.size)                     
 
+                # makes 1 bit bitvectors from booleans
+                _z3_bool_to_bv = lambda exp: z3.If(exp, z3.BitVecVal(1, 1), z3.BitVecVal(0, 1))
+
                 # z3 expression from SymExp
                 ret = { I_ADD: lambda: a + b,
                         I_SUB: lambda: a - b,            
@@ -113,8 +115,8 @@ class Val(object):
                         I_AND: lambda: a & b,
                         I_XOR: lambda: a ^ b,
                         I_NOT: lambda: ~a,
-                         I_EQ: lambda: a == b,
-                         I_LT: lambda: z3.ULT(a, b) }[exp.op]()
+                         I_EQ: lambda: _z3_bool_to_bv(a == b),
+                         I_LT: lambda: _z3_bool_to_bv(z3.ULT(a, b)) }[exp.op]()
 
                 size_src = _z3_size(exp.a.size)
                 size_dst = _z3_size(size)
@@ -446,7 +448,6 @@ def keygen(kao_binary_path, kao_installation_ID):
         .text:00401122                 leave
         .text:00401123                 retn    8
         .text:00401123 check_serial    endp
-
     '''
 
     # address of the check_serial() function
