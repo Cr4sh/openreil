@@ -1,6 +1,6 @@
 
-#ifndef _REIL_IR_H_
-#define _REIL_IR_H_
+#ifndef REIL_IR_H
+#define REIL_IR_H
 
 #define REIL_MAX_NAME_LEN 15
 
@@ -86,5 +86,4 @@ typedef struct _reil_inst_t
 
 } reil_inst_t;
 
-#endif
-
+#endif // REIL_IR_H

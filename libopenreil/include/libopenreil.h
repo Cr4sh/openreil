@@ -1,6 +1,6 @@
 
-#ifndef _LIBOPENREIL_H_
-#define _LIBOPENREIL_H_
+#ifndef LIBOPENREIL_H
+#define LIBOPENREIL_H
 
 // IR format definitions
 #include "reil_ir.h"
@@ -28,4 +28,5 @@ int reil_translate_insn(reil_t reil, reil_addr_t addr, unsigned char *buff, int 
 #ifdef __cplusplus
 }
 #endif
-#endif
+
+#endif // LIBOPENREIL_H
