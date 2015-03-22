@@ -12,5 +12,5 @@ libopenreil_a_SOURCES = \
     reil_translator.cpp
 
 libopenreil.a: $(libopenreil_a_OBJECTS)
-	ar -M < libopenreil.ar
+	./makelib.sh
 

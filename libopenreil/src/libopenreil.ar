@@ -1,9 +1,0 @@
-create libopenreil.a
-addmod libopenreil.o
-addmod reil_translator.o 
-addlib ../../VEX/libvex.a
-addlib ../../capstone/capstone/libcapstone.a 
-addlib ../../libasmir/src/libasmir.a
-save
-end
-
