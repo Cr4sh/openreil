@@ -92,6 +92,7 @@ $ sudo easy_install cachetools
 OpenREIL can be used not only for debugger/disassembler plugins, but also for standalone code analysis tools. For loading of executable files it uses pybfd (ELF, Mach-O) and pefile (Portable Execute) Python libraries:
 
 ```
+$ sudo apt-get install libbfd-dev
 $ sudo easy_install pefile pybfd
 ```
 
