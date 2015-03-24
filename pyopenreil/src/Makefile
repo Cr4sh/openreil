@@ -14,7 +14,7 @@ PLATINCDIR := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysco
 	$(CXX) -pthread -shared -o $@ $^ -lpython$(PYVERSION)
 
 translator.o: translator.cpp translator.pyx libopenreil.pxd
-	$(CXX) -c translator.cpp -I$(INCDIR) -I$(PLATINCDIR) -I../../libopenreil/include
+	$(CXX) -c -fPIC translator.cpp -I$(INCDIR) -I$(PLATINCDIR) -I../../libopenreil/include
 
 CYTHON := cython
 translator.cpp: translator.pyx
