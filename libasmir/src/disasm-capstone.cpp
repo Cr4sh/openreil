@@ -1,7 +1,7 @@
 #include <string>
 #include <vector>
 
-#include "capstone.h"
+#include "capstone/capstone.h"
 
 #include "libvex.h"
 
@@ -324,7 +324,7 @@ int disasm_insn(VexArch guest, uint8_t *data, string &mnemonic, string &op)
 
     disasm_open(guest, &handle);
 
-    size_t count = cs_disasm_ex(handle, data, DISASM_MAX_INST_LEN, 0, 1, &insn);    
+    size_t count = cs_disasm(handle, data, DISASM_MAX_INST_LEN, 0, 1, &insn);    
     if (count > 0) 
     {
         ret = (int)insn[0].size;
@@ -368,61 +368,6 @@ int i386_disasm_arg_special(cs_insn *insn, vector<Temp *> &args, dsiasm_arg_t ty
 
     switch (insn->id)
     {
-    case X86_INS_RDTSC:
-
-        if (dst)
-        {            
-            args.push_back(mk_reg("EAX", REG_32));
-            args.push_back(mk_reg("EDX", REG_32));
-            return 2;   
-        }
-        else
-        {
-            return 0;
-        }
-
-    case X86_INS_RDTSCP:
-
-        if (dst)
-        {
-            args.push_back(mk_reg("EAX", REG_32));
-            args.push_back(mk_reg("EDX", REG_32));
-            args.push_back(mk_reg("ECX", REG_32));
-            return 3;   
-        }
-        else
-        {
-            return 0;
-        }
-
-    case X86_INS_RDMSR:
-
-        if (src)
-        {            
-            args.push_back(mk_reg("ECX", REG_32));
-            return 1;   
-        }
-        else
-        {
-            args.push_back(mk_reg("EAX", REG_32));
-            args.push_back(mk_reg("EDX", REG_32));
-            return 2;
-        }
-
-    case X86_INS_WRMSR:
-
-        if (src)
-        {            
-            args.push_back(mk_reg("EAX", REG_32));
-            args.push_back(mk_reg("EDX", REG_32));
-            args.push_back(mk_reg("ECX", REG_32));
-            return 3;   
-        }
-        else
-        {
-            return 0;
-        }
-
     case X86_INS_SIDT:        
 
         if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
@@ -565,41 +510,48 @@ int disasm_arg(VexArch guest, uint8_t *data, vector<Temp *> &args, dsiasm_arg_t 
     disasm_open(guest, &handle);
     cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
 
-    size_t count = cs_disasm_ex(handle, data, DISASM_MAX_INST_LEN, 0, 1, &insn);    
+    size_t count = cs_disasm(handle, data, DISASM_MAX_INST_LEN, 0, 1, &insn);    
     if (count > 0) 
-    {
-        cs_detail *detail = insn[0].detail;
-        uint8_t *data = NULL;
+    {        
+        cs_regs regs_read, regs_write;
+        uint8_t read_count, write_count;
 
-        // get arguments that capstone fails to recognise properly
+        // get arguments for instructions that capstone fails to recognise properly
         ret = disasm_arg_special(guest, &insn[0], args, type);
         if (ret >= 0)
         {
             return ret;
         }
 
-        if (detail && type == disasm_arg_t_src)
+        // get all registers accessed by this instruction
+        if (cs_regs_access(handle, insn, regs_read, &read_count, regs_write, &write_count) == 0) 
         {
-            ret = detail->regs_read_count;
-            data = detail->regs_read;
-        }
-        else if (detail && type == disasm_arg_t_dst)
-        {
-            ret = detail->regs_write_count;
-            data = detail->regs_write;
-        }
-
-        if (ret > 0) 
-        {
-            for (int i = 0; i < ret; i++) 
-            {
-                Temp *temp = disasm_arg_to_temp(guest, data[i]);
-                if (temp)
+            if (read_count > 0 && type == disasm_arg_t_src) 
+            {                
+                for (int i = 0; i < read_count; i++) 
                 {
-                    args.push_back(temp);
-                }                
+                    Temp *temp = disasm_arg_to_temp(guest, regs_read[i]);
+                    if (temp)
+                    {
+                        args.push_back(temp);
+                        ret += 1;
+                    }
+                }
             }
-        }    
+
+            if (write_count > 0 && type == disasm_arg_t_dst) 
+            {   
+                for (int i = 0; i < write_count; i++) 
+                {
+                    Temp *temp = disasm_arg_to_temp(guest, regs_write[i]);
+                    if (temp)
+                    {
+                        args.push_back(temp);
+                        ret += 1;
+                    }
+                }
+            }
+        }
 
         cs_free(insn, count);
     } 

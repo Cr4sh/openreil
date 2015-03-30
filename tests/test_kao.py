@@ -538,7 +538,7 @@ def keygen(kao_binary_path, kao_installation_ID):
             solver.add(data[i].to_z3(state, U8) == z3.BitVecVal(ord(out_data[i]), 8))
         
         # solve constraints
-        solver.check()
+        print solver.check()
 
         # get solution
         model = solver.model()

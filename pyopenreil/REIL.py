@@ -2592,6 +2592,8 @@ class TestCodeStorageTranslator(unittest.TestCase):
             tr = CodeStorageTranslator(asm.Reader(self.arch, code))
             insn = tr.get_insn(0)
 
+            print insn
+
             # check for single IR instruction
             assert len(insn) == 1
             return insn[0]

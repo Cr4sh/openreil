@@ -1,7 +1,7 @@
 
 capstone/libcapstone.a: 
 
-	[ -d capstone ] || sh -c 'git clone https://github.com/aquynh/capstone.git && cd capstone && git checkout 34271c20ff8c00d588f2484aa4882b5e5267c147'
+	[ -d capstone ] || git clone https://github.com/Cr4sh/capstone.git
 	cp config.mk capstone
 	cd capstone && ./make.sh
 
@@ -12,3 +12,4 @@ clean:
 	cd capstone && make clean
 
 install:
+

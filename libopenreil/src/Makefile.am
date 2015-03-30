@@ -11,6 +11,6 @@ libopenreil_a_SOURCES = \
     libopenreil.cpp \
     reil_translator.cpp
 
-libopenreil.a: $(libopenreil_a_OBJECTS)
+libopenreil.a: $(libopenreil_a_OBJECTS) @VEX_DIR@/libvex.a @ASMIR_DIR@/src/libasmir.a
 	./makelib.sh
 
