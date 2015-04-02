@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -32,7 +32,6 @@
 #define __LIBVEX_PUB_GUEST_ARM_H
 
 #include "libvex_basictypes.h"
-#include "libvex_emwarn.h"
 
 
 /*---------------------------------------------------------------*/
@@ -42,6 +41,9 @@
 typedef
    struct {
       /* 0 */
+      /* Event check fail addr and counter. */
+      UInt host_EvC_FAILADDR; /* 0 */
+      UInt host_EvC_COUNTER;  /* 4 */
       UInt guest_R0;
       UInt guest_R1;
       UInt guest_R2;
@@ -69,7 +71,7 @@ typedef
 
       /* 4-word thunk used to calculate N(sign) Z(zero) C(carry,
          unsigned overflow) and V(signed overflow) flags. */
-      /* 64 */
+      /* 72 */
       UInt guest_CC_OP;
       UInt guest_CC_DEP1;
       UInt guest_CC_DEP2;
@@ -89,12 +91,12 @@ typedef
       UInt guest_GEFLAG3;
 
       /* Various pseudo-regs mandated by Vex or Valgrind. */
-      /* Emulation warnings */
-      UInt guest_EMWARN;
+      /* Emulation notes */
+      UInt guest_EMNOTE;
 
-      /* For clflush: record start and length of area to invalidate */
-      UInt guest_TISTART;
-      UInt guest_TILEN;
+      /* For clinval/clflush: record start and length of area */
+      UInt guest_CMSTART;
+      UInt guest_CMLEN;
 
       /* Used to record the unredirected guest address at the start of
          a translation whose start has been redirected.  By reading
@@ -108,11 +110,11 @@ typedef
          program counter at the last syscall insn (int 0x80/81/82,
          sysenter, syscall, svc).  Used when backing up to restart a
          syscall that has been interrupted by a signal. */
-      /* 116 */
+      /* 124 */
       UInt guest_IP_AT_SYSCALL;
 
       /* VFP state.  D0 .. D15 must be 8-aligned. */
-      /* 120 -- I guess there's 4 bytes of padding just prior to this? */
+      /* 128 */
       ULong guest_D0;
       ULong guest_D1;
       ULong guest_D2;
@@ -193,8 +195,6 @@ typedef
 
       /* Padding to make it have an 16-aligned size */
       UInt padding1;
-      UInt padding2;
-      UInt padding3;
    }
    VexGuestARMState;
 
@@ -213,7 +213,7 @@ void LibVEX_GuestARM_initialise ( /*OUT*/VexGuestARMState* vex_state );
 /* Calculate the ARM flag state from the saved data. */
 
 extern
-UInt LibVEX_GuestARM_get_cpsr ( /*IN*/VexGuestARMState* vex_state );
+UInt LibVEX_GuestARM_get_cpsr ( /*IN*/const VexGuestARMState* vex_state );
 
 
 #endif /* ndef __LIBVEX_PUB_GUEST_ARM_H */

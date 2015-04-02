@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -34,13 +34,14 @@
 */
 
 #include "libvex_basictypes.h"
-#include "libvex_emwarn.h"
+#include "libvex_emnote.h"
 #include "libvex_guest_ppc32.h"
 #include "libvex_guest_ppc64.h"
 #include "libvex_ir.h"
 #include "libvex.h"
 
 #include "main_util.h"
+#include "main_globals.h"
 #include "guest_generic_bb_to_IR.h"
 #include "guest_ppc_defs.h"
 
@@ -67,7 +68,7 @@
 /* Reads a complete, consistent 64-bit TB value. */
 ULong ppcg_dirtyhelper_MFTB ( void )
 {
-#  if defined(__powerpc__) || defined(_AIX)
+#  if defined(__powerpc__)
    ULong res;
    UInt  lo, hi1, hi2;
    while (1) {
@@ -92,7 +93,7 @@ ULong ppcg_dirtyhelper_MFTB ( void )
 /* DIRTY HELPER (non-referentially transparent) */
 UInt ppc32g_dirtyhelper_MFSPR_268_269 ( UInt r269 )
 {
-#  if defined(__powerpc__) || defined(_AIX)
+#  if defined(__powerpc__)
    UInt spr;
    if (r269) {
       __asm__ __volatile__("mfspr %0,269" : "=b"(spr));
@@ -110,7 +111,7 @@ UInt ppc32g_dirtyhelper_MFSPR_268_269 ( UInt r269 )
 /* DIRTY HELPER (I'm not really sure what the side effects are) */
 UInt ppc32g_dirtyhelper_MFSPR_287 ( void )
 {
-#  if defined(__powerpc__) || defined(_AIX)
+#  if defined(__powerpc__)
    UInt spr;
    __asm__ __volatile__("mfspr %0,287" : "=b"(spr));
    return spr;
@@ -152,10 +153,12 @@ void ppc32g_dirtyhelper_LVS ( VexGuestPPC32State* gst,
 /* CALLED FROM GENERATED CODE */
 /* DIRTY HELPER (reads guest state, writes guest mem) */
 void ppc64g_dirtyhelper_LVS ( VexGuestPPC64State* gst,
-                              UInt vD_off, UInt sh, UInt shift_right )
+                              UInt vD_off, UInt sh, UInt shift_right,
+                              UInt endness )
 {
   UChar ref[32];
   ULong i;
+  Int k;
   /* ref[] used to be a static const array, but this doesn't work on
      ppc64 because VEX doesn't load the TOC pointer for the call here,
      and so we wind up picking up some totally random other data.
@@ -178,16 +181,25 @@ void ppc64g_dirtyhelper_LVS ( VexGuestPPC64State* gst,
   pU128_src = (U128*)&ref[sh];
   pU128_dst = (U128*)( ((UChar*)gst) + vD_off );
 
-  (*pU128_dst)[0] = (*pU128_src)[0];
-  (*pU128_dst)[1] = (*pU128_src)[1];
-  (*pU128_dst)[2] = (*pU128_src)[2];
-  (*pU128_dst)[3] = (*pU128_src)[3];
+  if ((0x1 & endness) == 0x0) {
+     /* Little endian */
+     unsigned char *srcp, *dstp;
+     srcp = (unsigned char *)pU128_src;
+     dstp = (unsigned char *)pU128_dst;
+     for (k = 15; k >= 0; k--, srcp++)
+        dstp[k] = *srcp;
+  } else {
+     (*pU128_dst)[0] = (*pU128_src)[0];
+     (*pU128_dst)[1] = (*pU128_src)[1];
+     (*pU128_dst)[2] = (*pU128_src)[2];
+     (*pU128_dst)[3] = (*pU128_src)[3];
+  }
 }
 
 
 /* Helper-function specialiser. */
 
-IRExpr* guest_ppc32_spechelper ( HChar* function_name,
+IRExpr* guest_ppc32_spechelper ( const HChar* function_name,
                                  IRExpr** args,
                                  IRStmt** precedingStmts,
                                  Int      n_precedingStmts )
@@ -195,7 +207,7 @@ IRExpr* guest_ppc32_spechelper ( HChar* function_name,
    return NULL;
 }
 
-IRExpr* guest_ppc64_spechelper ( HChar* function_name,
+IRExpr* guest_ppc64_spechelper ( const HChar* function_name,
                                  IRExpr** args,
                                  IRStmt** precedingStmts,
                                  Int      n_precedingStmts )
@@ -209,7 +221,7 @@ IRExpr* guest_ppc64_spechelper ( HChar* function_name,
 /*----------------------------------------------*/
 
 /* VISIBLE TO LIBVEX CLIENT */
-UInt LibVEX_GuestPPC32_get_CR ( /*IN*/VexGuestPPC32State* vex_state )
+UInt LibVEX_GuestPPC32_get_CR ( /*IN*/const VexGuestPPC32State* vex_state )
 {
 #  define FIELD(_n)                                    \
       ( ( (UInt)                                       \
@@ -230,7 +242,7 @@ UInt LibVEX_GuestPPC32_get_CR ( /*IN*/VexGuestPPC32State* vex_state )
 
 /* VISIBLE TO LIBVEX CLIENT */
 /* Note: %CR is 32 bits even for ppc64 */
-UInt LibVEX_GuestPPC64_get_CR ( /*IN*/VexGuestPPC64State* vex_state )
+UInt LibVEX_GuestPPC64_get_CR ( /*IN*/const VexGuestPPC64State* vex_state )
 {
 #  define FIELD(_n)                                    \
       ( ( (UInt)                                       \
@@ -303,7 +315,7 @@ void LibVEX_GuestPPC64_put_CR ( UInt cr_native,
 
 
 /* VISIBLE TO LIBVEX CLIENT */
-UInt LibVEX_GuestPPC32_get_XER ( /*IN*/VexGuestPPC32State* vex_state )
+UInt LibVEX_GuestPPC32_get_XER ( /*IN*/const VexGuestPPC32State* vex_state )
 {
    UInt w = 0;
    w |= ( ((UInt)vex_state->guest_XER_BC) & 0xFF );
@@ -316,7 +328,7 @@ UInt LibVEX_GuestPPC32_get_XER ( /*IN*/VexGuestPPC32State* vex_state )
 
 /* VISIBLE TO LIBVEX CLIENT */
 /* Note: %XER is 32 bits even for ppc64 */
-UInt LibVEX_GuestPPC64_get_XER ( /*IN*/VexGuestPPC64State* vex_state )
+UInt LibVEX_GuestPPC64_get_XER ( /*IN*/const VexGuestPPC64State* vex_state )
 {
    UInt w = 0;
    w |= ( ((UInt)vex_state->guest_XER_BC) & 0xFF );
@@ -352,6 +364,11 @@ void LibVEX_GuestPPC64_put_XER ( UInt xer_native,
 void LibVEX_GuestPPC32_initialise ( /*OUT*/VexGuestPPC32State* vex_state )
 {
    Int i;
+   vex_state->host_EvC_FAILADDR = 0;
+   vex_state->host_EvC_COUNTER  = 0;
+   vex_state->pad3 = 0;
+   vex_state->pad4 = 0;
+
    vex_state->guest_GPR0  = 0;
    vex_state->guest_GPR1  = 0;
    vex_state->guest_GPR2  = 0;
@@ -384,7 +401,6 @@ void LibVEX_GuestPPC32_initialise ( /*OUT*/VexGuestPPC32State* vex_state )
    vex_state->guest_GPR29 = 0;
    vex_state->guest_GPR30 = 0;
    vex_state->guest_GPR31 = 0;
-
 
    /* Initialise the vector state. */
 #  define VECZERO(_vr) _vr[0]=_vr[1]=_vr[2]=_vr[3] = 0;
@@ -482,16 +498,19 @@ void LibVEX_GuestPPC32_initialise ( /*OUT*/VexGuestPPC32State* vex_state )
    vex_state->guest_CR7_321 = 0;
    vex_state->guest_CR7_0   = 0;
 
-   vex_state->guest_FPROUND = (UInt)PPCrm_NEAREST;
+   vex_state->guest_FPROUND  = PPCrm_NEAREST;
+   vex_state->guest_DFPROUND = PPCrm_NEAREST;
+   vex_state->pad1 = 0;
+   vex_state->pad2 = 0;
 
    vex_state->guest_VRSAVE = 0;
 
    vex_state->guest_VSCR = 0x0;  // Non-Java mode = 0
 
-   vex_state->guest_EMWARN = EmWarn_NONE;
+   vex_state->guest_EMNOTE = EmNote_NONE;
 
-   vex_state->guest_TISTART = 0;
-   vex_state->guest_TILEN   = 0;
+   vex_state->guest_CMSTART = 0;
+   vex_state->guest_CMLEN   = 0;
 
    vex_state->guest_NRADDR = 0;
    vex_state->guest_NRADDR_GPR2 = 0;
@@ -502,6 +521,9 @@ void LibVEX_GuestPPC32_initialise ( /*OUT*/VexGuestPPC32State* vex_state )
 
    vex_state->guest_IP_AT_SYSCALL = 0;
    vex_state->guest_SPRG3_RO = 0;
+
+   vex_state->padding1 = 0;
+   vex_state->padding2 = 0;
 }
 
 
@@ -509,6 +531,9 @@ void LibVEX_GuestPPC32_initialise ( /*OUT*/VexGuestPPC32State* vex_state )
 void LibVEX_GuestPPC64_initialise ( /*OUT*/VexGuestPPC64State* vex_state )
 {
    Int i;
+   vex_state->host_EvC_FAILADDR = 0;
+   vex_state->host_EvC_COUNTER = 0;
+   vex_state->pad0 = 0;
    vex_state->guest_GPR0  = 0;
    vex_state->guest_GPR1  = 0;
    vex_state->guest_GPR2  = 0;
@@ -638,18 +663,21 @@ void LibVEX_GuestPPC64_initialise ( /*OUT*/VexGuestPPC64State* vex_state )
    vex_state->guest_CR7_321 = 0;
    vex_state->guest_CR7_0   = 0;
 
-   vex_state->guest_FPROUND = (UInt)PPCrm_NEAREST;
+   vex_state->guest_FPROUND  = PPCrm_NEAREST;
+   vex_state->guest_DFPROUND = PPCrm_NEAREST;
+   vex_state->pad1 = 0;
+   vex_state->pad2 = 0;
 
    vex_state->guest_VRSAVE = 0;
 
    vex_state->guest_VSCR = 0x0;  // Non-Java mode = 0
 
-   vex_state->guest_EMWARN = EmWarn_NONE;
+   vex_state->guest_EMNOTE = EmNote_NONE;
 
    vex_state->padding = 0;
 
-   vex_state->guest_TISTART = 0;
-   vex_state->guest_TILEN   = 0;
+   vex_state->guest_CMSTART = 0;
+   vex_state->guest_CMLEN   = 0;
 
    vex_state->guest_NRADDR = 0;
    vex_state->guest_NRADDR_GPR2 = 0;
@@ -660,8 +688,9 @@ void LibVEX_GuestPPC64_initialise ( /*OUT*/VexGuestPPC64State* vex_state )
 
    vex_state->guest_IP_AT_SYSCALL = 0;
    vex_state->guest_SPRG3_RO = 0;
-
-   vex_state->padding2 = 0;
+   vex_state->guest_TFHAR  = 0;
+   vex_state->guest_TFIAR  = 0;
+   vex_state->guest_TEXASR = 0;
 }
 
 
@@ -679,9 +708,12 @@ void LibVEX_GuestPPC64_initialise ( /*OUT*/VexGuestPPC64State* vex_state )
    minimum needed to extract correct stack backtraces from ppc
    code. [[NB: not sure if keeping LR up to date is actually
    necessary.]]
+
+   Only R1 is needed in mode VexRegUpdSpAtMemAccess.   
 */
-Bool guest_ppc32_state_requires_precise_mem_exns ( Int minoff, 
-                                                   Int maxoff )
+Bool guest_ppc32_state_requires_precise_mem_exns (
+        Int minoff, Int maxoff, VexRegisterUpdates pxControl
+     )
 {
    Int lr_min  = offsetof(VexGuestPPC32State, guest_LR);
    Int lr_max  = lr_min + 4 - 1;
@@ -690,14 +722,16 @@ Bool guest_ppc32_state_requires_precise_mem_exns ( Int minoff,
    Int cia_min = offsetof(VexGuestPPC32State, guest_CIA);
    Int cia_max = cia_min + 4 - 1;
 
-   if (maxoff < lr_min || minoff > lr_max) {
-      /* no overlap with LR */
+   if (maxoff < r1_min || minoff > r1_max) {
+      /* no overlap with R1 */
+      if (pxControl == VexRegUpdSpAtMemAccess)
+         return False; // We only need to check stack pointer.
    } else {
       return True;
    }
 
-   if (maxoff < r1_min || minoff > r1_max) {
-      /* no overlap with R1 */
+   if (maxoff < lr_min || minoff > lr_max) {
+      /* no overlap with LR */
    } else {
       return True;
    }
@@ -711,8 +745,9 @@ Bool guest_ppc32_state_requires_precise_mem_exns ( Int minoff,
    return False;
 }
 
-Bool guest_ppc64_state_requires_precise_mem_exns ( Int minoff, 
-                                                   Int maxoff )
+Bool guest_ppc64_state_requires_precise_mem_exns (
+        Int minoff, Int maxoff, VexRegisterUpdates pxControl
+     )
 {
    /* Given that R2 is a Big Deal in the ELF ppc64 ABI, it seems
       prudent to be conservative with it, even though thus far there
@@ -727,14 +762,16 @@ Bool guest_ppc64_state_requires_precise_mem_exns ( Int minoff,
    Int cia_min = offsetof(VexGuestPPC64State, guest_CIA);
    Int cia_max = cia_min + 8 - 1;
 
-   if (maxoff < lr_min || minoff > lr_max) {
-      /* no overlap with LR */
+   if (maxoff < r1_min || minoff > r1_max) {
+      /* no overlap with R1 */
+      if (pxControl == VexRegUpdSpAtMemAccess)
+         return False; // We only need to check stack pointer.
    } else {
       return True;
    }
 
-   if (maxoff < r1_min || minoff > r1_max) {
-      /* no overlap with R1 */
+   if (maxoff < lr_min || minoff > lr_max) {
+      /* no overlap with LR */
    } else {
       return True;
    }
@@ -783,9 +820,9 @@ VexGuestLayout
 
           .alwaysDefd 
 	  = { /*  0 */ ALWAYSDEFD32(guest_CIA),
-	      /*  1 */ ALWAYSDEFD32(guest_EMWARN),
-	      /*  2 */ ALWAYSDEFD32(guest_TISTART),
-	      /*  3 */ ALWAYSDEFD32(guest_TILEN),
+	      /*  1 */ ALWAYSDEFD32(guest_EMNOTE),
+	      /*  2 */ ALWAYSDEFD32(guest_CMSTART),
+	      /*  3 */ ALWAYSDEFD32(guest_CMLEN),
 	      /*  4 */ ALWAYSDEFD32(guest_VSCR),
 	      /*  5 */ ALWAYSDEFD32(guest_FPROUND),
               /*  6 */ ALWAYSDEFD32(guest_NRADDR),
@@ -824,9 +861,9 @@ VexGuestLayout
 
           .alwaysDefd 
 	  = { /*  0 */ ALWAYSDEFD64(guest_CIA),
-	      /*  1 */ ALWAYSDEFD64(guest_EMWARN),
-	      /*  2 */ ALWAYSDEFD64(guest_TISTART),
-	      /*  3 */ ALWAYSDEFD64(guest_TILEN),
+	      /*  1 */ ALWAYSDEFD64(guest_EMNOTE),
+	      /*  2 */ ALWAYSDEFD64(guest_CMSTART),
+	      /*  3 */ ALWAYSDEFD64(guest_CMLEN),
 	      /*  4 */ ALWAYSDEFD64(guest_VSCR),
 	      /*  5 */ ALWAYSDEFD64(guest_FPROUND),
 	      /*  6 */ ALWAYSDEFD64(guest_NRADDR),

@@ -1,0 +1,10 @@
+This is libVEX from Vagrind, version from 29 Mar 2015 with minor patches applied.
+Visit http://valgrind.org for more information.
+
+Revision info
+==================
+URL: svn://svn.valgrind.org/vex/trunk
+Repository Root: svn://svn.valgrind.org/vex
+Repository UUID: 8f6e269a-dfd6-0310-a8e1-e2731360e62c
+Revision: 3109
+

@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -36,9 +36,10 @@
 /* Generic helper functions for doing 64-bit SIMD arithmetic in cases
    where the instruction selectors cannot generate code in-line.
    These are purely back-end entities and cannot be seen/referenced
-   from IR. */
+   from IR.  There are also helpers for 32-bit arithmetic in here. */
 
 #include "libvex_basictypes.h"
+#include "main_util.h"              // LIKELY, UNLIKELY
 #include "host_generic_simd64.h"
 
 
@@ -139,6 +140,16 @@ static inline UChar index8x8 ( ULong w64, UChar ix ) {
 
 /* Scalar helpers. */
 
+static inline Int qadd32S ( Int xx, Int yy ) 
+{
+   Long t = ((Long)xx) + ((Long)yy);
+   const Long loLim = -0x80000000LL;
+   const Long hiLim =  0x7FFFFFFFLL;
+   if (t < loLim) t = loLim;
+   if (t > hiLim) t = hiLim;
+   return (Int)t;
+}
+
 static inline Short qadd16S ( Short xx, Short yy ) 
 {
    Int t = ((Int)xx) + ((Int)yy);
@@ -167,6 +178,16 @@ static inline UChar qadd8U ( UChar xx, UChar yy )
    UInt t = ((UInt)xx) + ((UInt)yy);
    if (t > 0xFF) t = 0xFF;
    return (UChar)t;
+}
+
+static inline Int qsub32S ( Int xx, Int yy ) 
+{
+   Long t = ((Long)xx) - ((Long)yy);
+   const Long loLim = -0x80000000LL;
+   const Long hiLim =  0x7FFFFFFFLL;
+   if (t < loLim) t = loLim;
+   if (t > hiLim) t = hiLim;
+   return (Int)t;
 }
 
 static inline Short qsub16S ( Short xx, Short yy )
@@ -293,6 +314,16 @@ static inline UChar qnarrow16Sto8U ( UShort xx0 )
    Short xx = (Short)xx0;
    if (xx < 0)   xx = 0;
    if (xx > 255) xx = 255;
+   return (UChar)xx;
+}
+
+static inline UShort narrow32to16 ( UInt xx )
+{
+   return (UShort)xx;
+}
+
+static inline UChar narrow16to8 ( UShort xx )
+{
    return (UChar)xx;
 }
 
@@ -817,6 +848,44 @@ ULong h_generic_calc_QNarrowBin16Sto8Ux8 ( ULong aa, ULong bb )
           );
 }
 
+/* ------------ Truncating narrowing ------------ */
+
+ULong h_generic_calc_NarrowBin32to16x4 ( ULong aa, ULong bb )
+{
+   UInt d = sel32x2_1(aa);
+   UInt c = sel32x2_0(aa);
+   UInt b = sel32x2_1(bb);
+   UInt a = sel32x2_0(bb);
+   return mk16x4( 
+             narrow32to16(d),
+             narrow32to16(c),
+             narrow32to16(b),
+             narrow32to16(a)
+          );
+}
+
+ULong h_generic_calc_NarrowBin16to8x8 ( ULong aa, ULong bb )
+{
+   UShort h = sel16x4_3(aa);
+   UShort g = sel16x4_2(aa);
+   UShort f = sel16x4_1(aa);
+   UShort e = sel16x4_0(aa);
+   UShort d = sel16x4_3(bb);
+   UShort c = sel16x4_2(bb);
+   UShort b = sel16x4_1(bb);
+   UShort a = sel16x4_0(bb);
+   return mk8x8( 
+             narrow16to8(h),
+             narrow16to8(g),
+             narrow16to8(f),
+             narrow16to8(e),
+             narrow16to8(d),
+             narrow16to8(c),
+             narrow16to8(b),
+             narrow16to8(a)
+          );
+}
+
 /* ------------ Interleaving ------------ */
 
 ULong h_generic_calc_InterleaveHI8x8 ( ULong aa, ULong bb )
@@ -1101,6 +1170,20 @@ ULong h_generic_calc_Min8Ux8 ( ULong xx, ULong yy )
           );
 }
 
+UInt h_generic_calc_GetMSBs8x8 ( ULong xx )
+{
+   UInt r = 0;
+   if (xx & (1ULL << (64-1))) r |= (1<<7);
+   if (xx & (1ULL << (56-1))) r |= (1<<6);
+   if (xx & (1ULL << (48-1))) r |= (1<<5);
+   if (xx & (1ULL << (40-1))) r |= (1<<4);
+   if (xx & (1ULL << (32-1))) r |= (1<<3);
+   if (xx & (1ULL << (24-1))) r |= (1<<2);
+   if (xx & (1ULL << (16-1))) r |= (1<<1);
+   if (xx & (1ULL << ( 8-1))) r |= (1<<0);
+   return r;
+}
+
 /* ------------ SOME 32-bit SIMD HELPERS TOO ------------ */
 
 /* Tuple/select functions for 16x2 vectors. */
@@ -1329,6 +1412,198 @@ UInt h_generic_calc_Sad8Ux4 ( UInt xx, UInt yy )
           + absdiff8U( sel8x4_2(xx), sel8x4_2(yy) )
           + absdiff8U( sel8x4_1(xx), sel8x4_1(yy) )
           + absdiff8U( sel8x4_0(xx), sel8x4_0(yy) );
+}
+
+UInt h_generic_calc_QAdd32S ( UInt xx, UInt yy )
+{
+   return qadd32S( xx, yy );
+}
+
+UInt h_generic_calc_QSub32S ( UInt xx, UInt yy )
+{
+   return qsub32S( xx, yy );
+}
+
+
+/*------------------------------------------------------------------*/
+/* Decimal Floating Point (DFP) externally visible helper functions */
+/* that implement Iop_BCDtoDPB and Iop_DPBtoBCD                     */
+/*------------------------------------------------------------------*/
+
+#define NOT( x )    ( ( ( x ) == 0) ? 1 : 0)
+#define GET( x, y ) ( ( ( x ) & ( 0x1UL << ( y ) ) ) >> ( y ) )
+#define PUT( x, y ) ( ( x )<< ( y ) )
+
+static ULong dpb_to_bcd( ULong chunk )
+{
+   Short a, b, c, d, e, f, g, h, i, j, k, m;
+   Short p, q, r, s, t, u, v, w, x, y;
+   ULong value;
+
+   /* convert 10 bit densely packed BCD to BCD */
+   p = GET( chunk, 9 );
+   q = GET( chunk, 8 );
+   r = GET( chunk, 7 );
+   s = GET( chunk, 6 );
+   t = GET( chunk, 5 );
+   u = GET( chunk, 4 );
+   v = GET( chunk, 3 );
+   w = GET( chunk, 2 );
+   x = GET( chunk, 1 );
+   y = GET( chunk, 0 );
+
+   /* The BCD bit values are given by the following boolean equations.*/
+   a = ( NOT(s) & v & w ) | ( t & v & w & s ) | ( v & w & NOT(x) );
+   b = ( p & s & x & NOT(t) ) | ( p & NOT(w) ) | ( p & NOT(v) );
+   c = ( q & s & x & NOT(t) ) | ( q & NOT(w) ) | ( q & NOT(v) );
+   d = r;
+   e = ( v & NOT(w) & x ) | ( s & v & w & x ) | ( NOT(t) & v & x & w );
+   f = ( p & t & v & w & x & NOT(s) ) | ( s & NOT(x) & v ) | ( s & NOT(v) );
+   g = ( q & t & w & v & x & NOT(s) ) | ( t & NOT(x) & v ) | ( t & NOT(v) );
+   h = u;
+   i = ( t & v & w & x ) | ( s & v & w & x ) | ( v & NOT(w) & NOT(x) );
+   j = ( p & NOT(s) & NOT(t) & w & v ) | ( s & v & NOT(w) & x )
+            | ( p & w & NOT(x) & v ) | ( w & NOT(v) );
+   k = ( q & NOT(s) & NOT(t) & v & w ) | ( t & v & NOT(w) & x )
+            | ( q & v & w & NOT(x) ) | ( x & NOT(v) );
+   m = y;
+
+   value = PUT(a, 11) | PUT(b, 10) | PUT(c, 9) | PUT(d, 8) | PUT(e, 7)
+            | PUT(f, 6) | PUT(g, 5) | PUT(h, 4) | PUT(i, 3) | PUT(j, 2)
+            | PUT(k, 1) | PUT(m, 0);
+   return value;
+}
+
+static ULong bcd_to_dpb( ULong chunk )
+{
+   Short a, b, c, d, e, f, g, h, i, j, k, m;
+   Short p, q, r, s, t, u, v, w, x, y;
+   ULong value;
+   /* Convert a 3 digit BCD value to a 10 bit Densely Packed Binary (DPD) value
+    The boolean equations to calculate the value of each of the DPD bit
+    is given in Appendix B  of Book 1: Power ISA User Instruction set.  The
+    bits for the DPD number are [abcdefghijkm].  The bits for the BCD value
+    are [pqrstuvwxy].  The boolean logic equations in psuedo C code are:
+    */
+   a = GET( chunk, 11 );
+   b = GET( chunk, 10 );
+   c = GET( chunk, 9 );
+   d = GET( chunk, 8 );
+   e = GET( chunk, 7 );
+   f = GET( chunk, 6 );
+   g = GET( chunk, 5 );
+   h = GET( chunk, 4 );
+   i = GET( chunk, 3 );
+   j = GET( chunk, 2 );
+   k = GET( chunk, 1 );
+   m = GET( chunk, 0 );
+
+   p = ( f & a & i & NOT(e) ) | ( j & a & NOT(i) ) | ( b & NOT(a) );
+   q = ( g & a & i & NOT(e) ) | ( k & a & NOT(i) ) | ( c & NOT(a) );
+   r = d;
+   s = ( j & NOT(a) & e & NOT(i) ) | ( f & NOT(i) & NOT(e) )
+            | ( f & NOT(a) & NOT(e) ) | ( e & i );
+   t = ( k & NOT(a) & e & NOT(i) ) | ( g & NOT(i) & NOT(e) )
+            | ( g & NOT(a) & NOT(e) ) | ( a & i );
+   u = h;
+   v = a | e | i;
+   w = ( NOT(e) & j & NOT(i) ) | ( e & i ) | a;
+   x = ( NOT(a) & k & NOT(i) ) | ( a & i ) | e;
+   y = m;
+
+   value = PUT(p, 9) | PUT(q, 8) | PUT(r, 7) | PUT(s, 6) | PUT(t, 5) 
+            | PUT(u, 4) | PUT(v, 3) | PUT(w, 2) | PUT(x, 1) | y;
+
+   return value;
+}
+
+ULong h_calc_DPBtoBCD( ULong dpb )
+{
+   ULong result, chunk;
+   Int i;
+
+   result = 0;
+
+   for (i = 0; i < 5; i++) {
+      chunk = dpb >> ( 4 - i ) * 10;
+      result = result << 12;
+      result |= dpb_to_bcd( chunk & 0x3FF );
+   }
+   return result;
+}
+
+ULong h_calc_BCDtoDPB( ULong bcd )
+{
+   ULong result, chunk;
+   Int i;
+
+   result = 0;
+
+   for (i = 0; i < 5; i++) {
+      chunk = bcd >> ( 4 - i ) * 12;
+      result = result << 10;
+      result |= bcd_to_dpb( chunk & 0xFFF );
+   }
+   return result;
+}
+#undef NOT
+#undef GET
+#undef PUT
+
+
+/* ----------------------------------------------------- */
+/* Signed and unsigned integer division, that behave like
+   the ARMv7 UDIV ansd SDIV instructions.
+
+   sdiv32 also behaves like 64-bit v8 SDIV on w-regs.
+   udiv32 also behaves like 64-bit v8 UDIV on w-regs.
+*/
+/* ----------------------------------------------------- */
+
+UInt h_calc_udiv32_w_arm_semantics ( UInt x, UInt y )
+{
+   // Division by zero --> zero
+   if (UNLIKELY(y == 0)) return 0;
+   // C requires rounding towards zero, which is also what we need.
+   return x / y;
+}
+
+ULong h_calc_udiv64_w_arm_semantics ( ULong x, ULong y )
+{
+   // Division by zero --> zero
+   if (UNLIKELY(y == 0)) return 0;
+   // C requires rounding towards zero, which is also what we need.
+   return x / y;
+}
+
+Int h_calc_sdiv32_w_arm_semantics ( Int x, Int y )
+{
+   // Division by zero --> zero
+   if (UNLIKELY(y == 0)) return 0;
+   // The single case that produces an unrepresentable result
+   if (UNLIKELY( ((UInt)x) == ((UInt)0x80000000)
+                 && ((UInt)y) == ((UInt)0xFFFFFFFF) ))
+      return (Int)(UInt)0x80000000;
+   // Else return the result rounded towards zero.  C89 says
+   // this is implementation defined (in the signed case), but gcc
+   // promises to round towards zero.  Nevertheless, at startup,
+   // in main_main.c, do a check for that.
+   return x / y;
+}
+
+Long h_calc_sdiv64_w_arm_semantics ( Long x, Long y )
+{
+   // Division by zero --> zero
+   if (UNLIKELY(y == 0)) return 0;
+   // The single case that produces an unrepresentable result
+   if (UNLIKELY( ((ULong)x) == ((ULong)0x8000000000000000ULL )
+                 && ((ULong)y) == ((ULong)0xFFFFFFFFFFFFFFFFULL ) ))
+      return (Long)(ULong)0x8000000000000000ULL;
+   // Else return the result rounded towards zero.  C89 says
+   // this is implementation defined (in the signed case), but gcc
+   // promises to round towards zero.  Nevertheless, at startup,
+   // in main_main.c, do a check for that.
+   return x / y;
 }
 
 

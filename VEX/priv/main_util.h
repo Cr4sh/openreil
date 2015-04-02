@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -46,13 +46,18 @@
 #define LIKELY(x)       __builtin_expect(!!(x), 1)
 #define UNLIKELY(x)     __builtin_expect(!!(x), 0)
 
-/* Stuff for panicking and assertion. */
+#if !defined(offsetof)
+#   define offsetof(type,memb) ((SizeT)(HWord)&((type*)0)->memb)
+#endif
 
-#define VG__STRING(__str)  #__str
+// Poor man's static assert
+#define STATIC_ASSERT(x)  extern int vex__unused_array[(x) ? 1 : -1]
+
+/* Stuff for panicking and assertion. */
 
 #define vassert(expr)                                           \
   ((void) (LIKELY(expr) ? 0 :                                   \
-           (vex_assert_fail (VG__STRING(expr),                  \
+           (vex_assert_fail (#expr,                             \
                              __FILE__, __LINE__,                \
                              __PRETTY_FUNCTION__), 0)))
 
@@ -60,22 +65,26 @@ __attribute__ ((__noreturn__))
 extern void vex_assert_fail ( const HChar* expr, const HChar* file,
                               Int line, const HChar* fn );
 __attribute__ ((__noreturn__))
-extern void vpanic ( HChar* str );
+extern void vpanic ( const HChar* str );
+
+__attribute__ ((__noreturn__)) __attribute__ ((format (printf, 1, 2)))
+extern void vfatal ( const HChar* format, ... );
 
 
 /* Printing */
 
 __attribute__ ((format (printf, 1, 2)))
-extern UInt vex_printf ( HChar *format, ... );
+extern UInt vex_printf ( const HChar *format, ... );
 
 __attribute__ ((format (printf, 2, 3)))
-extern UInt vex_sprintf ( HChar* buf, HChar *format, ... );
+extern UInt vex_sprintf ( HChar* buf, const HChar *format, ... );
 
 
 /* String ops */
 
 extern Bool vex_streq ( const HChar* s1, const HChar* s2 );
-extern Int vex_strlen ( const HChar* str );
+extern SizeT vex_strlen ( const HChar* str );
+extern void vex_bzero ( void* s, SizeT n );
 
 
 /* Storage management: clear the area, and allocate from it. */
@@ -96,6 +105,62 @@ extern VexAllocMode vexGetAllocMode ( void );
 extern void         vexAllocSanityCheck ( void );
 
 extern void vexSetAllocModeTEMP_and_clear ( void );
+
+/* Allocate in Vex's temporary allocation area.  Be careful with this.
+   You can only call it inside an instrumentation or optimisation
+   callback that you have previously specified in a call to
+   LibVEX_Translate.  The storage allocated will only stay alive until
+   translation of the current basic block is complete.
+ */
+extern HChar* private_LibVEX_alloc_first;
+extern HChar* private_LibVEX_alloc_curr;
+extern HChar* private_LibVEX_alloc_last;
+extern void   private_LibVEX_alloc_OOM(void) __attribute__((noreturn));
+
+/* Allocated memory as returned by LibVEX_Alloc will be aligned on this
+   boundary. */
+#define REQ_ALIGN 8
+
+static inline void* LibVEX_Alloc_inline ( SizeT nbytes )
+{
+   struct align {
+      char c;
+      union {
+         char c;
+         short s;
+         int i;
+         long l;
+         long long ll;
+         float f;
+         double d;
+         /* long double is currently not used and would increase alignment
+            unnecessarily. */
+         /* long double ld; */
+         void *pto;
+         void (*ptf)(void);
+      } x;
+   };
+
+   /* Make sure the compiler does no surprise us */
+   vassert(offsetof(struct align,x) <= REQ_ALIGN);
+
+#if 0
+  /* Nasty debugging hack, do not use. */
+  return malloc(nbytes);
+#else
+   HChar* curr;
+   HChar* next;
+   SizeT  ALIGN;
+   ALIGN  = offsetof(struct align,x) - 1;
+   nbytes = (nbytes + ALIGN) & ~ALIGN;
+   curr   = private_LibVEX_alloc_curr;
+   next   = curr + nbytes;
+   if (next >= private_LibVEX_alloc_last)
+      private_LibVEX_alloc_OOM();
+   private_LibVEX_alloc_curr = next;
+   return curr;
+#endif
+}
 
 #endif /* ndef __VEX_MAIN_UTIL_H */
 

@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -59,8 +59,17 @@ typedef    signed int    Int;
 typedef  unsigned long long int   ULong;
 typedef    signed long long int   Long;
 
+/* Equivalent of C's size_t type. The type is unsigned and has this
+   storage requirement:
+   32 bits on a 32-bit architecture
+   64 bits on a 64-bit architecture. */
+typedef  unsigned long SizeT;
+
 /* Always 128 bits. */
 typedef  UInt  U128[4];
+
+/* Always 256 bits. */
+typedef  UInt  U256[8];
 
 /* A union for doing 128-bit vector primitives conveniently. */
 typedef
@@ -71,6 +80,16 @@ typedef
       ULong  w64[2];
    }
    V128;
+
+/* A union for doing 256-bit vector primitives conveniently. */
+typedef
+   union {
+      UChar  w8[32];
+      UShort w16[16];
+      UInt   w32[8];
+      ULong  w64[4];
+   }
+   V256;
 
 /* Floating point. */
 typedef  float   Float;    /* IEEE754 single-precision (32-bit) value */
@@ -113,28 +132,17 @@ static inline UInt toUInt ( Long x ) {
 typedef  UInt      Addr32;
 typedef  ULong     Addr64;
 
+/* An address: 32-bit or 64-bit wide depending on host architecture */
+typedef unsigned long Addr;
+
+
 /* Something which has the same size as void* on the host.  That is,
    it is 32 bits on a 32-bit host and 64 bits on a 64-bit host, and so
    it can safely be coerced to and from a pointer type on the host
    machine. */
 typedef  unsigned long HWord;
 
-
-/* This is so useful it should be visible absolutely everywhere. */
-#if !defined(offsetof)
-#   define offsetof(type,memb) ((Int)(HWord)&((type*)0)->memb)
-#endif
-
-
-/* We need to know the host word size in order to write Ptr_to_ULong
-   and ULong_to_Ptr in a way that doesn't cause compilers to complain.
-   These functions allow us to cast pointers to and from 64-bit
-   integers without complaints from compilers, regardless of the host
-   word size.
-
-   Also set up VEX_REGPARM.
-*/
-
+/* Set up VEX_HOST_WORDSIZE and VEX_REGPARM. */
 #undef VEX_HOST_WORDSIZE
 #undef VEX_REGPARM
 
@@ -155,15 +163,11 @@ typedef  unsigned long HWord;
 #   define VEX_HOST_WORDSIZE 4
 #   define VEX_REGPARM(_n) /* */
 
-#elif defined(__arm__)
+#elif defined(__arm__) && !defined(__aarch64__)
 #   define VEX_HOST_WORDSIZE 4
 #   define VEX_REGPARM(_n) /* */
 
-#elif defined(_AIX) && !defined(__64BIT__)
-#   define VEX_HOST_WORDSIZE 4
-#   define VEX_REGPARM(_n) /* */
-
-#elif defined(_AIX) && defined(__64BIT__)
+#elif defined(__aarch64__) && !defined(__arm__)
 #   define VEX_HOST_WORDSIZE 8
 #   define VEX_REGPARM(_n) /* */
 
@@ -171,29 +175,16 @@ typedef  unsigned long HWord;
 #   define VEX_HOST_WORDSIZE 8
 #   define VEX_REGPARM(_n) /* */
 
+#elif defined(__mips__) && (__mips == 64)
+#   define VEX_HOST_WORDSIZE 8
+#   define VEX_REGPARM(_n) /* */
+
+#elif defined(__mips__) && (__mips != 64)
+#   define VEX_HOST_WORDSIZE 4
+#   define VEX_REGPARM(_n) /* */
+
 #else
 #   error "Vex: Fatal: Can't establish the host architecture"
-#endif
-
-
-#if VEX_HOST_WORDSIZE == 8
-   static inline ULong Ptr_to_ULong ( void* p ) {
-      return (ULong)p;
-   }
-   static inline void* ULong_to_Ptr ( ULong n ) {
-      return (void*)n;
-   }
-#elif VEX_HOST_WORDSIZE == 4
-   static inline ULong Ptr_to_ULong ( void* p ) {
-      UInt w = (UInt)p;
-      return (ULong)w;
-   }
-   static inline void* ULong_to_Ptr ( ULong n ) {
-      UInt w = (UInt)n;
-      return (void*)w;
-   }
-#else
-#   error "Vex: Fatal: Can't define  Ptr_to_ULong / ULong_to_Ptr"
 #endif
 
 

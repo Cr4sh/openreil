@@ -33,6 +33,8 @@ static int debug_linker = 0;
 #   define i386_TARGET_ARCH
 #elif defined (__powerpc__)
 #   define ppc32_TARGET_ARCH
+#elif defined(__aarch64__)
+#   define arm64_TARGET_ARCH
 #else
 #   error "Unknown arch"
 #endif
@@ -62,7 +64,7 @@ static UInt  mymalloc_used = 0;
 void* mymalloc ( Int n )
 {
    void* p;
-#if defined(__powerpc64__)
+#if defined(__powerpc64__) || defined(__aarch64__)
    while ((ULong)(mymalloc_area+mymalloc_used) & 0xFFF)
 #else
    while ((UInt)(mymalloc_area+mymalloc_used) & 0xFFF)
@@ -1221,7 +1223,7 @@ ocGetNames_ELF ( ObjectCode* oc )
 #           else
             ad = calloc(1, stab[j].st_size);
 #           endif
-    //	    assert( Ptr_to_ULong(ad) < 0xF0000000ULL );
+    //	    assert( (Addr)ad < 0xF0000000ULL );
 
 	    if (0)
             fprintf(stderr, "COMMON symbol, size %lld name %s  allocd %p\n",

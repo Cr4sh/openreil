@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -39,6 +39,10 @@
 #ifndef __VEX_GUEST_PPC_DEFS_H
 #define __VEX_GUEST_PPC_DEFS_H
 
+#include "libvex_basictypes.h"
+#include "libvex_guest_ppc32.h"         // VexGuestPPC32State
+#include "libvex_guest_ppc64.h"         // VexGuestPPC64State
+#include "guest_generic_bb_to_IR.h"     // DisResult
 
 /*---------------------------------------------------------*/
 /*--- ppc to IR conversion                              ---*/
@@ -48,27 +52,27 @@
    bb_to_IR.h. */
 extern
 DisResult disInstr_PPC ( IRSB*        irbb,
-                         Bool         put_IP,
-                         Bool         (*resteerOkFn) ( void*, Addr64 ),
+                         Bool         (*resteerOkFn) ( void*, Addr ),
                          Bool         resteerCisOk,
                          void*        callback_opaque,
-                         UChar*       guest_code,
+                         const UChar* guest_code,
                          Long         delta,
-                         Addr64       guest_IP,
+                         Addr         guest_IP,
                          VexArch      guest_arch,
-                         VexArchInfo* archinfo,
-                         VexAbiInfo*  abiinfo,
-                         Bool         host_bigendian );
+                         const VexArchInfo* archinfo,
+                         const VexAbiInfo*  abiinfo,
+                         VexEndness   host_endness,
+                         Bool         sigill_diag );
 
 /* Used by the optimiser to specialise calls to helpers. */
 extern
-IRExpr* guest_ppc32_spechelper ( HChar*   function_name,
+IRExpr* guest_ppc32_spechelper ( const HChar* function_name,
                                  IRExpr** args,
                                  IRStmt** precedingStmts,
                                  Int      n_precedingStmts );
 
 extern
-IRExpr* guest_ppc64_spechelper ( HChar*   function_name,
+IRExpr* guest_ppc64_spechelper ( const HChar* function_name,
                                  IRExpr** args,
                                  IRStmt** precedingStmts,
                                  Int      n_precedingStmts );
@@ -77,10 +81,12 @@ IRExpr* guest_ppc64_spechelper ( HChar*   function_name,
    precise memory exceptions.  This is logically part of the guest
    state description. */
 extern 
-Bool guest_ppc32_state_requires_precise_mem_exns ( Int, Int );
+Bool guest_ppc32_state_requires_precise_mem_exns ( Int, Int,
+                                                   VexRegisterUpdates );
 
 extern 
-Bool guest_ppc64_state_requires_precise_mem_exns ( Int, Int );
+Bool guest_ppc64_state_requires_precise_mem_exns ( Int, Int,
+                                                   VexRegisterUpdates );
 
 extern
 VexGuestLayout ppc32Guest_layout;
@@ -130,6 +136,7 @@ enum {
    /* 15 */ PPCG_FLAG_OP_DIVWEU,  // divweuo
    /* 16 */ PPCG_FLAG_OP_DIVWE,   // divweo
    /* 17 */ PPCG_FLAG_OP_DIVDEU,  // divdeuo
+   /* 18 */ PPCG_FLAG_OP_MULLD,   // mulldo
    PPCG_FLAG_OP_NUMBER
 };
 
@@ -156,7 +163,8 @@ extern void ppc32g_dirtyhelper_LVS ( VexGuestPPC32State* gst,
 
 extern void ppc64g_dirtyhelper_LVS ( VexGuestPPC64State* gst,
                                      UInt vD_idx, UInt sh,
-                                     UInt shift_right );
+                                     UInt shift_right,
+                                     UInt endness );
 
 #endif /* ndef __VEX_GUEST_PPC_DEFS_H */
 

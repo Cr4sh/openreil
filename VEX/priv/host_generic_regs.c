@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -40,6 +40,10 @@
 #include "host_generic_regs.h"
 
 
+/*---------------------------------------------------------*/
+/*--- Representing HOST REGISTERS                       ---*/
+/*---------------------------------------------------------*/
+
 void ppHRegClass ( HRegClass hrc )
 {
    switch (hrc) {
@@ -56,16 +60,58 @@ void ppHRegClass ( HRegClass hrc )
 /* Generic printing for registers. */
 void ppHReg ( HReg r ) 
 {
-   HChar* maybe_v = hregIsVirtual(r) ? "v" : "";
-   Int    regNo   = hregNumber(r);
+   if (hregIsInvalid(r)) {
+      vex_printf("HReg_INVALID");
+      return;
+   }
+   const Bool   isV     = hregIsVirtual(r);
+   const HChar* maybe_v = isV ? "v" : "";
+   const UInt   regNN   = isV ? hregIndex(r) : hregEncoding(r);
+   /* For real registers, we show the encoding.  But the encoding is
+      always zero for virtual registers, so that's pointless -- hence
+      show the index number instead. */
    switch (hregClass(r)) {
-      case HRcInt32:   vex_printf("%%%sr%d", maybe_v, regNo); return;
-      case HRcInt64:   vex_printf("%%%sR%d", maybe_v, regNo); return;
-      case HRcFlt32:   vex_printf("%%%sF%d", maybe_v, regNo); return;
-      case HRcFlt64:   vex_printf("%%%sD%d", maybe_v, regNo); return;
-      case HRcVec64:   vex_printf("%%%sv%d", maybe_v, regNo); return;
-      case HRcVec128:  vex_printf("%%%sV%d", maybe_v, regNo); return;
+      case HRcInt32:   vex_printf("%%%sr%u", maybe_v, regNN); return;
+      case HRcInt64:   vex_printf("%%%sR%u", maybe_v, regNN); return;
+      case HRcFlt32:   vex_printf("%%%sF%u", maybe_v, regNN); return;
+      case HRcFlt64:   vex_printf("%%%sD%u", maybe_v, regNN); return;
+      case HRcVec64:   vex_printf("%%%sv%u", maybe_v, regNN); return;
+      case HRcVec128:  vex_printf("%%%sV%u", maybe_v, regNN); return;
       default: vpanic("ppHReg");
+   }
+}
+
+
+/*---------------------------------------------------------*/
+/*--- Real register Universes.                          ---*/
+/*---------------------------------------------------------*/
+
+void RRegUniverse__init ( /*OUT*/RRegUniverse* univ )
+{
+   *univ = (RRegUniverse){};
+   univ->size      = 0;
+   univ->allocable = 0;
+   for (UInt i = 0; i < N_RREGUNIVERSE_REGS; i++) {
+      univ->regs[i] = INVALID_HREG;
+   }
+}
+
+void RRegUniverse__check_is_sane ( const RRegUniverse* univ )
+{
+   /* Check Real-Register-Universe invariants.  All of these are
+      important. */
+   vassert(univ->size > 0);
+   vassert(univ->size <= N_RREGUNIVERSE_REGS);
+   vassert(univ->allocable <= univ->size);
+   for (UInt i = 0; i < univ->size; i++) {
+      HReg reg = univ->regs[i];
+      vassert(!hregIsInvalid(reg));
+      vassert(!hregIsVirtual(reg));
+      vassert(hregIndex(reg) == i);
+   }
+   for (UInt i = univ->size; i < N_RREGUNIVERSE_REGS; i++) {
+      HReg reg = univ->regs[i];
+      vassert(hregIsInvalid(reg));
    }
 }
 
@@ -74,61 +120,112 @@ void ppHReg ( HReg r )
 /*--- Helpers for recording reg usage (for reg-alloc)   ---*/
 /*---------------------------------------------------------*/
 
-void ppHRegUsage ( HRegUsage* tab )
+void ppHRegUsage ( const RRegUniverse* univ, HRegUsage* tab )
 {
-   Int    i;
-   HChar* str;
+   /* This is going to fail miserably if N_RREGUNIVERSE_REGS exceeds
+      64.  So let's cause it to fail in an obvious way. */
+   vassert(N_RREGUNIVERSE_REGS == 64);
+
    vex_printf("HRegUsage {\n");
-   for (i = 0; i < tab->n_used; i++) {
-      switch (tab->mode[i]) {
+   /* First print the real regs */
+   for (UInt i = 0; i < N_RREGUNIVERSE_REGS; i++) {
+      Bool rRd = (tab->rRead    & (1ULL << i)) != 0;
+      Bool rWr = (tab->rWritten & (1ULL << i)) != 0;
+      const HChar* str = "Modify ";
+      /**/ if (!rRd && !rWr) { continue; }
+      else if ( rRd && !rWr) { str = "Read   "; }
+      else if (!rRd &&  rWr) { str = "Write  "; }
+      /* else "Modify" is correct */
+      vex_printf("   %s ", str);
+      ppHReg(univ->regs[i]);
+      vex_printf("\n");
+   }
+   /* and now the virtual registers */
+   for (UInt i = 0; i < tab->n_vRegs; i++) {
+      const HChar* str = NULL;
+      switch (tab->vMode[i]) {
          case HRmRead:   str = "Read   "; break;
          case HRmWrite:  str = "Write  "; break;
          case HRmModify: str = "Modify "; break;
          default: vpanic("ppHRegUsage");
       }
       vex_printf("   %s ", str);
-      ppHReg(tab->hreg[i]);
+      ppHReg(tab->vRegs[i]);
       vex_printf("\n");
    }
    vex_printf("}\n");
 }
 
 
-/* Add a register to a usage table.  Combine incoming read uses with
-   existing write uses into a modify use, and vice versa.  Do not
-   create duplicate entries -- each reg should only be mentioned once.  
+/* Add a register to a usage table.  Combines incoming read uses with
+   existing write uses into a modify use, and vice versa.  Does not
+   create duplicate entries -- each reg is only mentioned once.  
 */
 void addHRegUse ( HRegUsage* tab, HRegMode mode, HReg reg )
 {
-   Int i;
-   /* Find it ... */
-   for (i = 0; i < tab->n_used; i++)
-      if (tab->hreg[i] == reg)
-         break;
-   if (i == tab->n_used) {
-      /* Not found, add new entry. */
-      vassert(tab->n_used < N_HREG_USAGE);
-      tab->hreg[tab->n_used] = reg;
-      tab->mode[tab->n_used] = mode;
-      tab->n_used++;
-   } else {
-      /* Found: combine or ignore. */
-      /* This is a greatest-lower-bound operation in the poset:
-
-            R   W
-             \ /
-              M
-
-         Need to do: tab->mode[i] = GLB(tab->mode, mode).  In this
-         case very simple -- if tab->mode[i] != mode then result must
-         be M.
-      */
-      if (tab->mode[i] == mode) {
-         /* duplicate, ignore */
+   /* Because real and virtual registers are represented differently,
+      they have completely different paths here. */
+   if (LIKELY(hregIsVirtual(reg))) {
+      /* Virtual register */
+      UInt i;
+      /* Find it ... */
+      for (i = 0; i < tab->n_vRegs; i++)
+         if (sameHReg(tab->vRegs[i], reg))
+            break;
+      if (i == tab->n_vRegs) {
+         /* Not found, add new entry. */
+         vassert(tab->n_vRegs < N_HREGUSAGE_VREGS);
+         tab->vRegs[tab->n_vRegs] = reg;
+         tab->vMode[tab->n_vRegs] = mode;
+         tab->n_vRegs++;
       } else {
-         tab->mode[i] = HRmModify;
+         /* Found: combine or ignore. */
+         /* This is a greatest-lower-bound operation in the poset:
+
+               R   W
+                \ /
+                 M
+
+            Need to do: tab->mode[i] = GLB(tab->mode, mode).  In this
+            case very simple -- if tab->mode[i] != mode then result must
+            be M.
+         */
+         if (tab->vMode[i] == mode) {
+            /* duplicate, ignore */
+         } else {
+            tab->vMode[i] = HRmModify;
+         }
+      }
+   } else {
+      /* Real register */
+      UInt ix = hregIndex(reg);
+      vassert(ix < N_RREGUNIVERSE_REGS);
+      ULong mask = 1ULL << ix;
+      switch (mode) {
+         case HRmRead:   tab->rRead |= mask; break;
+         case HRmWrite:  tab->rWritten |= mask; break;
+         case HRmModify: tab->rRead |= mask; tab->rWritten |= mask; break;
+         default: vassert(0);
       }
    }
+}
+
+Bool HRegUsage__contains ( const HRegUsage* tab, HReg reg )
+{
+   vassert(!hregIsInvalid(reg));
+   if (hregIsVirtual(reg)) {
+      for (UInt i = 0; i < tab->n_vRegs; i++) {
+         if (sameHReg(reg, tab->vRegs[i]))
+            return True;
+      }
+      return False;
+   } else {
+      UInt ix = hregIndex(reg);
+      vassert(ix < N_RREGUNIVERSE_REGS);
+      ULong mentioned = tab->rRead | tab->rWritten;
+      return (mentioned & (1ULL << ix)) != 0;
+   }
+   /*NOTREACHED*/
 }
 
 
@@ -151,17 +248,11 @@ void ppHRegRemap ( HRegRemap* map )
 }
 
 
-void initHRegRemap ( HRegRemap* map )
-{
-   map->n_used = 0;
-}
-
-
 void addToHRegRemap ( HRegRemap* map, HReg orig, HReg replacement )
 {
    Int i;
    for (i = 0; i < map->n_used; i++)
-      if (map->orig[i] == orig)
+      if (sameHReg(map->orig[i], orig))
          vpanic("addToHRegMap: duplicate entry");
    if (!hregIsVirtual(orig))
       vpanic("addToHRegMap: orig is not a vreg");
@@ -181,10 +272,11 @@ HReg lookupHRegRemap ( HRegRemap* map, HReg orig )
    if (!hregIsVirtual(orig))
       return orig;
    for (i = 0; i < map->n_used; i++)
-      if (map->orig[i] == orig)
+      if (sameHReg(map->orig[i], orig))
          return map->replacement[i];
    vpanic("lookupHRegRemap: not found");
 }
+
 
 /*---------------------------------------------------------*/
 /*--- Abstract instructions                             ---*/
@@ -192,28 +284,50 @@ HReg lookupHRegRemap ( HRegRemap* map, HReg orig )
 
 HInstrArray* newHInstrArray ( void )
 {
-   HInstrArray* ha = LibVEX_Alloc(sizeof(HInstrArray));
+   HInstrArray* ha = LibVEX_Alloc_inline(sizeof(HInstrArray));
    ha->arr_size = 4;
    ha->arr_used = 0;
-   ha->arr      = LibVEX_Alloc(ha->arr_size * sizeof(HInstr*));
+   ha->arr      = LibVEX_Alloc_inline(ha->arr_size * sizeof(HInstr*));
    ha->n_vregs  = 0;
    return ha;
 }
 
-void addHInstr ( HInstrArray* ha, HInstr* instr )
+__attribute__((noinline))
+void addHInstr_SLOW ( HInstrArray* ha, HInstr* instr )
 {
-   vassert(ha->arr_used <= ha->arr_size);
-   if (ha->arr_used < ha->arr_size) {
-      ha->arr[ha->arr_used] = instr;
-      ha->arr_used++;
-   } else {
-      Int      i;
-      HInstr** arr2 = LibVEX_Alloc(ha->arr_size * 2 * sizeof(HInstr*));
-      for (i = 0; i < ha->arr_size; i++)
-         arr2[i] = ha->arr[i];
-      ha->arr_size *= 2;
-      ha->arr = arr2;
-      addHInstr(ha, instr);
+   vassert(ha->arr_used == ha->arr_size);
+   Int      i;
+   HInstr** arr2 = LibVEX_Alloc_inline(ha->arr_size * 2 * sizeof(HInstr*));
+   for (i = 0; i < ha->arr_size; i++) {
+      arr2[i] = ha->arr[i];
+   }
+   ha->arr_size *= 2;
+   ha->arr = arr2;
+   addHInstr(ha, instr);
+}
+
+
+/*---------------------------------------------------------*/
+/*--- C-Call return-location actions                    ---*/
+/*---------------------------------------------------------*/
+
+void ppRetLoc ( RetLoc ska )
+{
+   switch (ska.pri) {
+      case RLPri_INVALID:
+         vex_printf("RLPri_INVALID"); return;
+      case RLPri_None:
+         vex_printf("RLPri_None");    return;
+      case RLPri_Int:
+         vex_printf("RLPri_Int");     return;
+      case RLPri_2Int:
+         vex_printf("RLPri_2Int");    return;
+      case RLPri_V128SpRel:
+         vex_printf("RLPri_V128SpRel(%d)", ska.spOff); return;
+      case RLPri_V256SpRel:
+         vex_printf("RLPri_V256SpRel(%d)", ska.spOff); return;
+      default:
+         vpanic("ppRetLoc");
    }
 }
 

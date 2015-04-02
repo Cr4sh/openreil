@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -50,16 +50,13 @@ __attribute__ ((noreturn))
 void (*vex_failure_exit) ( void ) = NULL;
 
 /* logging output function */
-void (*vex_log_bytes) ( HChar*, Int nbytes ) = NULL;
+void (*vex_log_bytes) ( const HChar*, SizeT nbytes ) = NULL;
 
 /* debug paranoia level */
 Int vex_debuglevel = 0;
 
 /* trace flags */
 Int vex_traceflags = 0;
-
-/* Are we supporting valgrind checking? */
-Bool vex_valgrind_support = False;
 
 /* Max # guest insns per bb */
 VexControl vex_control = { 0,0,False,0,0,0 };

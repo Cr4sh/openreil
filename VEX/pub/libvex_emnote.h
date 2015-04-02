@@ -1,13 +1,13 @@
 
 /*---------------------------------------------------------------*/
-/*--- begin                                   libvex_emwarn.h ---*/
+/*--- begin                                   libvex_emnote.h ---*/
 /*---------------------------------------------------------------*/
 
 /*
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -33,30 +33,33 @@
    without prior written permission.
 */
 
-#ifndef __LIBVEX_EMWARN_H
-#define __LIBVEX_EMWARN_H
+#ifndef __LIBVEX_EMNOTE_H
+#define __LIBVEX_EMNOTE_H
 
+#include "libvex_basictypes.h"
 
 /* VEX can sometimes generate code which returns to the dispatcher
-   with the guest state pointer set to VEX_TRC_JMP_EMWARN.  This means
-   that VEX is trying to warn Valgrind that it is doing imprecise
-   emulation in some sense.  The guest's pseudo-register
-   "guest_EMWARN" will hold a value of type VexEmWarn, which describes
+   with the guest state pointer set to VEX_TRC_JMP_EMWARN or 
+   VEX_TRC_JMP_EMFAIL.  This means that VEX is trying to tell Valgrind
+   something noteworthy about emulation progress. For example, that Valgrind
+   is doing imprecise emulation in some sense.  The guest's pseudo-register
+   "guest_EMNOTE" will hold a value of type VexEmNote, which describes
    the nature of the warning.  Currently the limitations that are
    warned about apply primarily to floating point support.
 
-   All guest states should have a 32-bit (UInt) guest_EMWARN pseudo-
+   All guest states must have a 32-bit (UInt) guest_EMNOTE pseudo-
    register, that emulation warnings can be written in to.
 
-   Note that guest_EMWARN only carries a valid value at the jump
-   marked as VEX_TRC_JMP_EMWARN.  You can't assume it will continue to
-   carry a valid value from any amount of time after the jump.
+   Note that guest_EMNOTE only carries a valid value at the jump
+   marked as VEX_TRC_JMP_EMWARN / VEX_TRC_JMP_EMFAIL.  You can't assume
+   it will continue to carry a valid value from any amount of time after
+   the jump.
 */
 
 typedef
    enum {
-      /* no warning indicated */
-      EmWarn_NONE=0,
+      /* no note indicated */
+      EmNote_NONE=0,
 
       /* unmasking x87 FP exceptions is not supported */
       EmWarn_X86_x87exns,
@@ -83,17 +86,51 @@ typedef
       EmWarn_PPC64_redir_overflow,
       EmWarn_PPC64_redir_underflow,
 
-      EmWarn_NUMBER
+      /* insn specifies a rounding mode other than "according to FPC"
+         which requires the floating point extension facility. But that
+         facility is not available on this host */
+      EmWarn_S390X_fpext_rounding,
+
+      /* insn (e.g. srnmb) specifies an invalid rounding mode */
+      EmWarn_S390X_invalid_rounding,
+
+      /* stfle insn is not supported on this host */
+      EmFail_S390X_stfle,
+
+      /* stckf insn is not supported on this host */
+      EmFail_S390X_stckf,
+
+      /* ecag insn is not supported on this host */
+      EmFail_S390X_ecag,
+
+      /* pfpo insn is not supported on this host */
+      EmFail_S390X_pfpo,
+
+      /* DFP insns are not supported on this host */
+      EmFail_S390X_DFP_insn,
+
+      /* insn needs floating point extension facility which is not
+         available on this host */
+      EmFail_S390X_fpext,
+
+      /* GPR 0 contains invalid rounding mode for PFPO instruction */
+      EmFail_S390X_invalid_PFPO_rounding_mode,
+
+      /* The function code specified in GPR 0 executed by PFPO
+         instruction is invalid */
+      EmFail_S390X_invalid_PFPO_function,
+
+      EmNote_NUMBER
    }
-   VexEmWarn;
+   VexEmNote;
 
 
 /* Produces a short string describing the warning. */
-extern HChar* LibVEX_EmWarn_string ( VexEmWarn );
+extern const HChar* LibVEX_EmNote_string ( VexEmNote );
 
 
-#endif /* ndef __LIBVEX_EMWARN_H */
+#endif /* ndef __LIBVEX_EMNOTE_H */
 
 /*---------------------------------------------------------------*/
-/*---                                         libvex_emwarn.h ---*/
+/*---                                         libvex_emnote.h ---*/
 /*---------------------------------------------------------------*/

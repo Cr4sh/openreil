@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -36,6 +36,9 @@
 #ifndef __VEX_HOST_X86_DEFS_H
 #define __VEX_HOST_X86_DEFS_H
 
+#include "libvex_basictypes.h"
+#include "libvex.h"                      // VexArch
+#include "host_generic_regs.h"           // HReg
 
 /* --------- Registers. --------- */
 
@@ -43,32 +46,35 @@
    6 real float regs, and 8 real vector regs. 
 */
 
+#define ST_IN static inline
+ST_IN HReg hregX86_EAX   ( void ) { return mkHReg(False, HRcInt32,  0,  0); }
+ST_IN HReg hregX86_EBX   ( void ) { return mkHReg(False, HRcInt32,  3,  1); }
+ST_IN HReg hregX86_ECX   ( void ) { return mkHReg(False, HRcInt32,  1,  2); }
+ST_IN HReg hregX86_EDX   ( void ) { return mkHReg(False, HRcInt32,  2,  3); }
+ST_IN HReg hregX86_ESI   ( void ) { return mkHReg(False, HRcInt32,  6,  4); }
+ST_IN HReg hregX86_EDI   ( void ) { return mkHReg(False, HRcInt32,  7,  5); }
+
+ST_IN HReg hregX86_FAKE0 ( void ) { return mkHReg(False, HRcFlt64,  0,  6); }
+ST_IN HReg hregX86_FAKE1 ( void ) { return mkHReg(False, HRcFlt64,  1,  7); }
+ST_IN HReg hregX86_FAKE2 ( void ) { return mkHReg(False, HRcFlt64,  2,  8); }
+ST_IN HReg hregX86_FAKE3 ( void ) { return mkHReg(False, HRcFlt64,  3,  9); }
+ST_IN HReg hregX86_FAKE4 ( void ) { return mkHReg(False, HRcFlt64,  4, 10); }
+ST_IN HReg hregX86_FAKE5 ( void ) { return mkHReg(False, HRcFlt64,  5, 11); }
+
+ST_IN HReg hregX86_XMM0  ( void ) { return mkHReg(False, HRcVec128, 0, 12); }
+ST_IN HReg hregX86_XMM1  ( void ) { return mkHReg(False, HRcVec128, 1, 13); }
+ST_IN HReg hregX86_XMM2  ( void ) { return mkHReg(False, HRcVec128, 2, 14); }
+ST_IN HReg hregX86_XMM3  ( void ) { return mkHReg(False, HRcVec128, 3, 15); }
+ST_IN HReg hregX86_XMM4  ( void ) { return mkHReg(False, HRcVec128, 4, 16); }
+ST_IN HReg hregX86_XMM5  ( void ) { return mkHReg(False, HRcVec128, 5, 17); }
+ST_IN HReg hregX86_XMM6  ( void ) { return mkHReg(False, HRcVec128, 6, 18); }
+ST_IN HReg hregX86_XMM7  ( void ) { return mkHReg(False, HRcVec128, 7, 19); }
+
+ST_IN HReg hregX86_ESP   ( void ) { return mkHReg(False, HRcInt32,  4, 20); }
+ST_IN HReg hregX86_EBP   ( void ) { return mkHReg(False, HRcInt32,  5, 21); }
+#undef ST_IN
+
 extern void ppHRegX86 ( HReg );
-
-extern HReg hregX86_EAX ( void );
-extern HReg hregX86_EBX ( void );
-extern HReg hregX86_ECX ( void );
-extern HReg hregX86_EDX ( void );
-extern HReg hregX86_ESP ( void );
-extern HReg hregX86_EBP ( void );
-extern HReg hregX86_ESI ( void );
-extern HReg hregX86_EDI ( void );
-
-extern HReg hregX86_FAKE0 ( void );
-extern HReg hregX86_FAKE1 ( void );
-extern HReg hregX86_FAKE2 ( void );
-extern HReg hregX86_FAKE3 ( void );
-extern HReg hregX86_FAKE4 ( void );
-extern HReg hregX86_FAKE5 ( void );
-
-extern HReg hregX86_XMM0 ( void );
-extern HReg hregX86_XMM1 ( void );
-extern HReg hregX86_XMM2 ( void );
-extern HReg hregX86_XMM3 ( void );
-extern HReg hregX86_XMM4 ( void );
-extern HReg hregX86_XMM5 ( void );
-extern HReg hregX86_XMM6 ( void );
-extern HReg hregX86_XMM7 ( void );
 
 
 /* --------- Condition codes, Intel encoding. --------- */
@@ -103,7 +109,7 @@ typedef
    }
    X86CondCode;
 
-extern HChar* showX86CondCode ( X86CondCode );
+extern const HChar* showX86CondCode ( X86CondCode );
 
 
 /* --------- Memory address expressions (amodes). --------- */
@@ -246,7 +252,7 @@ typedef
    }
    X86UnaryOp;
 
-extern HChar* showX86UnaryOp ( X86UnaryOp );
+extern const HChar* showX86UnaryOp ( X86UnaryOp );
 
 
 /* --------- */
@@ -261,7 +267,7 @@ typedef
    }
    X86AluOp;
 
-extern HChar* showX86AluOp ( X86AluOp );
+extern const HChar* showX86AluOp ( X86AluOp );
 
 
 /* --------- */
@@ -272,7 +278,7 @@ typedef
    }
    X86ShiftOp;
 
-extern HChar* showX86ShiftOp ( X86ShiftOp );
+extern const HChar* showX86ShiftOp ( X86ShiftOp );
 
 
 /* --------- */
@@ -288,7 +294,7 @@ typedef
    }
    X86FpOp;
 
-extern HChar* showX86FpOp ( X86FpOp );
+extern const HChar* showX86FpOp ( X86FpOp );
 
 
 /* --------- */
@@ -331,7 +337,7 @@ typedef
    }
    X86SseOp;
 
-extern HChar* showX86SseOp ( X86SseOp );
+extern const HChar* showX86SseOp ( X86SseOp );
 
 
 /* --------- */
@@ -349,13 +355,15 @@ typedef
       Xin_Sh3232,    /* shldl or shrdl */
       Xin_Push,      /* push (32-bit?) value on stack */
       Xin_Call,      /* call to address in register */
-      Xin_Goto,      /* conditional/unconditional jmp to dst */
+      Xin_XDirect,   /* direct transfer to GA */
+      Xin_XIndir,    /* indirect transfer to GA */
+      Xin_XAssisted, /* assisted transfer to GA */
       Xin_CMov32,    /* conditional move */
       Xin_LoadEX,    /* mov{s,z}{b,w}l from mem to reg */
       Xin_Store,     /* store 16/8 bit value in memory */
       Xin_Set32,     /* convert condition code to 32-bit value */
       Xin_Bsfr32,    /* 32-bit bsf/bsr */
-      Xin_MFence,    /* mem fence (not just sse2, but sse0 and 1 too) */
+      Xin_MFence,    /* mem fence (not just sse2, but sse0 and 1/mmxext too) */
       Xin_ACAS,      /* 8/16/32-bit lock;cmpxchg */
       Xin_DACAS,     /* lock;cmpxchg8b (doubleword ACAS, 2 x 32-bit only) */
 
@@ -378,7 +386,9 @@ typedef
       Xin_Sse64FLo,  /* SSE binary, 64F in lowest lane only */
       Xin_SseReRg,   /* SSE binary general reg-reg, Re, Rg */
       Xin_SseCMov,   /* SSE conditional move */
-      Xin_SseShuf    /* SSE2 shuffle (pshufd) */
+      Xin_SseShuf,   /* SSE2 shuffle (pshufd) */
+      Xin_EvCheck,   /* Event check */
+      Xin_ProfInc    /* 64-bit profile counter increment */
    }
    X86InstrTag;
 
@@ -443,14 +453,32 @@ typedef
             X86CondCode cond;
             Addr32      target;
             Int         regparms; /* 0 .. 3 */
+            RetLoc      rloc;     /* where the return value will be */
          } Call;
-         /* Pseudo-insn.  Goto dst, on given condition (which could be
-            Xcc_ALWAYS). */
+         /* Update the guest EIP value, then exit requesting to chain
+            to it.  May be conditional.  Urr, use of Addr32 implicitly
+            assumes that wordsize(guest) == wordsize(host). */
          struct {
+            Addr32      dstGA;    /* next guest address */
+            X86AMode*   amEIP;    /* amode in guest state for EIP */
+            X86CondCode cond;     /* can be Xcc_ALWAYS */
+            Bool        toFastEP; /* chain to the slow or fast point? */
+         } XDirect;
+         /* Boring transfer to a guest address not known at JIT time.
+            Not chainable.  May be conditional. */
+         struct {
+            HReg        dstGA;
+            X86AMode*   amEIP;
+            X86CondCode cond; /* can be Xcc_ALWAYS */
+         } XIndir;
+         /* Assisted transfer to a guest address, most general case.
+            Not chainable.  May be conditional. */
+         struct {
+            HReg        dstGA;
+            X86AMode*   amEIP;
+            X86CondCode cond; /* can be Xcc_ALWAYS */
             IRJumpKind  jk;
-            X86CondCode cond;
-            X86RI*      dst;
-         } Goto;
+         } XAssisted;
          /* Mov src to dst on the given condition, which may not
             be the bogus Xcc_ALWAYS. */
          struct {
@@ -483,13 +511,13 @@ typedef
             HReg src;
             HReg dst;
          } Bsfr32;
-         /* Mem fence (not just sse2, but sse0 and 1 too).  In short,
-            an insn which flushes all preceding loads and stores as
-            much as possible before continuing.  On SSE2 we emit a
-            real "mfence", on SSE1 "sfence ; lock addl $0,0(%esp)" and
-            on SSE0 "lock addl $0,0(%esp)".  This insn therefore
-            carries the host's hwcaps so the assembler knows what to
-            emit. */
+         /* Mem fence (not just sse2, but sse0 and sse1/mmxext too).
+            In short, an insn which flushes all preceding loads and
+            stores as much as possible before continuing.  On SSE2
+            we emit a real "mfence", on SSE1 or the MMXEXT subset
+            "sfence ; lock addl $0,0(%esp)" and on SSE0
+            "lock addl $0,0(%esp)".  This insn therefore carries the
+            host's hwcaps so the assembler knows what to emit. */
          struct {
             UInt hwcaps;
          } MFence;
@@ -615,6 +643,15 @@ typedef
             HReg   src;
             HReg   dst;
          } SseShuf;
+         struct {
+            X86AMode* amCounter;
+            X86AMode* amFailAddr;
+         } EvCheck;
+         struct {
+            /* No fields.  The address of the counter to inc is
+               installed later, post-translation, by patching it in,
+               as it is not known at translation time. */
+         } ProfInc;
 
       } Xin;
    }
@@ -631,8 +668,13 @@ extern X86Instr* X86Instr_MulL      ( Bool syned, X86RM* );
 extern X86Instr* X86Instr_Div       ( Bool syned, X86RM* );
 extern X86Instr* X86Instr_Sh3232    ( X86ShiftOp, UInt amt, HReg src, HReg dst );
 extern X86Instr* X86Instr_Push      ( X86RMI* );
-extern X86Instr* X86Instr_Call      ( X86CondCode, Addr32, Int );
-extern X86Instr* X86Instr_Goto      ( IRJumpKind, X86CondCode cond, X86RI* dst );
+extern X86Instr* X86Instr_Call      ( X86CondCode, Addr32, Int, RetLoc );
+extern X86Instr* X86Instr_XDirect   ( Addr32 dstGA, X86AMode* amEIP,
+                                      X86CondCode cond, Bool toFastEP );
+extern X86Instr* X86Instr_XIndir    ( HReg dstGA, X86AMode* amEIP,
+                                      X86CondCode cond );
+extern X86Instr* X86Instr_XAssisted ( HReg dstGA, X86AMode* amEIP,
+                                      X86CondCode cond, IRJumpKind jk );
 extern X86Instr* X86Instr_CMov32    ( X86CondCode, X86RM* src, HReg dst );
 extern X86Instr* X86Instr_LoadEX    ( UChar szSmall, Bool syned,
                                       X86AMode* src, HReg dst );
@@ -663,31 +705,69 @@ extern X86Instr* X86Instr_Sse64FLo  ( X86SseOp, HReg, HReg );
 extern X86Instr* X86Instr_SseReRg   ( X86SseOp, HReg, HReg );
 extern X86Instr* X86Instr_SseCMov   ( X86CondCode, HReg src, HReg dst );
 extern X86Instr* X86Instr_SseShuf   ( Int order, HReg src, HReg dst );
+extern X86Instr* X86Instr_EvCheck   ( X86AMode* amCounter,
+                                      X86AMode* amFailAddr );
+extern X86Instr* X86Instr_ProfInc   ( void );
 
 
-extern void ppX86Instr ( X86Instr*, Bool );
+extern void ppX86Instr ( const X86Instr*, Bool );
 
 /* Some functions that insulate the register allocator from details
    of the underlying instruction set. */
-extern void         getRegUsage_X86Instr ( HRegUsage*, X86Instr*, Bool );
+extern void         getRegUsage_X86Instr ( HRegUsage*, const X86Instr*, Bool );
 extern void         mapRegs_X86Instr     ( HRegRemap*, X86Instr*, Bool );
-extern Bool         isMove_X86Instr      ( X86Instr*, HReg*, HReg* );
-extern Int          emit_X86Instr        ( UChar* buf, Int nbuf, X86Instr*, 
-                                           Bool,
-                                           void* dispatch_unassisted,
-                                           void* dispatch_assisted );
+extern Bool         isMove_X86Instr      ( const X86Instr*, HReg*, HReg* );
+extern Int          emit_X86Instr   ( /*MB_MOD*/Bool* is_profInc,
+                                      UChar* buf, Int nbuf, const X86Instr* i, 
+                                      Bool mode64,
+                                      VexEndness endness_host,
+                                      const void* disp_cp_chain_me_to_slowEP,
+                                      const void* disp_cp_chain_me_to_fastEP,
+                                      const void* disp_cp_xindir,
+                                      const void* disp_cp_xassisted );
 
 extern void genSpill_X86  ( /*OUT*/HInstr** i1, /*OUT*/HInstr** i2,
                             HReg rreg, Int offset, Bool );
 extern void genReload_X86 ( /*OUT*/HInstr** i1, /*OUT*/HInstr** i2,
                             HReg rreg, Int offset, Bool );
 
-extern X86Instr*    directReload_X86     ( X86Instr* i, 
-                                           HReg vreg, Short spill_off );
-extern void         getAllocableRegs_X86 ( Int*, HReg** );
-extern HInstrArray* iselSB_X86           ( IRSB*, VexArch,
-                                                  VexArchInfo*,
-                                                  VexAbiInfo* );
+extern X86Instr* directReload_X86 ( X86Instr* i, HReg vreg, Short spill_off );
+
+extern const RRegUniverse* getRRegUniverse_X86 ( void );
+
+extern HInstrArray* iselSB_X86           ( const IRSB*,
+                                           VexArch,
+                                           const VexArchInfo*,
+                                           const VexAbiInfo*,
+                                           Int offs_Host_EvC_Counter,
+                                           Int offs_Host_EvC_FailAddr,
+                                           Bool chainingAllowed,
+                                           Bool addProfInc,
+                                           Addr max_ga );
+
+/* How big is an event check?  This is kind of a kludge because it
+   depends on the offsets of host_EvC_FAILADDR and host_EvC_COUNTER,
+   and so assumes that they are both <= 128, and so can use the short
+   offset encoding.  This is all checked with assertions, so in the
+   worst case we will merely assert at startup. */
+extern Int evCheckSzB_X86 (void);
+
+/* Perform a chaining and unchaining of an XDirect jump. */
+extern VexInvalRange chainXDirect_X86 ( VexEndness endness_host,
+                                        void* place_to_chain,
+                                        const void* disp_cp_chain_me_EXPECTED,
+                                        const void* place_to_jump_to );
+
+extern VexInvalRange unchainXDirect_X86 ( VexEndness endness_host,
+                                          void* place_to_unchain,
+                                          const void* place_to_jump_to_EXPECTED,
+                                          const void* disp_cp_chain_me );
+
+/* Patch the counter location into an existing ProfInc point. */
+extern VexInvalRange patchProfInc_X86 ( VexEndness endness_host,
+                                        void*  place_to_patch,
+                                        const ULong* location_of_counter );
+
 
 #endif /* ndef __VEX_HOST_X86_DEFS_H */
 

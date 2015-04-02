@@ -54,9 +54,9 @@ static void failure_exit(void)
     abort();
 }
 
-static void log_bytes(HChar *bytes, Int nbytes)
+static void log_bytes(const HChar *bytes, SizeT nbytes)
 {
-    Int i;
+    SizeT i;
 
     for (i = 0; i < nbytes - 3; i += 4)
     {
@@ -69,7 +69,7 @@ static void log_bytes(HChar *bytes, Int nbytes)
     }
 }
 
-static Bool chase_into_ok(void *closureV, Addr64 addr64)
+static Bool chase_into_ok(void *closureV, Addr addr)
 {
     return False;
 }
@@ -79,7 +79,10 @@ static void *dispatch(void)
     return NULL;
 }
 
-static UInt needs_self_check(void *opaque, VexGuestExtents *vge)
+static UInt needs_self_check(
+    void *opaque, 
+    VexRegisterUpdates* pxControl, 
+    const VexGuestExtents *vge)
 {
     return 0;
 }
@@ -89,8 +92,9 @@ static UInt needs_self_check(void *opaque, VexGuestExtents *vge)
 //----------------------------------------------------------------------
 static IRSB *instrument1(void *callback_opaque, 
                          IRSB *irbb,
-                         VexGuestLayout *vgl, 
-                         VexGuestExtents *vge,
+                         const VexGuestLayout *vgl, 
+                         const VexGuestExtents *vge,
+                         const VexArchInfo *ainfo,
                          IRType gWordTy, 
                          IRType hWordTy)
 {
@@ -119,71 +123,84 @@ void translate_init()
 
     // Initialize VEX
     VexControl vc;
-    vc.iropt_verbosity              = 0;
-    vc.iropt_level                  = 2;
-    vc.iropt_precise_memory_exns    = False;
-    vc.iropt_unroll_thresh          = 0;
-    vc.guest_max_insns              = 1; // By default, we translate 1 instruction at a time
-    vc.guest_chase_thresh           = 0;
-    vc.guest_chase_cond             = 0;
+    vc.iropt_verbosity                  = 0;
+    vc.iropt_level                      = 2;
+    vc.iropt_register_updates_default   = VexRegUpdSpAtMemAccess;
+    vc.iropt_unroll_thresh              = 0;
+    vc.guest_max_insns                  = 1; // By default, we translate 1 instruction at a time
+    vc.guest_chase_thresh               = 0;
+    vc.guest_chase_cond                 = 0;
 
     LibVEX_Init(&failure_exit,
                 &log_bytes,
                 0,              // Debug level
-                False,          // Valgrind support
                 &vc);
 
     LibVEX_default_VexArchInfo(&vai);
-/*
+
+    // FIXME: determinate endianess by specified guest arch
+    vai.endness = VexEndnessLE;
+
+#ifdef USE_SSE
+
     // Enable SSE
     vai.hwcaps |= VEX_HWCAPS_X86_SSE1;
     vai.hwcaps |= VEX_HWCAPS_X86_SSE2;
     vai.hwcaps |= VEX_HWCAPS_X86_SSE3;
     vai.hwcaps |= VEX_HWCAPS_X86_LZCNT;
-*/
+
+#endif // USE_SSE
+
     // Setup the translation args
-    vta.arch_guest          = VexArch_INVALID; // to be assigned later
-    vta.archinfo_guest      = vai;
+    vta.arch_guest                  = VexArch_INVALID; // to be assigned later
+    vta.archinfo_guest              = vai;
 
+    //
     // FIXME: detect this one automatically
+    //
 #ifdef AMD64
     
-    vta.arch_host           = VexArchAMD64;
+    vta.arch_host                   = VexArchAMD64;
 
 #else
     
-    vta.arch_host           = VexArchX86;       // Target arch
+    vta.arch_host                   = VexArchX86;       // Target arch
 
 #endif
     
-    vta.archinfo_host       = vai;
-    vta.guest_bytes         = NULL;             // Set in translate_insns
-    vta.guest_bytes_addr    = 0;                // Set in translate_insns
-    vta.callback_opaque     = NULL;             // Used by chase_into_ok, but never actually called
-    vta.chase_into_ok       = chase_into_ok;    // Always returns false
-    vta.preamble_function   = NULL;
-    vta.guest_extents       = &vge;
+    vta.archinfo_host               = vai;
+    vta.guest_bytes                 = NULL;             // Set in translate_insns
+    vta.guest_bytes_addr            = 0;                // Set in translate_insns
+    vta.callback_opaque             = NULL;             // Used by chase_into_ok, but never actually called
+    vta.chase_into_ok               = chase_into_ok;    // Always returns false
+    vta.preamble_function           = NULL;
+    vta.guest_extents               = &vge;
 
 #ifdef AMD64
     
-    vta.host_bytes          = NULL;             // Buffer for storing the output binary
-    vta.host_bytes_size     = 0;
-    vta.host_bytes_used     = NULL;
+    vta.host_bytes                  = NULL;             // Buffer for storing the output binary
+    vta.host_bytes_size             = 0;
+    vta.host_bytes_used             = NULL;
 
 #else
     
-    vta.host_bytes          = tmpbuf;           // Buffer for storing the output binary
-    vta.host_bytes_size     = TMPBUF_SIZE;
-    vta.host_bytes_used     = &tmpbuf_used;
+    vta.host_bytes                  = tmpbuf;           // Buffer for storing the output binary
+    vta.host_bytes_size             = TMPBUF_SIZE;
+    vta.host_bytes_used             = &tmpbuf_used;
 
 #endif
 
-    vta.instrument1         = instrument1;      // Callback we defined to help us save the IR
-    vta.instrument2         = NULL;
-    vta.traceflags          = 0;                // Debug verbosity
-    vta.dispatch_unassisted = dispatch;         // Not used
-    vta.dispatch_assisted   = dispatch;         // Not used
-    vta.needs_self_check    = needs_self_check; // Not used
+    vta.instrument1                 = instrument1;      // Callback we defined to help us save the IR
+    vta.instrument2                 = NULL;
+    vta.traceflags                  = 0;                // Debug verbosity
+    
+    vta.disp_cp_chain_me_to_slowEP  = dispatch;         // Not used
+    vta.disp_cp_chain_me_to_fastEP  = dispatch;         // Not used
+    vta.disp_cp_xindir              = dispatch;         // Not used
+    vta.disp_cp_xassisted           = dispatch;         // Not used
+
+    vta.needs_self_check            = needs_self_check; // Not used
+
 }
 
 //----------------------------------------------------------------------
@@ -202,8 +219,8 @@ IRSB *translate_insn(VexArch guest,
         vta.archinfo_guest.hwcaps |= 5 /* ARMv5 */;
     }
 
-    vta.guest_bytes      = (UChar *)(insn_start); // Ptr to actual bytes of start of instruction
-    vta.guest_bytes_addr = (Addr64)(insn_addr);
+    vta.guest_bytes      = insn_start; // Ptr to actual bytes of start of instruction
+    vta.guest_bytes_addr = (Addr64)insn_addr;
 
     irbb_current = NULL;
     size_current = 0;

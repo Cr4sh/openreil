@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -58,7 +58,7 @@ void failure_exit ( void )
 }
 
 static
-void log_bytes ( HChar* bytes, Int nbytes )
+void log_bytes ( const HChar* bytes, SizeT nbytes )
 {
    fwrite ( bytes, 1, nbytes, stdout );
 }
@@ -84,10 +84,11 @@ IRSB* mc_instrument ( void* closureV,
                       IRType gWordTy, IRType hWordTy );
 #endif
 
-static Bool chase_into_not_ok ( void* opaque, Addr64 dst ) {
+static Bool chase_into_not_ok ( void* opaque, Addr dst ) {
    return False;
 }
-static UInt needs_self_check ( void* opaque, VexGuestExtents* vge ) {
+static UInt needs_self_check ( void *closureV, VexRegisterUpdates *pxControl,
+                               const VexGuestExtents *vge ) {
    return 0;
 }
 
@@ -102,12 +103,12 @@ int main ( int argc, char** argv )
    VexTranslateResult tres;
    VexControl vcon;
    VexGuestExtents vge;
-   VexArchInfo vai_x86, vai_amd64, vai_ppc32;
+   VexArchInfo vai_x86, vai_amd64, vai_ppc32, vai_arm, vai_mips32, vai_mips64;
    VexAbiInfo vbi;
    VexTranslateArgs vta;
 
    if (argc != 2) {
-      fprintf(stderr, "usage: vex file.org\n");
+      fprintf(stderr, "usage: vex file.orig\n");
       exit(1);
    }
    f = fopen(argv[1], "r");
@@ -123,11 +124,10 @@ int main ( int argc, char** argv )
       returns False. */
    LibVEX_default_VexControl ( &vcon );
    vcon.iropt_level = 2;
-   vcon.guest_max_insns = 50;
+   vcon.guest_max_insns = 60;
 
    LibVEX_Init ( &failure_exit, &log_bytes, 
                  1,  /* debug_paranoia */ 
-                 TEST_VSUPPORT, /* valgrind support */
                  &vcon );
 
 
@@ -157,27 +157,56 @@ int main ( int argc, char** argv )
                 "Start %x, nbytes %2d ============", 
                 bb_number, n_bbs_done-1, orig_addr, orig_nbytes);
 
+      /* thumb ITstate analysis needs to examine the 18 bytes
+         preceding the first instruction.  So let's leave the first 18
+         zeroed out. */
+      memset(origbuf, 0, sizeof(origbuf));
+
       assert(orig_nbytes >= 1 && orig_nbytes <= N_ORIGBUF);
       for (i = 0; i < orig_nbytes; i++) {
          assert(1 == sscanf(&linebuf[2 + 3*i], "%x", &u));
-         origbuf[i] = (UChar)u;
+         origbuf[18+ i] = (UChar)u;
       }
 
       /* FIXME: put sensible values into the .hwcaps fields */
       LibVEX_default_VexArchInfo(&vai_x86);
-      vai_x86.hwcaps = VEX_HWCAPS_X86_SSE1
+      vai_x86.hwcaps = VEX_HWCAPS_X86_MMXEXT | VEX_HWCAPS_X86_SSE1
                        | VEX_HWCAPS_X86_SSE2 | VEX_HWCAPS_X86_SSE3;
+      vai_x86.endness = VexEndnessLE;
 
       LibVEX_default_VexArchInfo(&vai_amd64);
       vai_amd64.hwcaps = 0;
+      vai_amd64.endness = VexEndnessLE;
 
       LibVEX_default_VexArchInfo(&vai_ppc32);
       vai_ppc32.hwcaps = 0;
-      vai_ppc32.ppc_cache_line_szB = 128;
+      vai_ppc32.ppc_icache_line_szB = 128;
+
+      LibVEX_default_VexArchInfo(&vai_arm);
+      vai_arm.hwcaps = VEX_HWCAPS_ARM_VFP3 | VEX_HWCAPS_ARM_NEON | 7;
+
+      LibVEX_default_VexArchInfo(&vai_mips32);
+      vai_mips32.endness = VexEndnessLE;
+      vai_mips32.hwcaps = VEX_PRID_COMP_MIPS;
+
+      LibVEX_default_VexArchInfo(&vai_mips64);
+      vai_mips64.endness = VexEndnessLE;
 
       LibVEX_default_VexAbiInfo(&vbi);
+      vbi.guest_stack_redzone_size = 128;
 
       /* ----- Set up args for LibVEX_Translate ----- */
+
+      vta.abiinfo_both    = vbi;
+      vta.guest_bytes     = &origbuf[18];
+      vta.guest_bytes_addr = orig_addr;
+      vta.callback_opaque = NULL;
+      vta.chase_into_ok   = chase_into_not_ok;
+      vta.guest_extents   = &vge;
+      vta.host_bytes      = transbuf;
+      vta.host_bytes_size = N_TRANSBUF;
+      vta.host_bytes_used = &trans_used;
+
 #if 0 /* ppc32 -> ppc32 */
       vta.arch_guest     = VexArchPPC32;
       vta.archinfo_guest = vai_ppc32;
@@ -190,22 +219,36 @@ int main ( int argc, char** argv )
       vta.arch_host      = VexArchAMD64;
       vta.archinfo_host  = vai_amd64;
 #endif
-#if 1 /* x86 -> x86 */
+#if 0 /* x86 -> x86 */
       vta.arch_guest     = VexArchX86;
       vta.archinfo_guest = vai_x86;
       vta.arch_host      = VexArchX86;
       vta.archinfo_host  = vai_x86;
 #endif
-      vta.abiinfo_both    = vbi;
-      vta.guest_bytes     = origbuf;
-      vta.guest_bytes_addr = (Addr64)orig_addr;
-      vta.callback_opaque = NULL;
-      vta.chase_into_ok   = chase_into_not_ok;
-      vta.guest_extents   = &vge;
-      vta.host_bytes      = transbuf;
-      vta.host_bytes_size = N_TRANSBUF;
-      vta.host_bytes_used = &trans_used;
-#if 0 /* no instrumentation */
+#if 1 /* x86 -> mips32 */
+      vta.arch_guest     = VexArchX86;
+      vta.archinfo_guest = vai_x86;
+      vta.arch_host      = VexArchMIPS32;
+      vta.archinfo_host  = vai_mips32;
+#endif
+#if 0 /* amd64 -> mips64 */
+      vta.arch_guest     = VexArchAMD64;
+      vta.archinfo_guest = vai_amd64;
+      vta.arch_host      = VexArchMIPS64;
+      vta.archinfo_host  = vai_mips64;
+#endif
+#if 0 /* arm -> arm */
+      vta.arch_guest     = VexArchARM;
+      vta.archinfo_guest = vai_arm;
+      vta.arch_host      = VexArchARM;
+      vta.archinfo_host  = vai_arm;
+      /* ARM/Thumb only hacks, that are needed to keep the ITstate
+         analyser in the front end happy.  */
+      vta.guest_bytes     = &origbuf[18 +1];
+      vta.guest_bytes_addr = (Addr) &origbuf[18 +1];
+#endif
+
+#if 1 /* no instrumentation */
       vta.instrument1     = NULL;
       vta.instrument2     = NULL;
 #endif
@@ -213,19 +256,20 @@ int main ( int argc, char** argv )
       vta.instrument1     = ac_instrument;
       vta.instrument2     = NULL;
 #endif
-#if 1 /* memcheck */
+#if 0 /* memcheck */
       vta.instrument1     = mc_instrument;
       vta.instrument2     = NULL;
 #endif
       vta.needs_self_check  = needs_self_check;
       vta.preamble_function = NULL;
       vta.traceflags      = TEST_FLAGS;
-#if 1 /* x86, amd64 hosts */
-      vta.dispatch_unassisted = (void*)0x12345678;
-      vta.dispatch_assisted   = (void*)0x12345678;
-#else /* ppc32, ppc64 hosts */
-      vta.dispatch        = NULL;
-#endif
+      vta.addProfInc      = False;
+      vta.sigill_diag     = True;
+
+      vta.disp_cp_chain_me_to_slowEP = (void*)0x12345678;
+      vta.disp_cp_chain_me_to_fastEP = (void*)0x12345679;
+      vta.disp_cp_xindir             = (void*)0x1234567A;
+      vta.disp_cp_xassisted          = (void*)0x1234567B;
 
       vta.finaltidy = NULL;
 
@@ -472,7 +516,7 @@ static void MC_helperc_value_check4_fail( void ) { }
    This file is part of MemCheck, a heavyweight Valgrind tool for
    detecting memory errors.
 
-   Copyright (C) 2000-2010 Julian Seward 
+   Copyright (C) 2000-2013 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -1183,7 +1227,7 @@ void do_shadow_PUTI ( MCEnv* mce,
       IRRegArray* new_descr 
          = mkIRRegArray( descr->base + mce->layout->total_sizeB, 
                       tyS, descr->nElems);
-      stmt( mce->bb, IRStmt_PutI( new_descr, ix, bias, vatom ));
+      stmt( mce->bb, IRStmt_PutI( mkIRPutI( new_descr, ix, bias, vatom ) ));
    }
 }
 
@@ -1927,13 +1971,12 @@ IRExpr* expr2vbits_Unop ( MCEnv* mce, IROp op, IRAtom* atom )
          return unary64F0x2(mce, vatom);
 
       case Iop_Sqrt32Fx4:
-      case Iop_RSqrt32Fx4:
-      case Iop_Recip32Fx4:
+      case Iop_RecipEst32Fx4:
          return unary32Fx4(mce, vatom);
 
       case Iop_Sqrt32F0x4:
-      case Iop_RSqrt32F0x4:
-      case Iop_Recip32F0x4:
+      case Iop_RSqrtEst32F0x4:
+      case Iop_RecipEst32F0x4:
          return unary32F0x4(mce, vatom);
 
       case Iop_32UtoV128:
@@ -2087,27 +2130,27 @@ IRAtom* expr2vbits_LDle ( MCEnv* mce, IRType ty, IRAtom* addr, UInt bias )
 
 
 static
-IRAtom* expr2vbits_Mux0X ( MCEnv* mce, 
-                           IRAtom* cond, IRAtom* expr0, IRAtom* exprX )
+IRAtom* expr2vbits_ITE ( MCEnv* mce, 
+                         IRAtom* cond, IRAtom* iftrue, IRAtom* iffalse )
 {
-   IRAtom *vbitsC, *vbits0, *vbitsX;
+   IRAtom *vbitsC, *vbits0, *vbits1;
    IRType ty;
-   /* Given Mux0X(cond,expr0,exprX), generate
-         Mux0X(cond,expr0#,exprX#) `UifU` PCast(cond#)
+   /* Given ITE(cond,iftrue,iffalse), generate
+         ITE(cond,iftrue#,iffalse#) `UifU` PCast(cond#)
       That is, steer the V bits like the originals, but trash the 
       result if the steering value is undefined.  This gives 
       lazy propagation. */
    tl_assert(isOriginalAtom(mce, cond));
-   tl_assert(isOriginalAtom(mce, expr0));
-   tl_assert(isOriginalAtom(mce, exprX));
+   tl_assert(isOriginalAtom(mce, iftrue));
+   tl_assert(isOriginalAtom(mce, iffalse));
 
    vbitsC = expr2vbits(mce, cond);
-   vbits0 = expr2vbits(mce, expr0);
-   vbitsX = expr2vbits(mce, exprX);
+   vbits0 = expr2vbits(mce, iffalse);
+   vbits1 = expr2vbits(mce, iftrue);
    ty = typeOfIRExpr(mce->bb->tyenv, vbits0);
 
    return
-      mkUifU(mce, ty, assignNew(mce, ty, IRExpr_Mux0X(cond, vbits0, vbitsX)),
+      mkUifU(mce, ty, assignNew(mce, ty, IRExpr_ITE(cond, vbits1, vbits0)),
                       mkPCastTo(mce, ty, vbitsC) );
 }      
 
@@ -2150,9 +2193,9 @@ IRExpr* expr2vbits ( MCEnv* mce, IRExpr* e )
                               e->Iex.CCall.retty,
                               e->Iex.CCall.cee );
 
-      case Iex_Mux0X:
-         return expr2vbits_Mux0X( mce, e->Iex.Mux0X.cond, e->Iex.Mux0X.expr0, 
-                                       e->Iex.Mux0X.exprX);
+      case Iex_ITE:
+         return expr2vbits_ITE( mce, e->Iex.ITE.cond, e->Iex.ITE.iftrue, 
+                                e->Iex.ITE.iffalse);
 
       default: 
          VG_(printf)("\n");
@@ -2539,10 +2582,10 @@ static Bool checkForBogusLiterals ( /*FLAT*/ IRStmt* st )
             case Iex_Binop: 
                return isBogusAtom(e->Iex.Binop.arg1)
                       || isBogusAtom(e->Iex.Binop.arg2);
-            case Iex_Mux0X:
-               return isBogusAtom(e->Iex.Mux0X.cond)
-                      || isBogusAtom(e->Iex.Mux0X.expr0)
-                      || isBogusAtom(e->Iex.Mux0X.exprX);
+            case Iex_ITE:
+               return isBogusAtom(e->Iex.ITE.cond)
+                      || isBogusAtom(e->Iex.ITE.iftrue)
+                      || isBogusAtom(e->Iex.ITE.iffalse);
             case Iex_Load: 
                return isBogusAtom(e->Iex.Load.addr);
             case Iex_CCall:
@@ -2637,10 +2680,10 @@ IRSB* mc_instrument ( void* closureV,
 
          case Ist_PutI:
             do_shadow_PUTI( &mce, 
-                            st->Ist.PutI.descr,
-                            st->Ist.PutI.ix,
-                            st->Ist.PutI.bias,
-                            st->Ist.PutI.data );
+                            st->Ist.PutI.details->descr,
+                            st->Ist.PutI.details->ix,
+                            st->Ist.PutI.details->bias,
+                            st->Ist.PutI.details->data );
             break;
 
          case Ist_Store:

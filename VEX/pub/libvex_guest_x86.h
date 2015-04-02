@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -37,7 +37,6 @@
 #define __LIBVEX_PUB_GUEST_X86_H
 
 #include "libvex_basictypes.h"
-#include "libvex_emwarn.h"
 
 
 /*---------------------------------------------------------------*/
@@ -141,40 +140,43 @@
 */
 typedef
    struct {
-      UInt  guest_EAX;         /* 0 */
+      /* Event check fail addr and counter. */
+      UInt  host_EvC_FAILADDR; /* 0 */
+      UInt  host_EvC_COUNTER;  /* 4 */
+      UInt  guest_EAX;         /* 8 */
       UInt  guest_ECX;
       UInt  guest_EDX;
       UInt  guest_EBX;
       UInt  guest_ESP;
       UInt  guest_EBP;
       UInt  guest_ESI;
-      UInt  guest_EDI;         /* 28 */
+      UInt  guest_EDI;         /* 36 */
 
       /* 4-word thunk used to calculate O S Z A C P flags. */
-      UInt  guest_CC_OP;       /* 32 */
+      UInt  guest_CC_OP;       /* 40 */
       UInt  guest_CC_DEP1;
       UInt  guest_CC_DEP2;
-      UInt  guest_CC_NDEP;     /* 44 */
+      UInt  guest_CC_NDEP;     /* 52 */
       /* The D flag is stored here, encoded as either -1 or +1 */
-      UInt  guest_DFLAG;       /* 48 */
+      UInt  guest_DFLAG;       /* 56 */
       /* Bit 21 (ID) of eflags stored here, as either 0 or 1. */
-      UInt  guest_IDFLAG;      /* 52 */
+      UInt  guest_IDFLAG;      /* 60 */
       /* Bit 18 (AC) of eflags stored here, as either 0 or 1. */
-      UInt  guest_ACFLAG;      /* 56 */
+      UInt  guest_ACFLAG;      /* 64 */
 
       /* EIP */
-      UInt  guest_EIP;         /* 60 */
+      UInt  guest_EIP;         /* 68 */
 
       /* FPU */
-      ULong guest_FPREG[8];    /* 64 */
-      UChar guest_FPTAG[8];   /* 128 */
-      UInt  guest_FPROUND;    /* 136 */
-      UInt  guest_FC3210;     /* 140 */
-      UInt  guest_FTOP;       /* 144 */
+      ULong guest_FPREG[8];    /* 72 */
+      UChar guest_FPTAG[8];   /* 136 */
+      UInt  guest_FPROUND;    /* 144 */
+      UInt  guest_FC3210;     /* 148 */
+      UInt  guest_FTOP;       /* 152 */
 
       /* SSE */
-      UInt  guest_SSEROUND;   /* 148 */
-      U128  guest_XMM0;       /* 152 */
+      UInt  guest_SSEROUND;   /* 156 */
+      U128  guest_XMM0;       /* 160 */
       U128  guest_XMM1;
       U128  guest_XMM2;
       U128  guest_XMM3;
@@ -194,12 +196,12 @@ typedef
       HWord  guest_LDT; /* host addr, a VexGuestX86SegDescr* */
       HWord  guest_GDT; /* host addr, a VexGuestX86SegDescr* */
 
-      /* Emulation warnings */
-      UInt   guest_EMWARN;
+      /* Emulation notes */
+      UInt   guest_EMNOTE;
 
-      /* For clflush: record start and length of area to invalidate */
-      UInt guest_TISTART;
-      UInt guest_TILEN;
+      /* For clflush/clinval: record start and length of area */
+      UInt guest_CMSTART;
+      UInt guest_CMLEN;
 
       /* Used to record the unredirected guest address at the start of
          a translation whose start has been redirected.  By reading
@@ -220,8 +222,6 @@ typedef
 
       /* Padding to make it have an 16-aligned size */
       UInt padding1;
-      UInt padding2;
-      UInt padding3;
    }
    VexGuestX86State;
 
@@ -277,7 +277,7 @@ void LibVEX_GuestX86_initialise ( /*OUT*/VexGuestX86State* vex_state );
 /* Extract from the supplied VexGuestX86State structure the
    corresponding native %eflags value. */
 extern 
-UInt LibVEX_GuestX86_get_eflags ( /*IN*/VexGuestX86State* vex_state );
+UInt LibVEX_GuestX86_get_eflags ( /*IN*/const VexGuestX86State* vex_state );
 
 /* Set the carry flag in the given state to 'new_carry_flag', which
    should be zero or one. */

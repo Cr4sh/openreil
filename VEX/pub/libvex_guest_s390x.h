@@ -8,7 +8,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright IBM Corp. 2010-2011
+   Copyright IBM Corp. 2010-2013
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -32,7 +32,6 @@
 #define __LIBVEX_PUB_GUEST_S390X_H
 
 #include "libvex_basictypes.h"
-#include "libvex_emwarn.h"
 
 /*------------------------------------------------------------*/
 /*--- Vex's representation of the s390 CPU state.          ---*/
@@ -109,7 +108,7 @@ typedef struct {
 
    /*  320 */  ULong guest_counter;
    /*  328 */  UInt guest_fpc;
-   /* 4-byte hole to enforce alignment requirements */
+   /*  332 */  UChar unused[4]; /* 4-byte hole to get 8-byte alignment */
    /*  336 */  ULong guest_IA;
 
 /*------------------------------------------------------------*/
@@ -133,21 +132,25 @@ typedef struct {
 
    /* See comments at bottom of libvex.h */
    /*  384 */  ULong guest_NRADDR;
-   /*  392 */  ULong guest_TISTART;
-   /*  400 */  ULong guest_TILEN;
+   /*  392 */  ULong guest_CMSTART;
+   /*  400 */  ULong guest_CMLEN;
 
    /* Used when backing up to restart a syscall that has
       been interrupted by a signal. See also comment in
       libvex_ir.h */
    /*  408 */  ULong guest_IP_AT_SYSCALL;
 
-   /* Emulation warnings; see comments in libvex_emwarn.h */
-   /*  416 */  UInt guest_EMWARN;
+   /* Emulation notes; see comments in libvex_emnote.h */
+   /*  416 */  UInt guest_EMNOTE;
+
+   /* For translation chaining */
+   /*  420 */  UInt  host_EvC_COUNTER;
+   /*  424 */  ULong host_EvC_FAILADDR;
 
 /*------------------------------------------------------------*/
 /*--- Force alignment to 16 bytes                          ---*/
 /*------------------------------------------------------------*/
-   /*  420 */  UChar padding[12];
+   /*  432 */  UChar padding[0];
 
    /*  432 */  /* This is the size of the guest state */
 } VexGuestS390XState;

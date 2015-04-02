@@ -1065,7 +1065,6 @@ Exp *translate_binop(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 
     case Iop_F64toI32U: /* IRRoundingMode(I32) x F64 -> unsigned I32 */
 
-    case Iop_I16StoF64: /*                       signed I16 -> F64 */
     case Iop_I32StoF64: /*                       signed I32 -> F64 */
     case Iop_I64StoF64: /* IRRoundingMode(I32) x signed I64 -> F64 */
     case Iop_I64UtoF64: /* IRRoundingMode(I32) x unsigned I64 -> F64 */
@@ -1073,11 +1072,9 @@ Exp *translate_binop(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 
     case Iop_I32UtoF64: /*                       unsigned I32 -> F64 */
 
-    case Iop_F32toI16S: /* IRRoundingMode(I32) x F32 -> signed I16 */
     case Iop_F32toI32S: /* IRRoundingMode(I32) x F32 -> signed I32 */
     case Iop_F32toI64S: /* IRRoundingMode(I32) x F32 -> signed I64 */
 
-    case Iop_I16StoF32: /*                       signed I16 -> F32 */
     case Iop_I32StoF32: /* IRRoundingMode(I32) x signed I32 -> F32 */
     case Iop_I64StoF32: /* IRRoundingMode(I32) x signed I64 -> F32 */
 
@@ -1177,10 +1174,10 @@ Exp *translate_triop(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
     // the first argument specifies the rounding mode, which we have
     // chosen to ignore for now. See Notes for detailed explanation.
     //
-    Exp *arg2 = translate_expr(expr->Iex.Triop.arg2, irbb, irout);
-    Exp *arg3 = translate_expr(expr->Iex.Triop.arg3, irbb, irout);
+    Exp *arg2 = translate_expr(expr->Iex.Triop.details->arg2, irbb, irout);
+    Exp *arg3 = translate_expr(expr->Iex.Triop.details->arg3, irbb, irout);
 
-    switch (expr->Iex.Triop.op)
+    switch (expr->Iex.Triop.details->op)
     {
 
     case Iop_AddF64:
@@ -1279,29 +1276,29 @@ Exp *emit_mux0x(vector<Stmt *> *irout, reg_t type,
     return temp;
 }
 
-Exp *translate_mux0x(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
+Exp *translate_ITE(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 {
     assert(expr);
     assert(irbb);
     assert(irout);
 
-    IRExpr *cond = expr->Iex.Mux0X.cond;
-    IRExpr *expr0 = expr->Iex.Mux0X.expr0;
-    IRExpr *exprX = expr->Iex.Mux0X.exprX;
+    IRExpr *cond = expr->Iex.ITE.cond;
+    IRExpr *iftrue = expr->Iex.ITE.iftrue;
+    IRExpr *iffalse = expr->Iex.ITE.iffalse;
 
     assert(cond);
-    assert(expr0);
-    assert(exprX);
+    assert(iftrue);
+    assert(iffalse);
 
     // It's assumed that both true and false expressions have the
     // same type so that when we create a temp to assign it to, we
     // can just use one type
-    reg_t type = IRType_to_reg_type(typeOfIRExpr(irbb->tyenv, expr0));
+    reg_t type = IRType_to_reg_type(typeOfIRExpr(irbb->tyenv, iftrue));
     reg_t cond_type = IRType_to_reg_type(typeOfIRExpr(irbb->tyenv, cond));
 
     Exp *condE = translate_expr(cond, irbb, irout);
-    Exp *exp0 = translate_expr(expr0, irbb, irout);
-    Exp *expX = translate_expr(exprX, irbb, irout);
+    Exp *exp0 = translate_expr(iftrue, irbb, irout);
+    Exp *expX = translate_expr(iffalse, irbb, irout);
 
     condE = _ex_eq(condE, ex_const(cond_type, 0));
 
@@ -1398,9 +1395,9 @@ Exp *translate_expr(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
         result = translate_const(expr);
         break;
     
-    case Iex_Mux0X:
+    case Iex_ITE:
     
-        result = translate_mux0x(expr, irbb, irout);
+        result = translate_ITE(expr, irbb, irout);
         break;
     
     case Iex_CCall:

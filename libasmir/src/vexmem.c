@@ -18,7 +18,7 @@
 #define Ist_MFence Ist_MBE
 #endif
 
-static IRCallee *vx_mkIRCallee(Int regparms, HChar *name, void *addr);
+static IRCallee *vx_mkIRCallee(Int regparms, const HChar *name, void *addr);
 static IRRegArray *vx_mkIRRegArray(Int base, IRType elemTy, Int nElems);
 static IRExpr *vx_IRExpr_Get(Int off, IRType ty);
 static IRExpr *vx_IRExpr_GetI(IRRegArray *descr, IRExpr *ix, Int bias);
@@ -30,7 +30,8 @@ static IRExpr *vx_IRExpr_Unop(IROp op, IRExpr *arg);
 static IRExpr *vx_IRExpr_Load(IREndness end, IRType ty, IRExpr *addr);
 static IRExpr *vx_IRExpr_Const(IRConst *con);
 static IRExpr *vx_IRExpr_CCall(IRCallee *cee, IRType retty, IRExpr **args);
-static IRExpr *vx_IRExpr_Mux0X(IRExpr *cond, IRExpr *expr0, IRExpr *exprX);
+static IRExpr *vx_IRExpr_ITE(IRExpr *cond, IRExpr *expr0, IRExpr *exprX);
+static IRExpr *vx_IRExpr_BBPTR(void);
 static IRDirty *vx_emptyIRDirty(void);
 static IRStmt *vx_IRStmt_NoOp(void);
 static IRStmt *vx_IRStmt_IMark(Addr64 addr, Int len);
@@ -117,7 +118,7 @@ void vx_FreeAll()
 //======================================================================
 
 /* Constructors -- IRCallee */
-IRCallee *vx_mkIRCallee(Int regparms, HChar *name, void *addr)
+IRCallee *vx_mkIRCallee(Int regparms, const HChar *name, void *addr)
 {
     IRCallee *ce = (IRCallee *)vx_Alloc(sizeof(IRCallee));
     
@@ -188,11 +189,11 @@ IRExpr *vx_IRExpr_Qop(IROp op, IRExpr *arg1, IRExpr *arg2, IRExpr *arg3, IRExpr 
     IRExpr *e = (IRExpr *)vx_Alloc(sizeof(IRExpr));
     
     e->tag = Iex_Qop;
-    e->Iex.Qop.op = op;
-    e->Iex.Qop.arg1 = arg1;
-    e->Iex.Qop.arg2 = arg2;
-    e->Iex.Qop.arg3 = arg3;
-    e->Iex.Qop.arg4 = arg4;
+    e->Iex.Qop.details->op = op;
+    e->Iex.Qop.details->arg1 = arg1;
+    e->Iex.Qop.details->arg2 = arg2;
+    e->Iex.Qop.details->arg3 = arg3;
+    e->Iex.Qop.details->arg4 = arg4;
     
     return e;
 }
@@ -202,10 +203,10 @@ IRExpr *vx_IRExpr_Triop(IROp op, IRExpr *arg1, IRExpr *arg2, IRExpr *arg3)
     IRExpr *e = (IRExpr *)vx_Alloc(sizeof(IRExpr));
     
     e->tag = Iex_Triop;
-    e->Iex.Triop.op   = op;
-    e->Iex.Triop.arg1 = arg1;
-    e->Iex.Triop.arg2 = arg2;
-    e->Iex.Triop.arg3 = arg3;
+    e->Iex.Triop.details->op   = op;
+    e->Iex.Triop.details->arg1 = arg1;
+    e->Iex.Triop.details->arg2 = arg2;
+    e->Iex.Triop.details->arg3 = arg3;
     
     return e;
 }
@@ -269,14 +270,23 @@ IRExpr *vx_IRExpr_CCall(IRCallee *cee, IRType retty, IRExpr **args)
     return e;
 }
 
-IRExpr *vx_IRExpr_Mux0X(IRExpr *cond, IRExpr *expr0, IRExpr *exprX)
+IRExpr *vx_IRExpr_ITE(IRExpr *cond, IRExpr *iftrue, IRExpr *iffalse)
 {
     IRExpr *e = (IRExpr *)vx_Alloc(sizeof(IRExpr));
     
-    e->tag = Iex_Mux0X;
-    e->Iex.Mux0X.cond = cond;
-    e->Iex.Mux0X.expr0 = expr0;
-    e->Iex.Mux0X.exprX = exprX;
+    e->tag = Iex_ITE;
+    e->Iex.ITE.cond = cond;
+    e->Iex.ITE.iftrue = iftrue;
+    e->Iex.ITE.iffalse = iffalse;
+
+    return e;
+}
+
+IRExpr *vx_IRExpr_BBPTR(void)
+{
+    IRExpr *e = (IRExpr *)vx_Alloc(sizeof(IRExpr));
+    
+    e->tag = Iex_BBPTR;
 
     return e;
 }
@@ -293,7 +303,6 @@ IRDirty *vx_emptyIRDirty(void)
     d->mFx = Ifx_None;
     d->mAddr = NULL;
     d->mSize = 0;
-    d->needsBBP = False;
     d->nFxState = 0;
     
     return d;
@@ -348,10 +357,10 @@ IRStmt *vx_IRStmt_PutI(IRRegArray *descr, IRExpr *ix, Int bias, IRExpr *data)
     IRStmt *s = (IRStmt *)vx_Alloc(sizeof(IRStmt));
     
     s->tag = Ist_PutI;
-    s->Ist.PutI.descr = descr;
-    s->Ist.PutI.ix = ix;
-    s->Ist.PutI.bias = bias;
-    s->Ist.PutI.data = data;
+    s->Ist.PutI.details->descr = descr;
+    s->Ist.PutI.details->ix = ix;
+    s->Ist.PutI.details->bias = bias;
+    s->Ist.PutI.details->data = data;
 
     return s;
 }
@@ -542,18 +551,18 @@ IRExpr *vx_dopyIRExpr(IRExpr *e)
 
     case Iex_Qop:
 
-        return vx_IRExpr_Qop(e->Iex.Qop.op,
-                             vx_dopyIRExpr(e->Iex.Qop.arg1),
-                             vx_dopyIRExpr(e->Iex.Qop.arg2),
-                             vx_dopyIRExpr(e->Iex.Qop.arg3),
-                             vx_dopyIRExpr(e->Iex.Qop.arg4));
+        return vx_IRExpr_Qop(e->Iex.Qop.details->op,
+                             vx_dopyIRExpr(e->Iex.Qop.details->arg1),
+                             vx_dopyIRExpr(e->Iex.Qop.details->arg2),
+                             vx_dopyIRExpr(e->Iex.Qop.details->arg3),
+                             vx_dopyIRExpr(e->Iex.Qop.details->arg4));
 
     case Iex_Triop:
         
-        return vx_IRExpr_Triop(e->Iex.Triop.op,
-                               vx_dopyIRExpr(e->Iex.Triop.arg1),
-                               vx_dopyIRExpr(e->Iex.Triop.arg2),
-                               vx_dopyIRExpr(e->Iex.Triop.arg3));
+        return vx_IRExpr_Triop(e->Iex.Triop.details->op,
+                               vx_dopyIRExpr(e->Iex.Triop.details->arg1),
+                               vx_dopyIRExpr(e->Iex.Triop.details->arg2),
+                               vx_dopyIRExpr(e->Iex.Triop.details->arg3));
 
     case Iex_Binop:
         
@@ -582,18 +591,22 @@ IRExpr *vx_dopyIRExpr(IRExpr *e)
                                e->Iex.CCall.retty,
                                vx_dopyIRExprVec(e->Iex.CCall.args));
 
-    case Iex_Mux0X:
+    case Iex_ITE:
         
-        return vx_IRExpr_Mux0X(vx_dopyIRExpr(e->Iex.Mux0X.cond),
-                               vx_dopyIRExpr(e->Iex.Mux0X.expr0),
-                               vx_dopyIRExpr(e->Iex.Mux0X.exprX));
+        return vx_IRExpr_ITE(vx_dopyIRExpr(e->Iex.ITE.cond),
+                             vx_dopyIRExpr(e->Iex.ITE.iftrue),
+                             vx_dopyIRExpr(e->Iex.ITE.iffalse));
+
+    case Iex_BBPTR:
+
+        return vx_IRExpr_BBPTR();
 
     case Iex_Binder:
         
         vx_panic("vx_dopyIRExpr: case Iex_Binder (this should not be seen outside VEX)");
 
     default:
-        
+
         vx_panic("vx_dopyIRExpr");
     }
 
@@ -612,7 +625,6 @@ IRDirty *vx_dopyIRDirty(IRDirty *d)
     d2->mFx = d->mFx;
     d2->mAddr = d->mAddr == NULL ? NULL : vx_dopyIRExpr(d->mAddr);
     d2->mSize = d->mSize;
-    d2->needsBBP = d->needsBBP;
     d2->nFxState = d->nFxState;
 
     for (i = 0; i < d2->nFxState; i++)
@@ -670,10 +682,10 @@ IRStmt *vx_dopyIRStmt(IRStmt *s)
 
     case Ist_PutI:
         
-        return vx_IRStmt_PutI(vx_dopyIRRegArray(s->Ist.PutI.descr),
-                              vx_dopyIRExpr(s->Ist.PutI.ix),
-                              s->Ist.PutI.bias,
-                              vx_dopyIRExpr(s->Ist.PutI.data));
+        return vx_IRStmt_PutI(vx_dopyIRRegArray(s->Ist.PutI.details->descr),
+                              vx_dopyIRExpr(s->Ist.PutI.details->ix),
+                              s->Ist.PutI.details->bias,
+                              vx_dopyIRExpr(s->Ist.PutI.details->data));
 
     case Ist_WrTmp:
         
@@ -758,5 +770,3 @@ IRSB *vx_dopyIRSB(IRSB *bb)
     
     return bb2;
 }
-
-

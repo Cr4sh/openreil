@@ -1,14 +1,14 @@
 /* -*- mode: C; c-basic-offset: 3; -*- */
 
 /*---------------------------------------------------------------*/
-/*--- begin                                host_s390_disasm.c ---*/
+/*--- begin                                     s390_disasm.c ---*/
 /*---------------------------------------------------------------*/
 
 /*
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright IBM Corp. 2010-2011
+   Copyright IBM Corp. 2010-2013
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -34,12 +34,22 @@
 #include "libvex_basictypes.h"
 #include "main_util.h"        // vassert
 #include "main_globals.h"     // vex_traceflags
-#include "host_s390_disasm.h"
+#include "s390_defs.h"        // S390_MAX_MNEMONIC_LEN
+#include "s390_disasm.h"
 
-/* The format that is used to write out a mnemonic.
-   These should be declared as 'const HChar' but vex_printf needs
-   to be changed for that first */
-static HChar s390_mnm_fmt[] = "%-8s";
+
+/* Return the mnemonic padded with blanks to its right */
+static const HChar *
+mnemonic(const HChar *mnm)
+{
+   vassert(vex_strlen(mnm) <= S390_MAX_MNEMONIC_LEN);
+
+   static HChar buf[S390_MAX_MNEMONIC_LEN + 1];
+
+   vex_sprintf(buf, "%-*s", S390_MAX_MNEMONIC_LEN, mnm);
+
+   return buf;
+}
 
 
 /* Return the name of a general purpose register for dis-assembly purposes. */
@@ -102,11 +112,14 @@ cab_operand(const HChar *base, UInt mask)
    HChar *to;
    const HChar *from;
 
-   static HChar buf[10];   /* Maximum is 6 + 2 */
+   static HChar buf[S390_MAX_MNEMONIC_LEN + 1];
 
-   static HChar *suffix[] = {
+   static const HChar suffix[8][3] = {
       "", "h", "l", "ne", "e", "nl", "nh", ""
    };
+
+   /* Guard against buffer overflow */
+   vassert(vex_strlen(base) + sizeof suffix[0] <= sizeof buf);
 
    /* strcpy(buf, from); */
    for (from = base, to = buf; *from; ++from, ++to) {
@@ -121,6 +134,7 @@ cab_operand(const HChar *base, UInt mask)
    return buf;
 }
 
+
 /* Common function used to construct a mnemonic based on a condition code
    mask. */
 static const HChar *
@@ -129,7 +143,7 @@ construct_mnemonic(const HChar *prefix, const HChar *suffix, UInt mask)
    HChar *to;
    const HChar *from;
 
-   static HChar buf[10];
+   static HChar buf[S390_MAX_MNEMONIC_LEN + 1];
 
    static HChar mask_id[16][4] = {
       "", /* 0 -> unused */
@@ -139,7 +153,8 @@ construct_mnemonic(const HChar *prefix, const HChar *suffix, UInt mask)
    };
 
    /* Guard against buffer overflow */
-   vassert(vex_strlen(prefix) + vex_strlen(suffix) + sizeof mask_id[0] <= sizeof buf);
+   vassert(vex_strlen(prefix) + vex_strlen(suffix) +
+           sizeof mask_id[0] <= sizeof buf);
 
    /* strcpy(buf, prefix); */
    for (from = prefix, to = buf; *from; ++from, ++to) {
@@ -207,7 +222,7 @@ brcl_operand(UInt m1)
 static const HChar *
 cls_operand(Int kind, UInt mask)
 {
-   HChar *prefix;
+   const HChar *prefix;
 
    switch (kind) {
    case S390_XMNM_LOCR:   prefix = "locr";  break;
@@ -231,7 +246,7 @@ static HChar *
 dxb_operand(HChar *p, UInt d, UInt x, UInt b, Bool displacement_is_signed)
 {
    if (displacement_is_signed) {
-      Int displ = ((Int)d << 12) >> 12;  /* sign extend */
+      Int displ = (Int)(d << 12) >> 12;  /* sign extend */
 
       p += vex_sprintf(p, "%d", displ);
    } else {
@@ -281,7 +296,7 @@ void
 s390_disasm(UInt command, ...)
 {
    va_list  args;
-   unsigned argkind;
+   UInt argkind;
    HChar buf[128];  /* holds the disassembled insn */
    HChar *p;
    HChar separator;
@@ -306,7 +321,7 @@ s390_disasm(UInt command, ...)
       /* argument */
       switch (argkind) {
       case S390_ARG_MNM:
-         p += vex_sprintf(p, s390_mnm_fmt, va_arg(args, HChar *));
+         p += vex_sprintf(p, "%s", mnemonic(va_arg(args, HChar *)));
          separator = ' ';
          continue;
 
@@ -322,7 +337,7 @@ s390_disasm(UInt command, ...)
          case S390_XMNM_BCR:
             mask = va_arg(args, UInt);
             mnm = kind == S390_XMNM_BCR ? bcr_operand(mask) : bc_operand(mask);
-            p  += vex_sprintf(p, s390_mnm_fmt, mnm);
+            p  += vex_sprintf(p, "%s", mnemonic(mnm));
             /* mask == 0 is a NOP and has no argument */
             if (mask == 0) goto done;
             break;
@@ -331,7 +346,7 @@ s390_disasm(UInt command, ...)
          case S390_XMNM_BRCL:
             mask = va_arg(args, UInt);
             mnm = kind == S390_XMNM_BRC ? brc_operand(mask) : brcl_operand(mask);
-            p  += vex_sprintf(p, s390_mnm_fmt, mnm);
+            p  += vex_sprintf(p, "%s", mnemonic(mnm));
 
             /* mask == 0 has no special mnemonic */
             if (mask == 0) {
@@ -343,7 +358,7 @@ s390_disasm(UInt command, ...)
          case S390_XMNM_CAB:
             mnm  = va_arg(args, HChar *);
             mask = va_arg(args, UInt);
-            p  += vex_sprintf(p, s390_mnm_fmt, cab_operand(mnm, mask));
+            p  += vex_sprintf(p, "%s", mnemonic(cab_operand(mnm, mask)));
             break;
 
          case S390_XMNM_LOCR:
@@ -354,7 +369,7 @@ s390_disasm(UInt command, ...)
          case S390_XMNM_STOCG:
             mask = va_arg(args, UInt);
             mnm = cls_operand(kind, mask);
-            p  += vex_sprintf(p, s390_mnm_fmt, mnm);
+            p  += vex_sprintf(p, "%s", mnemonic(mnm));
             /* There are no special opcodes when mask == 0 or 15. In that case
                the integer mask is appended as the final operand */
             if (mask == 0 || mask == 15) mask_suffix = mask;
@@ -384,15 +399,15 @@ s390_disasm(UInt command, ...)
          break;
 
       case S390_ARG_PCREL: {
-         Int offset = (Int)(va_arg(args, UInt));
+         Long offset = va_arg(args, Int);
 
          /* Convert # halfwords to # bytes */
          offset <<= 1;
 
          if (offset < 0) {
-            p += vex_sprintf(p, ".%d", offset);
+            p += vex_sprintf(p, ".%lld", offset);
          } else {
-            p += vex_sprintf(p, ".+%u", offset);
+            p += vex_sprintf(p, ".+%lld", offset);
          }
          break;
       }
@@ -459,5 +474,5 @@ s390_disasm(UInt command, ...)
 }
 
 /*---------------------------------------------------------------*/
-/*--- end                                  host_s390_disasm.c ---*/
+/*--- end                                       s390_disasm.c ---*/
 /*---------------------------------------------------------------*/

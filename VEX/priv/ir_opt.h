@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -41,13 +41,15 @@
 #include "libvex.h"
 
 /* Top level optimiser entry point.  Returns a new BB.  Operates
-   under the control of the global "vex_control" struct. */
+   under the control of the global "vex_control" struct and of the
+   supplied |pxControl| argument. */
 extern 
-IRSB* do_iropt_BB(
+IRSB* do_iropt_BB (
          IRSB* bb,
-         IRExpr* (*specHelper) (HChar*, IRExpr**, IRStmt**, Int),
-         Bool (*preciseMemExnsFn)(Int,Int),
-         Addr64 guest_addr,
+         IRExpr* (*specHelper) (const HChar*, IRExpr**, IRStmt**, Int),
+         Bool (*preciseMemExnsFn)(Int,Int,VexRegisterUpdates),
+         VexRegisterUpdates pxControl,
+         Addr    guest_addr,
          VexArch guest_arch
       );
 
@@ -60,9 +62,15 @@ extern
 void do_deadcode_BB ( IRSB* bb );
 
 /* The tree-builder.  Make (approximately) maximal safe trees.  bb is
-   destructively modified. */
+   destructively modified.  Returns (unrelatedly, but useful later on)
+   the guest address of the highest addressed byte from any insn in
+   this block, or Addr_MAX if unknown (can that ever happen?) */
 extern
-void ado_treebuild_BB ( IRSB* bb );
+Addr ado_treebuild_BB (
+        IRSB* bb,
+        Bool (*preciseMemExnsFn)(Int,Int,VexRegisterUpdates),
+        VexRegisterUpdates pxControl
+     );
 
 #endif /* ndef __VEX_IR_OPT_H */
 

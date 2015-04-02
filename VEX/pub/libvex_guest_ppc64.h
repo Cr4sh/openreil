@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -37,7 +37,6 @@
 #define __LIBVEX_PUB_GUEST_PPC64_H
 
 #include "libvex_basictypes.h"
-#include "libvex_emwarn.h"
 
 /*
     volatile ==  caller-saved (not preserved across function calls)
@@ -86,6 +85,12 @@ vrsave    Non-volatile 32-bit register
 
 typedef
    struct {
+     /* Event check fail addr, counter, and padding to make GPR0 16
+        aligned. */
+      /*   0 */ ULong  host_EvC_FAILADDR;
+      /*   8 */ UInt   host_EvC_COUNTER;
+      /*  12 */ UInt   pad0;
+      /* Add 16 to all of the offsets below .. */
       /* General Purpose Registers */
       /*   0 */ ULong guest_GPR0;
       /*   8 */ ULong guest_GPR1;
@@ -227,8 +232,12 @@ typedef
       /* 1322 */ UChar guest_CR7_321; /* in [3:1] */
       /* 1323 */ UChar guest_CR7_0;   /* in lsb */
 
-      /* FP Status & Control Register fields */
-      /* 1324 */ UInt guest_FPROUND; // FP Rounding Mode
+      /* FP Status and  Control Register fields. Only rounding mode fields
+	 are supported. */
+      /* 1324 */ UChar guest_FPROUND; // Binary Floating Point Rounding Mode
+      /* 1325 */ UChar guest_DFPROUND; // Decimal Floating Point Rounding Mode
+      /* 1326 */ UChar pad1;
+      /* 1327 */ UChar pad2;
 
       /* Vector Save/Restore Register */
       /* 1328 */ UInt guest_VRSAVE;
@@ -236,15 +245,15 @@ typedef
       /* Vector Status and Control Register */
       /* 1332 */ UInt guest_VSCR;
 
-      /* Emulation warnings */
-      /* 1336 */ UInt guest_EMWARN;
+      /* Emulation notes */
+      /* 1336 */ UInt guest_EMNOTE;
 
       /* gcc adds 4 bytes padding here: pre-empt it. */
       /* 1340 */ UInt  padding;
 
       /* For icbi: record start and length of area to invalidate */
-      /* 1344 */ ULong guest_TISTART;
-      /* 1352 */ ULong guest_TILEN;
+      /* 1344 */ ULong guest_CMSTART;
+      /* 1352 */ ULong guest_CMLEN;
 
       /* Used to record the unredirected guest address at the start of
          a translation whose start has been redirected.  By reading
@@ -262,7 +271,7 @@ typedef
       /* 1376 */ ULong guest_REDIR_SP;
       /* 1384 */ ULong guest_REDIR_STACK[VEX_GUEST_PPC64_REDIR_STACK_SIZE];
 
-      /* Needed for AIX: CIA at the last SC insn.  Used when backing up
+      /* Needed for Darwin: CIA at the last SC insn.  Used when backing up
          to restart a syscall that has been interrupted by a signal. */
       /* 1640 */ ULong guest_IP_AT_SYSCALL;
 
@@ -270,8 +279,10 @@ typedef
          threading on AIX. */
       /* 1648 */ ULong guest_SPRG3_RO;
 
-      /* Padding to make it have an 16-aligned size */
-      /* 1656 */ ULong padding2;
+      /* 1656 */ ULong guest_TFHAR;     // Transaction Failure Handler Address Register 
+      /* 1664 */ ULong guest_TEXASR;    // Transaction EXception And Summary Register
+      /* 1672 */ ULong guest_TFIAR;     // Transaction Failure Instruction Address Register
+
    }
    VexGuestPPC64State;
 
@@ -297,7 +308,7 @@ void LibVEX_GuestPPC64_put_CR ( UInt cr_native,
    corresponding native %CR value.  Note, %CR is 32-bits even for
    ppc64. */
 extern
-UInt LibVEX_GuestPPC64_get_CR ( /*IN*/VexGuestPPC64State* vex_state );
+UInt LibVEX_GuestPPC64_get_CR ( /*IN*/const VexGuestPPC64State* vex_state );
 
 
 /* Write the given native %XER value to the supplied
@@ -311,7 +322,7 @@ void LibVEX_GuestPPC64_put_XER ( UInt xer_native,
    corresponding native %XER value.  Note, %CR is 32-bits even for
    ppc64. */
 extern
-UInt LibVEX_GuestPPC64_get_XER ( /*IN*/VexGuestPPC64State* vex_state );
+UInt LibVEX_GuestPPC64_get_XER ( /*IN*/const VexGuestPPC64State* vex_state );
 
 #endif /* ndef __LIBVEX_PUB_GUEST_PPC64_H */
 

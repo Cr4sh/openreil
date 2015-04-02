@@ -6,7 +6,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -32,6 +32,8 @@
 #ifndef __VEX_GUEST_ARM_DEFS_H
 #define __VEX_GUEST_ARM_DEFS_H
 
+#include "libvex_basictypes.h"
+#include "guest_generic_bb_to_IR.h"     // DisResult
 
 /*---------------------------------------------------------*/
 /*--- arm to IR conversion                              ---*/
@@ -41,21 +43,21 @@
    bb_to_IR.h. */
 extern
 DisResult disInstr_ARM ( IRSB*        irbb,
-                         Bool         put_IP,
-                         Bool         (*resteerOkFn) ( void*, Addr64 ),
+                         Bool         (*resteerOkFn) ( void*, Addr ),
                          Bool         resteerCisOk,
                          void*        callback_opaque,
-                         UChar*       guest_code,
+                         const UChar* guest_code,
                          Long         delta,
-                         Addr64       guest_IP,
+                         Addr         guest_IP,
                          VexArch      guest_arch,
-                         VexArchInfo* archinfo,
-                         VexAbiInfo*  abiinfo,
-                         Bool         host_bigendian );
+                         const VexArchInfo* archinfo,
+                         const VexAbiInfo*  abiinfo,
+                         VexEndness   host_endness,
+                         Bool         sigill_diag );
 
 /* Used by the optimiser to specialise calls to helpers. */
 extern
-IRExpr* guest_arm_spechelper ( HChar*   function_name,
+IRExpr* guest_arm_spechelper ( const HChar* function_name,
                                IRExpr** args,
                                IRStmt** precedingStmts,
                                Int      n_precedingStmts );
@@ -64,7 +66,8 @@ IRExpr* guest_arm_spechelper ( HChar*   function_name,
    precise memory exceptions.  This is logically part of the guest
    state description. */
 extern 
-Bool guest_arm_state_requires_precise_mem_exns ( Int, Int );
+Bool guest_arm_state_requires_precise_mem_exns ( Int, Int,
+                                                 VexRegisterUpdates );
 
 extern
 VexGuestLayout armGuest_layout;
@@ -157,7 +160,7 @@ UInt armg_calculate_flag_qc ( UInt resL1, UInt resL2,
    OP                DEP1              DEP2              DEP3
    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   OP_COPY           current NZCV      unused            unused
+   OP_COPY           curr_NZCV:28x0    unused            unused
    OP_ADD            argL              argR              unused
    OP_SUB            argL              argR              unused
    OP_ADC            argL              argR              31x0:old_C

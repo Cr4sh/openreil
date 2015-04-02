@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -192,21 +192,21 @@ void convert_f64le_to_f80le ( /*IN*/UChar* f64, /*OUT*/UChar* f80 )
          preserve them.  Anyway, here, the NaN's identity is
          destroyed.  Could be improved. */
       if (f64[6] & 8) {
-         /* QNaN.  Make a QNaN:
-            S 1--1 (15)  1  1--1 (63) 
+         /* QNaN.  Make a canonical QNaN:
+            S 1--1 (15)  1 1  0--0 (62) 
          */
          f80[9] = toUChar( (sign << 7) | 0x7F );
          f80[8] = 0xFF;
-         f80[7] = 0xFF;
+         f80[7] = 0xC0;
          f80[6] = f80[5] = f80[4] = f80[3] 
-                = f80[2] = f80[1] = f80[0] = 0xFF;
+                = f80[2] = f80[1] = f80[0] = 0x00;
       } else {
          /* SNaN.  Make a SNaN:
-            S 1--1 (15)  0  1--1 (63) 
+            S 1--1 (15)  1 0  1--1 (62) 
          */
          f80[9] = toUChar( (sign << 7) | 0x7F );
          f80[8] = 0xFF;
-         f80[7] = 0x7F;
+         f80[7] = 0xBF;
          f80[6] = f80[5] = f80[4] = f80[3] 
                 = f80[2] = f80[1] = f80[0] = 0xFF;
       }
@@ -265,9 +265,9 @@ void convert_f80le_to_f64le ( /*IN*/UChar* f80, /*OUT*/UChar* f64 )
    
    /* If the exponent is 7FFF, this is either an Infinity, a SNaN or
       QNaN, as determined by examining bits 62:0, thus:
-          0  ... 0    Inf
-          0X ... X    SNaN
-          1X ... X    QNaN
+          10  ... 0    Inf
+          10X ... X    SNaN
+          11X ... X    QNaN
       where at least one of the Xs is not zero.
    */
    if (bexp == 0x7FFF) {
@@ -289,19 +289,19 @@ void convert_f80le_to_f64le ( /*IN*/UChar* f80, /*OUT*/UChar* f64 )
          return;
       }
       /* So it's either a QNaN or SNaN.  Distinguish by considering
-         bit 62.  Note, this destroys all the trailing bits
+         bit 61.  Note, this destroys all the trailing bits
          (identity?) of the NaN.  IEEE754 doesn't require preserving
          these (it only requires that there be one QNaN value and one
          SNaN value), but x87 does seem to have some ability to
          preserve them.  Anyway, here, the NaN's identity is
          destroyed.  Could be improved. */
-      if (f80[8] & 0x40) {
-         /* QNaN.  Make a QNaN:
-            S 1--1 (11)  1  1--1 (51) 
+      if (f80[7] & 0x40) {
+         /* QNaN.  Make a canonical QNaN:
+            S 1--1 (11)  1  0--0 (51) 
          */
          f64[7] = toUChar((sign << 7) | 0x7F);
-         f64[6] = 0xFF;
-         f64[5] = f64[4] = f64[3] = f64[2] = f64[1] = f64[0] = 0xFF;
+         f64[6] = 0xF8;
+         f64[5] = f64[4] = f64[3] = f64[2] = f64[1] = f64[0] = 0x00;
       } else {
          /* SNaN.  Make a SNaN:
             S 1--1 (11)  0  1--1 (51) 
@@ -606,6 +606,18 @@ static UInt bits4_to_bytes4 ( UInt bits4 )
 }
 
 
+/* Convert a 2-bit value to a 32-bit value by cloning each bit 16
+   times.  There's surely a better way to do this, but I don't know
+   what it is. */
+static UInt bits2_to_bytes4 ( UInt bits2 )
+{
+   UInt r = 0;
+   r |= (bits2 & 1) ? 0x0000FFFF : 0;
+   r |= (bits2 & 2) ? 0xFFFF0000 : 0;
+   return r;
+}
+
+
 /* Given partial results from a pcmpXstrX operation (intRes1,
    basically), generate an I- or M-format output value, also the new
    OSZACP flags.  */
@@ -674,8 +686,76 @@ void compute_PCMPxSTRx_gen_output (/*OUT*/V128* resV,
 }
 
 
+/* Given partial results from a 16-bit pcmpXstrX operation (intRes1,
+   basically), generate an I- or M-format output value, also the new
+   OSZACP flags.  */
+static
+void compute_PCMPxSTRx_gen_output_wide (/*OUT*/V128* resV,
+                                        /*OUT*/UInt* resOSZACP,
+                                        UInt intRes1,
+                                        UInt zmaskL, UInt zmaskR,
+                                        UInt validL,
+                                        UInt pol, UInt idx,
+                                        Bool isxSTRM )
+{
+   vassert((pol >> 2) == 0);
+   vassert((idx >> 1) == 0);
+
+   UInt intRes2 = 0;
+   switch (pol) {
+      case 0: intRes2 = intRes1;          break; // pol +
+      case 1: intRes2 = ~intRes1;         break; // pol -
+      case 2: intRes2 = intRes1;          break; // pol m+
+      case 3: intRes2 = intRes1 ^ validL; break; // pol m-
+   }
+   intRes2 &= 0xFF;
+
+   if (isxSTRM) {
+ 
+      // generate M-format output (a bit or byte mask in XMM0)
+      if (idx) {
+         resV->w32[0] = bits2_to_bytes4( (intRes2 >> 0) & 0x3 );
+         resV->w32[1] = bits2_to_bytes4( (intRes2 >> 2) & 0x3 );
+         resV->w32[2] = bits2_to_bytes4( (intRes2 >> 4) & 0x3 );
+         resV->w32[3] = bits2_to_bytes4( (intRes2 >> 6) & 0x3 );
+      } else {
+         resV->w32[0] = intRes2 & 0xFF;
+         resV->w32[1] = 0;
+         resV->w32[2] = 0;
+         resV->w32[3] = 0;
+      }
+
+   } else {
+
+      // generate I-format output (an index in ECX)
+      // generate ecx value
+      UInt newECX = 0;
+      if (idx) {
+         // index of ms-1-bit
+         newECX = intRes2 == 0 ? 8 : (31 - clz32(intRes2));
+      } else {
+         // index of ls-1-bit
+         newECX = intRes2 == 0 ? 8 : ctz32(intRes2);
+      }
+
+      resV->w32[0] = newECX;
+      resV->w32[1] = 0;
+      resV->w32[2] = 0;
+      resV->w32[3] = 0;
+
+   }
+
+   // generate new flags, common to all ISTRI and ISTRM cases
+   *resOSZACP    // A, P are zero
+     = ((intRes2 == 0) ? 0 : MASK_C) // C == 0 iff intRes2 == 0
+     | ((zmaskL == 0)  ? 0 : MASK_Z) // Z == 1 iff any in argL is 0
+     | ((zmaskR == 0)  ? 0 : MASK_S) // S == 1 iff any in argR is 0
+     | ((intRes2 & 1) << SHIFT_O);   // O == IntRes2[0]
+}
+
+
 /* Compute result and new OSZACP flags for all PCMP{E,I}STR{I,M}
-   variants.
+   variants on 8-bit data.
 
    For xSTRI variants, the new ECX value is placed in the 32 bits
    pointed to by *resV, and the top 96 bits are zeroed.  For xSTRM
@@ -715,9 +795,10 @@ Bool compute_PCMPxSTRx ( /*OUT*/V128* resV,
       even if they would probably work.  Life is too short to have
       unvalidated cases in the code base. */
    switch (imm8) {
-      case 0x00:
-      case 0x02: case 0x08: case 0x0A: case 0x0C: case 0x12:
-      case 0x1A: case 0x3A: case 0x44: case 0x4A:
+      case 0x00: case 0x02: case 0x08: case 0x0A: case 0x0C: case 0x0E:
+      case 0x12: case 0x14: case 0x1A:
+      case 0x30: case 0x34: case 0x38: case 0x3A:
+      case 0x40: case 0x44: case 0x46: case 0x4A:
          break;
       default:
          return False;
@@ -815,9 +896,6 @@ Bool compute_PCMPxSTRx ( /*OUT*/V128* resV,
       UInt   validL  = ~(zmaskL | -zmaskL);  // not(left(zmaskL))
       UInt   validR  = ~(zmaskR | -zmaskR);  // not(left(zmaskR))
       for (hi = 0; hi < 16; hi++) {
-         if ((validL & (1 << hi)) == 0)
-            // run off the end of the haystack
-            break;
          UInt m = 1;
          for (ni = 0; ni < 16; ni++) {
             if ((validR & (1 << ni)) == 0) break;
@@ -826,6 +904,9 @@ Bool compute_PCMPxSTRx ( /*OUT*/V128* resV,
             if (argL[i] != argR[ni]) { m = 0; break; }
          }
          boolRes |= (m << hi);
+         if ((validL & (1 << hi)) == 0)
+            // run off the end of the haystack
+            break;
       }
 
       // boolRes is "pre-invalidated"
@@ -873,6 +954,257 @@ Bool compute_PCMPxSTRx ( /*OUT*/V128* resV,
 
       // generate I-format output
       compute_PCMPxSTRx_gen_output(
+         resV, resOSZACP,
+         intRes1, zmaskL, zmaskR, validL, pol, idx, isxSTRM
+      );
+
+      return True;
+   }
+
+   /*----------------------------------------*/
+   /*-- ranges, signed byte data           --*/
+   /*----------------------------------------*/
+
+   if (agg == 1/*ranges*/
+       && fmt == 2/*sb*/) {
+
+      /* argL: string,  argR: range-pairs */
+      UInt   ri, si;
+      Char*  argL    = (Char*)argLV;
+      Char*  argR    = (Char*)argRV;
+      UInt   boolRes = 0;
+      UInt   validL  = ~(zmaskL | -zmaskL);  // not(left(zmaskL))
+      UInt   validR  = ~(zmaskR | -zmaskR);  // not(left(zmaskR))
+      for (si = 0; si < 16; si++) {
+         if ((validL & (1 << si)) == 0)
+            // run off the end of the string
+            break;
+         UInt m = 0;
+         for (ri = 0; ri < 16; ri += 2) {
+            if ((validR & (3 << ri)) != (3 << ri)) break;
+            if (argR[ri] <= argL[si] && argL[si] <= argR[ri+1]) { 
+               m = 1; break;
+            }
+         }
+         boolRes |= (m << si);
+      }
+
+      // boolRes is "pre-invalidated"
+      UInt intRes1 = boolRes & 0xFFFF;
+
+      // generate I-format output
+      compute_PCMPxSTRx_gen_output(
+         resV, resOSZACP,
+         intRes1, zmaskL, zmaskR, validL, pol, idx, isxSTRM
+      );
+
+      return True;
+   }
+
+   return False;
+}
+
+
+/* Compute result and new OSZACP flags for all PCMP{E,I}STR{I,M}
+   variants on 16-bit characters.
+
+   For xSTRI variants, the new ECX value is placed in the 32 bits
+   pointed to by *resV, and the top 96 bits are zeroed.  For xSTRM
+   variants, the result is a 128 bit value and is placed at *resV in
+   the obvious way.
+
+   For all variants, the new OSZACP value is placed at *resOSZACP.
+
+   argLV and argRV are the vector args.  The caller must prepare a
+   8-bit mask for each, zmaskL and zmaskR.  For ISTRx variants this
+   must be 1 for each zero byte of of the respective arg.  For ESTRx
+   variants this is derived from the explicit length indication, and
+   must be 0 in all places except at the bit index corresponding to
+   the valid length (0 .. 8).  If the valid length is 8 then the
+   mask must be all zeroes.  In all cases, bits 31:8 must be zero.
+
+   imm8 is the original immediate from the instruction.  isSTRM
+   indicates whether this is a xSTRM or xSTRI variant, which controls
+   how much of *res is written.
+
+   If the given imm8 case can be handled, the return value is True.
+   If not, False is returned, and neither *res not *resOSZACP are
+   altered.
+*/
+
+Bool compute_PCMPxSTRx_wide ( /*OUT*/V128* resV,
+                              /*OUT*/UInt* resOSZACP,
+                              V128* argLV,  V128* argRV,
+                              UInt zmaskL, UInt zmaskR,
+                              UInt imm8,   Bool isxSTRM )
+{
+   vassert(imm8 < 0x80);
+   vassert((zmaskL >> 8) == 0);
+   vassert((zmaskR >> 8) == 0);
+
+   /* Explicitly reject any imm8 values that haven't been validated,
+      even if they would probably work.  Life is too short to have
+      unvalidated cases in the code base. */
+   switch (imm8) {
+      case 0x01: case 0x03: case 0x09: case 0x0B: case 0x0D:
+      case 0x13:            case 0x1B:
+                            case 0x39: case 0x3B:
+                 case 0x45:            case 0x4B:
+         break;
+      default:
+         return False;
+   }
+
+   UInt fmt = (imm8 >> 0) & 3; // imm8[1:0]  data format
+   UInt agg = (imm8 >> 2) & 3; // imm8[3:2]  aggregation fn
+   UInt pol = (imm8 >> 4) & 3; // imm8[5:4]  polarity
+   UInt idx = (imm8 >> 6) & 1; // imm8[6]    1==msb/bytemask
+
+   /*----------------------------------------*/
+   /*-- strcmp on wide data                --*/
+   /*----------------------------------------*/
+
+   if (agg == 2/*equal each, aka strcmp*/
+       && (fmt == 1/*uw*/ || fmt == 3/*sw*/)) {
+      Int     i;
+      UShort* argL = (UShort*)argLV;
+      UShort* argR = (UShort*)argRV;
+      UInt boolResII = 0;
+      for (i = 7; i >= 0; i--) {
+         UShort cL  = argL[i];
+         UShort cR  = argR[i];
+         boolResII = (boolResII << 1) | (cL == cR ? 1 : 0);
+      }
+      UInt validL = ~(zmaskL | -zmaskL);  // not(left(zmaskL))
+      UInt validR = ~(zmaskR | -zmaskR);  // not(left(zmaskR))
+
+      // do invalidation, common to all equal-each cases
+      UInt intRes1
+         = (boolResII & validL & validR)  // if both valid, use cmpres
+           | (~ (validL | validR));       // if both invalid, force 1
+                                          // else force 0
+      intRes1 &= 0xFF;
+
+      // generate I-format output
+      compute_PCMPxSTRx_gen_output_wide(
+         resV, resOSZACP,
+         intRes1, zmaskL, zmaskR, validL, pol, idx, isxSTRM
+      );
+
+      return True;
+   }
+
+   /*----------------------------------------*/
+   /*-- set membership on wide data        --*/
+   /*----------------------------------------*/
+
+   if (agg == 0/*equal any, aka find chars in a set*/
+       && (fmt == 1/*uw*/ || fmt == 3/*sw*/)) {
+      /* argL: the string,  argR: charset */
+      UInt    si, ci;
+      UShort* argL    = (UShort*)argLV;
+      UShort* argR    = (UShort*)argRV;
+      UInt    boolRes = 0;
+      UInt    validL  = ~(zmaskL | -zmaskL);  // not(left(zmaskL))
+      UInt    validR  = ~(zmaskR | -zmaskR);  // not(left(zmaskR))
+
+      for (si = 0; si < 8; si++) {
+         if ((validL & (1 << si)) == 0)
+            // run off the end of the string.
+            break;
+         UInt m = 0;
+         for (ci = 0; ci < 8; ci++) {
+            if ((validR & (1 << ci)) == 0) break;
+            if (argR[ci] == argL[si]) { m = 1; break; }
+         }
+         boolRes |= (m << si);
+      }
+
+      // boolRes is "pre-invalidated"
+      UInt intRes1 = boolRes & 0xFF;
+   
+      // generate I-format output
+      compute_PCMPxSTRx_gen_output_wide(
+         resV, resOSZACP,
+         intRes1, zmaskL, zmaskR, validL, pol, idx, isxSTRM
+      );
+
+      return True;
+   }
+
+   /*----------------------------------------*/
+   /*-- substring search on wide data      --*/
+   /*----------------------------------------*/
+
+   if (agg == 3/*equal ordered, aka substring search*/
+       && (fmt == 1/*uw*/ || fmt == 3/*sw*/)) {
+
+      /* argL: haystack,  argR: needle */
+      UInt    ni, hi;
+      UShort* argL    = (UShort*)argLV;
+      UShort* argR    = (UShort*)argRV;
+      UInt    boolRes = 0;
+      UInt    validL  = ~(zmaskL | -zmaskL);  // not(left(zmaskL))
+      UInt    validR  = ~(zmaskR | -zmaskR);  // not(left(zmaskR))
+      for (hi = 0; hi < 8; hi++) {
+         UInt m = 1;
+         for (ni = 0; ni < 8; ni++) {
+            if ((validR & (1 << ni)) == 0) break;
+            UInt i = ni + hi;
+            if (i >= 8) break;
+            if (argL[i] != argR[ni]) { m = 0; break; }
+         }
+         boolRes |= (m << hi);
+         if ((validL & (1 << hi)) == 0)
+            // run off the end of the haystack
+            break;
+      }
+
+      // boolRes is "pre-invalidated"
+      UInt intRes1 = boolRes & 0xFF;
+
+      // generate I-format output
+      compute_PCMPxSTRx_gen_output_wide(
+         resV, resOSZACP,
+         intRes1, zmaskL, zmaskR, validL, pol, idx, isxSTRM
+      );
+
+      return True;
+   }
+
+   /*----------------------------------------*/
+   /*-- ranges, unsigned wide data         --*/
+   /*----------------------------------------*/
+
+   if (agg == 1/*ranges*/
+       && fmt == 1/*uw*/) {
+
+      /* argL: string,  argR: range-pairs */
+      UInt    ri, si;
+      UShort* argL    = (UShort*)argLV;
+      UShort* argR    = (UShort*)argRV;
+      UInt    boolRes = 0;
+      UInt    validL  = ~(zmaskL | -zmaskL);  // not(left(zmaskL))
+      UInt    validR  = ~(zmaskR | -zmaskR);  // not(left(zmaskR))
+      for (si = 0; si < 8; si++) {
+         if ((validL & (1 << si)) == 0)
+            // run off the end of the string
+            break;
+         UInt m = 0;
+         for (ri = 0; ri < 8; ri += 2) {
+            if ((validR & (3 << ri)) != (3 << ri)) break;
+            if (argR[ri] <= argL[si] && argL[si] <= argR[ri+1]) { 
+               m = 1; break;
+            }
+         }
+         boolRes |= (m << si);
+      }
+
+      // boolRes is "pre-invalidated"
+      UInt intRes1 = boolRes & 0xFF;
+
+      // generate I-format output
+      compute_PCMPxSTRx_gen_output_wide(
          resV, resOSZACP,
          intRes1, zmaskL, zmaskR, validL, pol, idx, isxSTRM
       );

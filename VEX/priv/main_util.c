@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -55,9 +55,10 @@ char jmp_buf_set = 0;
    MByte/sec.  Once the size increases enough to fall out of the cache
    into memory, the rate falls by about a factor of 3. 
 */
+
 #define N_TEMPORARY_BYTES 5000000
 
-static HChar  temporary[N_TEMPORARY_BYTES] __attribute__((aligned(8)));
+static HChar  temporary[N_TEMPORARY_BYTES] __attribute__((aligned(REQ_ALIGN)));
 static HChar* temporary_first = &temporary[0];
 static HChar* temporary_curr  = &temporary[0];
 static HChar* temporary_last  = &temporary[N_TEMPORARY_BYTES-1];
@@ -66,10 +67,15 @@ static ULong  temporary_bytes_allocd_TOT = 0;
 
 #define N_PERMANENT_BYTES 10000
 
-static HChar  permanent[N_PERMANENT_BYTES] __attribute__((aligned(8)));
+static HChar  permanent[N_PERMANENT_BYTES] __attribute__((aligned(REQ_ALIGN)));
 static HChar* permanent_first = &permanent[0];
 static HChar* permanent_curr  = &permanent[0];
 static HChar* permanent_last  = &permanent[N_PERMANENT_BYTES-1];
+
+HChar* private_LibVEX_alloc_first = &temporary[0];
+HChar* private_LibVEX_alloc_curr  = &temporary[0];
+HChar* private_LibVEX_alloc_last  = &temporary[N_TEMPORARY_BYTES-1];
+
 
 static VexAllocMode mode = VexAllocModeTEMP;
 
@@ -153,16 +159,10 @@ VexAllocMode vexGetAllocMode ( void )
    return mode;
 }
 
-/* Visible to library client, unfortunately. */
-
-HChar* private_LibVEX_alloc_first = &temporary[0];
-HChar* private_LibVEX_alloc_curr  = &temporary[0];
-HChar* private_LibVEX_alloc_last  = &temporary[N_TEMPORARY_BYTES-1];
-
 __attribute__((noreturn))
 void private_LibVEX_alloc_OOM(void)
 {
-   HChar* pool = "???";
+   const HChar* pool = "???";
    if (private_LibVEX_alloc_first == &temporary[0]) pool = "TEMP";
    if (private_LibVEX_alloc_first == &permanent[0]) pool = "PERM";
    vex_printf("VEX temporary storage exhausted.\n");
@@ -209,6 +209,10 @@ void LibVEX_ShowAllocStats ( void )
               (Long)(permanent_curr - permanent_first) );
 }
 
+void *LibVEX_Alloc ( SizeT nbytes )
+{
+   return LibVEX_Alloc_inline(nbytes);
+}
 
 /*---------------------------------------------------------*/
 /*--- Bombing out                                       ---*/
@@ -223,15 +227,16 @@ void vex_assert_fail ( const HChar* expr,
    (*vex_failure_exit)();
 }
 
+/* To be used in assert-like (i.e. should never ever happen) situations */
 __attribute__ ((noreturn))
-void vpanic ( HChar* str )
+void vpanic ( const HChar* str )
 {
-    vex_printf("\nvex: the `impossible' happened:\n   %s\n", str);
-    /* Try to longjmp back to BAP */
-    if (jmp_buf_set) {
-        longjmp(vex_error, -1);
-    }
-    (*vex_failure_exit)();
+   vex_printf("\nvex: the `impossible' happened:\n   %s\n", str);
+   /* Try to longjmp back to BAP */
+   if (jmp_buf_set) {
+       longjmp(vex_error, -1);
+   }
+   (*vex_failure_exit)();
 }
 
 
@@ -243,9 +248,9 @@ void vpanic ( HChar* str )
    New code for vex_util.c should go above this point. */
 #include <stdarg.h>
 
-Int vex_strlen ( const HChar* str )
+SizeT vex_strlen ( const HChar* str )
 {
-   Int i = 0;
+   SizeT i = 0;
    while (str[i] != 0) i++;
    return i;
 }
@@ -260,6 +265,15 @@ Bool vex_streq ( const HChar* s1, const HChar* s2 )
       s1++;
       s2++;
    }
+}
+
+void vex_bzero ( void* sV, SizeT n )
+{
+   SizeT i;
+   UChar* s = (UChar*)sV;
+   /* No laughing, please.  Just don't call this too often.  Thank you
+      for your attention. */
+   for (i = 0; i < n; i++) s[i] = 0;
 }
 
 
@@ -315,7 +329,7 @@ void convert_int ( /*OUT*/HChar* buf, Long n0,
    printf. */
 static
 UInt vprintf_wrk ( void(*sink)(HChar),
-                   HChar* format,
+                   const HChar* format,
                    va_list ap )
 {
 #  define PUT(_ch)  \
@@ -327,13 +341,14 @@ UInt vprintf_wrk ( void(*sink)(HChar),
       while (0)
 
 #  define PUTSTR(_str) \
-      do { HChar* _qq = _str; for (; *_qq; _qq++) PUT(*_qq); } \
+      do { const HChar* _qq = _str; for (; *_qq; _qq++) PUT(*_qq); } \
       while (0)
 
-   HChar* saved_format;
-   Bool   longlong, ljustify;
+   const HChar* saved_format;
+   Bool   longlong, ljustify, is_sizet;
    HChar  padchar;
-   Int    fwidth, nout, len1, len2, len3;
+   Int    fwidth, nout, len1, len3;
+   SizeT  len2;
    HChar  intbuf[100];  /* big enough for a 64-bit # in base 2 */
 
    nout = 0;
@@ -351,7 +366,7 @@ UInt vprintf_wrk ( void(*sink)(HChar),
       }
 
       saved_format = format;
-      longlong = False;
+      longlong = is_sizet = False;
       ljustify = False;
       padchar = ' ';
       fwidth = 0;
@@ -365,21 +380,30 @@ UInt vprintf_wrk ( void(*sink)(HChar),
          format++;
          padchar = '0';
       }
-      while (*format >= '0' && *format <= '9') {
-         fwidth = fwidth * 10 + (*format - '0');
+      if (*format == '*') {
+         fwidth = va_arg(ap, Int);
+         vassert(fwidth >= 0);
          format++;
+      } else {
+         while (*format >= '0' && *format <= '9') {
+            fwidth = fwidth * 10 + (*format - '0');
+            format++;
+         }
       }
       if (*format == 'l') {
          format++;
          if (*format == 'l') {
             format++;
-           longlong = True;
+            longlong = True;
          }
+      } else if (*format == 'z') {
+         format++;
+         is_sizet = True;
       }
 
       switch (*format) {
          case 's': {
-            HChar* str = va_arg(ap, HChar*);
+            const HChar* str = va_arg(ap, HChar*);
             if (str == NULL)
                str = "(null)";
             len1 = len3 = 0;
@@ -403,6 +427,7 @@ UInt vprintf_wrk ( void(*sink)(HChar),
          }
          case 'd': {
             Long l;
+            vassert(is_sizet == False); // %zd is obscure; we don't allow it
             if (longlong) {
                l = va_arg(ap, Long);
             } else {
@@ -423,7 +448,9 @@ UInt vprintf_wrk ( void(*sink)(HChar),
             Int   base = *format == 'u' ? 10 : 16;
             Bool  hexcaps = True; /* *format == 'X'; */
             ULong l;
-            if (longlong) {
+            if (is_sizet) {
+               l = (ULong)va_arg(ap, SizeT);
+            } else if (longlong) {
                l = va_arg(ap, ULong);
             } else {
                l = (ULong)va_arg(ap, UInt);
@@ -439,7 +466,7 @@ UInt vprintf_wrk ( void(*sink)(HChar),
          case 'p': 
          case 'P': {
             Bool hexcaps = toBool(*format == 'P');
-            ULong l = Ptr_to_ULong( va_arg(ap, void*) );
+            ULong l = (Addr)va_arg(ap, void*);
             convert_int(intbuf, l, 16/*base*/, False/*unsigned*/, hexcaps);
             len1 = len3 = 0;
             len2 = vex_strlen(intbuf)+2;
@@ -493,11 +520,9 @@ static void add_to_myprintf_buf ( HChar c )
    }
 }
 
-UInt vex_printf ( HChar* format, ... )
+static UInt vex_vprintf ( const HChar* format, va_list vargs )
 {
    UInt ret;
-   va_list vargs;
-   va_start(vargs,format);
    
    n_myprintf_buf = 0;
    myprintf_buf[n_myprintf_buf] = 0;      
@@ -507,11 +532,33 @@ UInt vex_printf ( HChar* format, ... )
       (*vex_log_bytes)( myprintf_buf, n_myprintf_buf );
    }
 
+   return ret;
+}
+
+UInt vex_printf ( const HChar* format, ... )
+{
+   UInt ret;
+   va_list vargs;
+   va_start(vargs, format);
+   ret = vex_vprintf(format, vargs);
    va_end(vargs);
 
    return ret;
 }
 
+/* Use this function to communicate to users that a (legitimate) situation
+   occured that we cannot handle (yet). */
+__attribute__ ((noreturn))
+void vfatal ( const HChar* format, ... )
+{
+   va_list vargs;
+   va_start(vargs, format);
+   vex_vprintf( format, vargs );
+   va_end(vargs);
+   vex_printf("Cannot continue. Good-bye\n\n");
+
+   (*vex_failure_exit)();
+}
 
 /* A general replacement for sprintf(). */
 
@@ -522,7 +569,7 @@ static void add_to_vg_sprintf_buf ( HChar c )
    *vg_sprintf_ptr++ = c;
 }
 
-UInt vex_sprintf ( HChar* buf, HChar *format, ... )
+UInt vex_sprintf ( HChar* buf, const HChar *format, ... )
 {
    Int ret;
    va_list vargs;

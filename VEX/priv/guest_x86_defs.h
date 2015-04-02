@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -38,6 +38,10 @@
 #ifndef __VEX_GUEST_X86_DEFS_H
 #define __VEX_GUEST_X86_DEFS_H
 
+#include "libvex_basictypes.h"
+#include "libvex_guest_x86.h"           // VexGuestX86State
+#include "libvex_emnote.h"              // VexEmNote
+#include "guest_generic_bb_to_IR.h"     // DisResult
 
 /*---------------------------------------------------------*/
 /*--- x86 to IR conversion                              ---*/
@@ -47,21 +51,21 @@
    bb_to_IR.h. */
 extern
 DisResult disInstr_X86 ( IRSB*        irbb,
-                         Bool         put_IP,
-                         Bool         (*resteerOkFn) ( void*, Addr64 ),
+                         Bool         (*resteerOkFn) ( void*, Addr ),
                          Bool         resteerCisOk,
                          void*        callback_opaque,
-                         UChar*       guest_code,
+                         const UChar* guest_code,
                          Long         delta,
-                         Addr64       guest_IP,
+                         Addr         guest_IP,
                          VexArch      guest_arch,
-                         VexArchInfo* archinfo,
-                         VexAbiInfo*  abiinfo,
-                         Bool         host_bigendian );
+                         const VexArchInfo* archinfo,
+                         const VexAbiInfo*  abiinfo,
+                         VexEndness   host_endness,
+                         Bool         sigill_diag );
 
 /* Used by the optimiser to specialise calls to helpers. */
 extern
-IRExpr* guest_x86_spechelper ( HChar*   function_name,
+IRExpr* guest_x86_spechelper ( const HChar* function_name,
                                IRExpr** args,
                                IRStmt** precedingStmts,
                                Int      n_precedingStmts );
@@ -70,7 +74,8 @@ IRExpr* guest_x86_spechelper ( HChar*   function_name,
    precise memory exceptions.  This is logically part of the guest
    state description. */
 extern 
-Bool guest_x86_state_requires_precise_mem_exns ( Int, Int );
+Bool guest_x86_state_requires_precise_mem_exns ( Int, Int,
+                                                 VexRegisterUpdates );
 
 extern
 VexGuestLayout x86guest_layout;
@@ -131,17 +136,16 @@ ULong x86g_use_seg_selector ( HWord ldt, HWord gdt,
 
 extern ULong x86g_calculate_mmx_pmaddwd  ( ULong, ULong );
 extern ULong x86g_calculate_mmx_psadbw   ( ULong, ULong );
-extern UInt  x86g_calculate_mmx_pmovmskb ( ULong );
-extern UInt  x86g_calculate_sse_pmovmskb ( ULong w64hi, ULong w64lo );
 
 
 /* --- DIRTY HELPERS --- */
 
-extern ULong x86g_dirtyhelper_loadF80le  ( UInt );
+extern ULong x86g_dirtyhelper_loadF80le  ( Addr );
 
-extern void  x86g_dirtyhelper_storeF80le ( UInt, ULong );
+extern void  x86g_dirtyhelper_storeF80le ( Addr, ULong );
 
 extern void  x86g_dirtyhelper_CPUID_sse0 ( VexGuestX86State* );
+extern void  x86g_dirtyhelper_CPUID_mmxext ( VexGuestX86State* );
 extern void  x86g_dirtyhelper_CPUID_sse1 ( VexGuestX86State* );
 extern void  x86g_dirtyhelper_CPUID_sse2 ( VexGuestX86State* );
 
@@ -160,13 +164,13 @@ extern void x86g_dirtyhelper_OUT ( UInt portno, UInt data,
 extern void x86g_dirtyhelper_SxDT ( void* address,
                                     UInt op /* 0 or 1 */ );
 
-extern VexEmWarn
+extern VexEmNote
             x86g_dirtyhelper_FXRSTOR ( VexGuestX86State*, HWord );
 
-extern VexEmWarn
+extern VexEmNote
             x86g_dirtyhelper_FRSTOR ( VexGuestX86State*, HWord );
 
-extern VexEmWarn 
+extern VexEmNote 
             x86g_dirtyhelper_FLDENV ( VexGuestX86State*, HWord );
 
 

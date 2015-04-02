@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -46,21 +46,27 @@
 
    These values should be 61 or above so as not to conflict
    with Valgrind's VG_TRC_ values, which are 60 or below.
-
-   These values *must* be odd (have bit 0 set) because the dispatchers
-   (coregrind/m_dispatch/dispatch-*-*.S) use this fact to distinguish
-   a TRC value from the unchanged baseblock pointer -- which has 0 as
-   its lowest bit.
 */
 
-#define VEX_TRC_JMP_TINVAL     61  /* invalidate translations before
-                                      continuing */
+#define VEX_TRC_JMP_INVALICACHE 61  /* invalidate icache (translations)
+                                       before continuing */
+#define VEX_TRC_JMP_FLUSHDCACHE 103 /* flush dcache before continuing */
+
 #define VEX_TRC_JMP_NOREDIR    81  /* jump to undirected guest addr */
 #define VEX_TRC_JMP_SIGTRAP    85  /* deliver trap (SIGTRAP) before
                                       continuing */
 #define VEX_TRC_JMP_SIGSEGV    87  /* deliver segv (SIGSEGV) before
                                       continuing */
 #define VEX_TRC_JMP_SIGBUS     93  /* deliver SIGBUS before continuing */
+
+#define VEX_TRC_JMP_SIGFPE_INTDIV     97  /* deliver SIGFPE (integer divide
+                                             by zero) before continuing */
+
+#define VEX_TRC_JMP_SIGFPE_INTOVF     99  /* deliver SIGFPE (integer overflow)
+                                             before continuing */
+
+#define VEX_TRC_JMP_SIGILL     101  /* deliver SIGILL (Illegal instruction)
+                                       before continuing */
 
 #define VEX_TRC_JMP_EMWARN     63  /* deliver emulation warning before
                                       continuing */
@@ -79,6 +85,9 @@
 #define VEX_TRC_JMP_SYS_INT130   91 /* do syscall before continuing */
 
 #define VEX_TRC_JMP_SYS_SYSENTER 79 /* do syscall before continuing */
+
+#define VEX_TRC_JMP_BORING       95 /* return to sched, but just 
+                                       keep going; no special action */
 
 #endif /* ndef __LIBVEX_TRC_VALUES_H */
 

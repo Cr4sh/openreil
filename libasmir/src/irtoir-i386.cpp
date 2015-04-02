@@ -54,10 +54,10 @@
 #define OFFB_XMM6      offsetof(VexGuestX86State, guest_XMM6)
 #define OFFB_XMM7      offsetof(VexGuestX86State, guest_XMM7)
 
-#define OFFB_EMWARN    offsetof(VexGuestX86State, guest_EMWARN)
+#define OFFB_EMNOTE    offsetof(VexGuestX86State, guest_EMNOTE)
 
-#define OFFB_TISTART   offsetof(VexGuestX86State, guest_TISTART)
-#define OFFB_TILEN     offsetof(VexGuestX86State, guest_TILEN)
+#define OFFB_CMSTART   offsetof(VexGuestX86State, guest_CMSTART)
+#define OFFB_CMLEN     offsetof(VexGuestX86State, guest_CMLEN)
 #define OFFB_NRADDR    offsetof(VexGuestX86State, guest_NRADDR)
 
 #define OFFB_IP_AT_SYSCALL offsetof(VexGuestX86State, guest_IP_AT_SYSCALL)
@@ -272,7 +272,7 @@ vector<VarDecl *> i386_get_reg_decls()
     ret.push_back(new VarDecl("R_IDFLAG", r1));
     // Id flag (support for cpu id instruction)
     ret.push_back(new VarDecl("R_ACFLAG", r1)); // Alignment check
-    ret.push_back(new VarDecl("R_EMWARN", r32));
+    ret.push_back(new VarDecl("R_EMNOTE", r32));
 
     // General purpose 32-bit registers
     ret.push_back(new VarDecl("R_EAX", r32));
@@ -488,19 +488,19 @@ static string reg_offset_to_name(int offset)
         name = "XMM7";
         break;
 
-    case OFFB_EMWARN:
+    case OFFB_EMNOTE:
     
-        name = "EMWARN";
+        name = "EMNOTE";
         break;
 
-    case OFFB_TISTART:
+    case OFFB_CMSTART:
     
-        name = "TISTART";
+        name = "CMSTART";
         break;
     
-    case OFFB_TILEN:
+    case OFFB_CMLEN:
     
-        name = "TILEN";
+        name = "CMLEN";
         break;
     
     case OFFB_NRADDR:

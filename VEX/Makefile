@@ -3,7 +3,7 @@ PUB_HEADERS = 	pub/libvex_basictypes.h 		\
 		pub/libvex_ir.h				\
 		pub/libvex.h				\
 		pub/libvex_trc_values.h			\
-		pub/libvex_emwarn.h			\
+		pub/libvex_emnote.h			\
 		pub/libvex_guest_x86.h			\
 		pub/libvex_guest_amd64.h		\
 		pub/libvex_guest_arm.h			\
@@ -11,6 +11,7 @@ PUB_HEADERS = 	pub/libvex_basictypes.h 		\
 		pub/libvex_guest_ppc64.h		\
 		pub/libvex_guest_s390x.h		\
 		pub/libvex_s390x_common.h		\
+		pub/libvex_guest_mips32.h		\
 		pub/libvex_guest_offsets.h
 
 PRIV_HEADERS = 	priv/host_x86_defs.h			\
@@ -18,10 +19,12 @@ PRIV_HEADERS = 	priv/host_x86_defs.h			\
 		priv/host_arm_defs.h			\
 		priv/host_ppc_defs.h			\
 		priv/host_s390_defs.h			\
-		priv/host_s390_disasm.h		        \
+		priv/host_mips_defs.h			\
+		priv/host_generic_maddf.h	        \
 		priv/host_generic_regs.h	        \
 		priv/host_generic_simd64.h	        \
 		priv/host_generic_simd128.h	        \
+		priv/host_generic_simd256.h	        \
 		priv/main_globals.h			\
 		priv/main_util.h			\
 		priv/guest_generic_x87.h               	\
@@ -30,42 +33,56 @@ PRIV_HEADERS = 	priv/host_x86_defs.h			\
 		priv/guest_amd64_defs.h	               	\
 		priv/guest_arm_defs.h			\
 		priv/guest_ppc_defs.h			\
+		priv/guest_mips_defs.h			\
+		priv/s390_disasm.h		        \
+		priv/s390_defs.h		        \
 		priv/ir_match.h			        \
 		priv/ir_opt.h
 
 LIB_OBJS = 	priv/ir_defs.o                          \
 		priv/ir_match.o			        \
 		priv/ir_opt.o				\
+		priv/ir_inject.o			\
 		priv/main_main.o			\
 		priv/main_globals.o			\
 		priv/main_util.o			\
+		priv/s390_disasm.o			\
 		priv/host_x86_defs.o			\
 		priv/host_amd64_defs.o			\
 		priv/host_arm_defs.o			\
+		priv/host_arm64_defs.o			\
 		priv/host_ppc_defs.o			\
 		priv/host_s390_defs.o			\
+		priv/host_mips_defs.o			\
 		priv/host_x86_isel.o			\
 		priv/host_amd64_isel.o			\
 		priv/host_arm_isel.o			\
+		priv/host_arm64_isel.o			\
 		priv/host_ppc_isel.o			\
 		priv/host_s390_isel.o			\
-                priv/host_s390_disasm.o			\
+		priv/host_mips_isel.o			\
+		priv/host_generic_maddf.o	        \
 		priv/host_generic_regs.o	        \
 		priv/host_generic_simd64.o	        \
 		priv/host_generic_simd128.o	        \
+		priv/host_generic_simd256.o	        \
 		priv/host_generic_reg_alloc2.o		\
 		priv/guest_generic_x87.o	        \
 		priv/guest_generic_bb_to_IR.o		\
 		priv/guest_x86_helpers.o		\
 		priv/guest_amd64_helpers.o		\
 		priv/guest_arm_helpers.o		\
+		priv/guest_arm64_helpers.o		\
 		priv/guest_ppc_helpers.o		\
 		priv/guest_s390_helpers.o		\
+		priv/guest_mips_helpers.o		\
 		priv/guest_x86_toIR.o			\
 		priv/guest_amd64_toIR.o			\
 		priv/guest_arm_toIR.o			\
+		priv/guest_arm64_toIR.o			\
 		priv/guest_ppc_toIR.o                   \
-		priv/guest_s390_toIR.o
+		priv/guest_s390_toIR.o			\
+		priv/guest_mips_toIR.o
 
 PUB_INCLUDES = -Ipub
 
@@ -84,11 +101,12 @@ endif
 
 # Put -g -O2 after any flags we inherit from V.  -O2 vs -O
 # makes a significant difference, at least with gcc4.
-CCFLAGS = -Wall -Wmissing-prototypes -Wshadow \
+CCFLAGS = -Wall -Wmissing-prototypes -Wstrict-prototypes -Wshadow \
 		-Wpointer-arith -Wbad-function-cast -Wcast-qual \
 		-Wcast-align -Wmissing-declarations \
-		-Wno-pointer-sign \
-		$(EXTRA_CFLAGS) -g -O2 -fstrict-aliasing -fPIC
+		-Wwrite-strings -Wformat -Wformat-security \
+		-std=gnu99 \
+		$(EXTRA_CFLAGS) -g -O2 -fstrict-aliasing
 
 #CC = icc
 #CCFLAGS = -g -Wall -wd981 -wd279 -wd1287 -wd869 -wd111 -wd188 -wd186
@@ -112,8 +130,7 @@ install:
 
 scratch: clean all
 
-vex: libvex.a test_main.o
-	$(CC) $(CCFLAGS) -o vex test_main.o libvex.a
+vex: libvex.a
 
 libvex.a: $(LIB_OBJS)
 	rm -f libvex.a
@@ -149,6 +166,12 @@ TAG-ppc64-linux:
 	if [ ! -f TAG-ppc64-linux ] ; then rm -f $(LIB_OBJS) TAG-* libvex.a ; fi
 	touch TAG-ppc64-linux
 
+libvex-mips-linux.a: TAG-mips32-linux libvex.a
+	mv -f libvex.a libvex-mips32-linux.a
+TAG-mips-linux:
+	if [ ! -f TAG-mips32-linux ] ; then rm -f $(LIB_OBJS) TAG-* libvex.a ; fi
+	touch TAG-mips32-linux
+
 libvex-ppc32-aix5.a: TAG-ppc32-aix5 libvex.a
 	mv -f libvex.a libvex-ppc32-aix5.a
 TAG-ppc32-aix5:
@@ -173,17 +196,22 @@ TAG-amd64-darwin:
 	if [ ! -f TAG-amd64-darwin ] ; then rm -f $(LIB_OBJS) TAG-* libvex.a ; fi
 	touch TAG-amd64-darwin
 
+libvex-arm64-linux.a: TAG-arm64-linux libvex.a
+	mv -f libvex.a libvex-arm64-linux.a
+TAG-arm64-linux:
+	if [ ! -f TAG-arm64-linux ] ; then rm -f $(LIB_OBJS) TAG-* libvex.a ; fi
+	touch TAG-arm64-linux
+
 
 clean:
-	rm -f $(LIB_OBJS) *.a vex test_main.o TAG-* \
+	rm -f $(LIB_OBJS) *.a TAG-* \
 		pub/libvex_guest_offsets.h \
 		auxprogs/genoffsets.s
 
 minidist:
 	rm -f vex--minidist-2005MMDD.tar
 	tar cf vex--minidist-2005MMDD.tar $(PUB_HEADERS) $(PRIV_HEADERS) \
-		test_main.c test_main.h				\
-		Makefile					\
+		Makefile-gcc					\
 		`echo $(LIB_OBJS) | sed "s/\.o/\.c/g"`
 	@echo 
 	@echo minidist done, size follows:
@@ -193,11 +221,13 @@ minidist:
 # This is very uggerly.  Need to sed out both "xyzzyN" and
 # "xyzzy$N" since gcc on different targets emits the constants
 # differently -- with a leading $ on x86/amd64 but none on ppc32/64.
+# ICC also emits the constants differently with a leading # #define
 pub/libvex_guest_offsets.h:
 	rm -f auxprogs/genoffsets.s
 	$(CC) $(CCFLAGS) -O -S -o auxprogs/genoffsets.s \
 				auxprogs/genoffsets.c
-	grep xyzzy auxprogs/genoffsets.s | grep define \
+	grep xyzzy auxprogs/genoffsets.s | grep "^[# ]*#define" \
+	   | sed "s/# #define/#define/g" \
 	   | sed "s/xyzzy\\$$//g" \
 	   | sed "s/xyzzy#//g" \
 	   | sed "s/xyzzy//g" \
@@ -208,13 +238,13 @@ pub/libvex_guest_offsets.h:
 ALL_HEADERS  = $(PUB_HEADERS) $(PRIV_HEADERS)
 ALL_INCLUDES = $(PUB_INCLUDES) $(PRIV_INCLUDES)
 
-test_main.o: $(PUB_HEADERS) test_main.c test_main.h
-	$(CC) $(CCFLAGS) $(PUB_INCLUDES) -o test_main.o \
-					 -c test_main.c
-
 priv/ir_defs.o: $(ALL_HEADERS) priv/ir_defs.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/ir_defs.o \
 					 -c priv/ir_defs.c
+
+priv/ir_inject.o: $(ALL_HEADERS) priv/ir_inject.c
+	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/ir_inject.o \
+					 -c priv/ir_inject.c
 
 priv/ir_match.o: $(ALL_HEADERS) priv/ir_match.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/ir_match.o \
@@ -248,6 +278,10 @@ priv/host_arm_defs.o: $(ALL_HEADERS) priv/host_arm_defs.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_arm_defs.o \
 					 -c priv/host_arm_defs.c
 
+priv/host_arm64_defs.o: $(ALL_HEADERS) priv/host_arm64_defs.c
+	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_arm64_defs.o \
+					 -c priv/host_arm64_defs.c
+
 priv/host_ppc_defs.o: $(ALL_HEADERS) priv/host_ppc_defs.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_ppc_defs.o \
 					 -c priv/host_ppc_defs.c
@@ -255,6 +289,10 @@ priv/host_ppc_defs.o: $(ALL_HEADERS) priv/host_ppc_defs.c
 priv/host_s390_defs.o: $(ALL_HEADERS) priv/host_s390_defs.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_s390_defs.o \
 					 -c priv/host_s390_defs.c
+
+priv/host_mips_defs.o: $(ALL_HEADERS) priv/host_mips_defs.c
+	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_mips_defs.o \
+					 -c priv/host_mips_defs.c
 
 priv/host_x86_isel.o: $(ALL_HEADERS) priv/host_x86_isel.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_x86_isel.o \
@@ -268,6 +306,10 @@ priv/host_arm_isel.o: $(ALL_HEADERS) priv/host_arm_isel.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_arm_isel.o \
 					 -c priv/host_arm_isel.c
 
+priv/host_arm64_isel.o: $(ALL_HEADERS) priv/host_arm64_isel.c
+	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_arm64_isel.o \
+					 -c priv/host_arm64_isel.c
+
 priv/host_ppc_isel.o: $(ALL_HEADERS) priv/host_ppc_isel.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_ppc_isel.o \
 					 -c priv/host_ppc_isel.c
@@ -275,6 +317,14 @@ priv/host_ppc_isel.o: $(ALL_HEADERS) priv/host_ppc_isel.c
 priv/host_s390_isel.o: $(ALL_HEADERS) priv/host_s390_isel.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_s390_isel.o \
 					 -c priv/host_s390_isel.c
+
+priv/host_mips_isel.o: $(ALL_HEADERS) priv/host_mips_isel.c
+	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_mips_isel.o \
+					 -c priv/host_mips_isel.c
+
+priv/host_generic_maddf.o: $(ALL_HEADERS) priv/host_generic_maddf.c
+	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_generic_maddf.o \
+					 -c priv/host_generic_maddf.c
 
 priv/host_generic_regs.o: $(ALL_HEADERS) priv/host_generic_regs.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_generic_regs.o \
@@ -287,6 +337,10 @@ priv/host_generic_simd64.o: $(ALL_HEADERS) priv/host_generic_simd64.c
 priv/host_generic_simd128.o: $(ALL_HEADERS) priv/host_generic_simd128.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_generic_simd128.o \
 					 -c priv/host_generic_simd128.c
+
+priv/host_generic_simd256.o: $(ALL_HEADERS) priv/host_generic_simd256.c
+	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_generic_simd256.o \
+					 -c priv/host_generic_simd256.c
 
 priv/host_generic_reg_alloc2.o: $(ALL_HEADERS) priv/host_generic_reg_alloc2.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_generic_reg_alloc2.o \
@@ -320,9 +374,17 @@ priv/guest_arm_helpers.o: $(ALL_HEADERS) priv/guest_arm_helpers.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/guest_arm_helpers.o \
 					 -c priv/guest_arm_helpers.c
 
+priv/guest_arm64_helpers.o: $(ALL_HEADERS) priv/guest_arm64_helpers.c
+	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/guest_arm64_helpers.o \
+					 -c priv/guest_arm64_helpers.c
+
 priv/guest_arm_toIR.o: $(ALL_HEADERS) priv/guest_arm_toIR.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/guest_arm_toIR.o \
 					 -c priv/guest_arm_toIR.c
+
+priv/guest_arm64_toIR.o: $(ALL_HEADERS) priv/guest_arm64_toIR.c
+	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/guest_arm64_toIR.o \
+					 -c priv/guest_arm64_toIR.c
 
 priv/guest_ppc_helpers.o: $(ALL_HEADERS) priv/guest_ppc_helpers.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/guest_ppc_helpers.o \
@@ -340,9 +402,14 @@ priv/guest_s390_toIR.o: $(ALL_HEADERS) priv/guest_s390_toIR.c
 	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/guest_s390_toIR.o \
 					 -c priv/guest_s390_toIR.c
 
-priv/host_s390_disasm.o: $(ALL_HEADERS) priv/host_s390_disasm.c
-	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/host_s390_disasm.o \
-					 -c priv/host_s390_disasm.c
+priv/s390_disasm.o: $(ALL_HEADERS) priv/s390_disasm.c
+	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/s390_disasm.o \
+					 -c priv/s390_disasm.c
 
-tags:
-	-
+priv/guest_mips_helpers.o: $(ALL_HEADERS) priv/guest_mips_helpers.c
+	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/guest_mips_helpers.o \
+					 -c priv/guest_mips_helpers.c
+
+priv/guest_mips_toIR.o: $(ALL_HEADERS) priv/guest_mips_toIR.c
+	$(CC) $(CCFLAGS) $(ALL_INCLUDES) -o priv/guest_mips_toIR.o \
+					 -c priv/guest_mips_toIR.c

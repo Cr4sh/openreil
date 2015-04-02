@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2010 OpenWorks LLP
+   Copyright (C) 2004-2013 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -51,7 +51,10 @@
 #include "../pub/libvex_guest_ppc32.h"
 #include "../pub/libvex_guest_ppc64.h"
 #include "../pub/libvex_guest_arm.h"
+#include "../pub/libvex_guest_arm64.h"
 #include "../pub/libvex_guest_s390x.h"
+#include "../pub/libvex_guest_mips32.h"
+#include "../pub/libvex_guest_mips64.h"
 
 #define VG_STRINGIFZ(__str)  #__str
 #define VG_STRINGIFY(__str)  VG_STRINGIFZ(__str)
@@ -157,6 +160,19 @@ void foo ( void )
    GENOFFSET(ARM,arm,R14);
    GENOFFSET(ARM,arm,R15T);
 
+   // arm64
+   GENOFFSET(ARM64,arm64,X0);
+   GENOFFSET(ARM64,arm64,X1);
+   GENOFFSET(ARM64,arm64,X2);
+   GENOFFSET(ARM64,arm64,X3);
+   GENOFFSET(ARM64,arm64,X4);
+   GENOFFSET(ARM64,arm64,X5);
+   GENOFFSET(ARM64,arm64,X6);
+   GENOFFSET(ARM64,arm64,X7);
+   GENOFFSET(ARM64,arm64,X8);
+   GENOFFSET(ARM64,arm64,XSP);
+   GENOFFSET(ARM64,arm64,PC);
+
    // s390x
    GENOFFSET(S390X,s390x,r2);
    GENOFFSET(S390X,s390x,r3);
@@ -169,6 +185,84 @@ void foo ( void )
    GENOFFSET(S390X,s390x,SYSNO);
    GENOFFSET(S390X,s390x,IP_AT_SYSCALL);
    GENOFFSET(S390X,s390x,fpc);
+   GENOFFSET(S390X,s390x,CC_OP);
+   GENOFFSET(S390X,s390x,CC_DEP1);
+   GENOFFSET(S390X,s390x,CC_DEP2);
+   GENOFFSET(S390X,s390x,CC_NDEP);
+
+   // MIPS32
+   GENOFFSET(MIPS32,mips32,r0);
+   GENOFFSET(MIPS32,mips32,r1);   
+   GENOFFSET(MIPS32,mips32,r2);
+   GENOFFSET(MIPS32,mips32,r3);
+   GENOFFSET(MIPS32,mips32,r4);
+   GENOFFSET(MIPS32,mips32,r5);
+   GENOFFSET(MIPS32,mips32,r6);
+   GENOFFSET(MIPS32,mips32,r7);
+   GENOFFSET(MIPS32,mips32,r8);
+   GENOFFSET(MIPS32,mips32,r9);
+   GENOFFSET(MIPS32,mips32,r10);
+   GENOFFSET(MIPS32,mips32,r11);
+   GENOFFSET(MIPS32,mips32,r12);
+   GENOFFSET(MIPS32,mips32,r13);
+   GENOFFSET(MIPS32,mips32,r14);
+   GENOFFSET(MIPS32,mips32,r15);
+   GENOFFSET(MIPS32,mips32,r15);
+   GENOFFSET(MIPS32,mips32,r17);
+   GENOFFSET(MIPS32,mips32,r18);
+   GENOFFSET(MIPS32,mips32,r19);
+   GENOFFSET(MIPS32,mips32,r20);
+   GENOFFSET(MIPS32,mips32,r21);
+   GENOFFSET(MIPS32,mips32,r22);
+   GENOFFSET(MIPS32,mips32,r23);
+   GENOFFSET(MIPS32,mips32,r24);
+   GENOFFSET(MIPS32,mips32,r25);
+   GENOFFSET(MIPS32,mips32,r26);
+   GENOFFSET(MIPS32,mips32,r27);
+   GENOFFSET(MIPS32,mips32,r28);
+   GENOFFSET(MIPS32,mips32,r29);
+   GENOFFSET(MIPS32,mips32,r30);
+   GENOFFSET(MIPS32,mips32,r31);
+   GENOFFSET(MIPS32,mips32,PC);
+   GENOFFSET(MIPS32,mips32,HI);
+   GENOFFSET(MIPS32,mips32,LO);
+
+   // MIPS64
+   GENOFFSET(MIPS64,mips64,r0);
+   GENOFFSET(MIPS64,mips64,r1);
+   GENOFFSET(MIPS64,mips64,r2);
+   GENOFFSET(MIPS64,mips64,r3);
+   GENOFFSET(MIPS64,mips64,r4);
+   GENOFFSET(MIPS64,mips64,r5);
+   GENOFFSET(MIPS64,mips64,r6);
+   GENOFFSET(MIPS64,mips64,r7);
+   GENOFFSET(MIPS64,mips64,r8);
+   GENOFFSET(MIPS64,mips64,r9);
+   GENOFFSET(MIPS64,mips64,r10);
+   GENOFFSET(MIPS64,mips64,r11);
+   GENOFFSET(MIPS64,mips64,r12);
+   GENOFFSET(MIPS64,mips64,r13);
+   GENOFFSET(MIPS64,mips64,r14);
+   GENOFFSET(MIPS64,mips64,r15);
+   GENOFFSET(MIPS64,mips64,r15);
+   GENOFFSET(MIPS64,mips64,r17);
+   GENOFFSET(MIPS64,mips64,r18);
+   GENOFFSET(MIPS64,mips64,r19);
+   GENOFFSET(MIPS64,mips64,r20);
+   GENOFFSET(MIPS64,mips64,r21);
+   GENOFFSET(MIPS64,mips64,r22);
+   GENOFFSET(MIPS64,mips64,r23);
+   GENOFFSET(MIPS64,mips64,r24);
+   GENOFFSET(MIPS64,mips64,r25);
+   GENOFFSET(MIPS64,mips64,r26);
+   GENOFFSET(MIPS64,mips64,r27);
+   GENOFFSET(MIPS64,mips64,r28);
+   GENOFFSET(MIPS64,mips64,r29);
+   GENOFFSET(MIPS64,mips64,r30);
+   GENOFFSET(MIPS64,mips64,r31);
+   GENOFFSET(MIPS64,mips64,PC);
+   GENOFFSET(MIPS64,mips64,HI);
+   GENOFFSET(MIPS64,mips64,LO);
 }
 
 /*--------------------------------------------------------------------*/
