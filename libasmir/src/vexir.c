@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <setjmp.h>
 
 #include "libvex.h"
 #include "vexmem.h"
@@ -41,6 +42,10 @@ static Int tmpbuf_used;
 // within the callback (instrument1)
 static IRSB *irbb_current = NULL;
 static int size_current = 0;
+
+// For returning back to libasmir when critical VEX error occurs
+extern jmp_buf vex_error;
+extern char jmp_buf_set;
 
 //======================================================================
 //
@@ -219,21 +224,30 @@ IRSB *translate_insn(VexArch guest,
         vta.archinfo_guest.hwcaps |= 5 /* ARMv5 */;
     }
 
-    vta.guest_bytes      = insn_start; // Ptr to actual bytes of start of instruction
+    vta.guest_bytes = insn_start; // Ptr to actual bytes of start of instruction
     vta.guest_bytes_addr = (Addr64)insn_addr;
 
     irbb_current = NULL;
     size_current = 0;
 
-    // FIXME: check the result
-    // Do the actual translation
-    vtr = LibVEX_Translate(&vta);
-
-    assert(irbb_current);
-
-    if (insn_size)
+    if (!setjmp(vex_error)) 
     {
-        *insn_size = size_current;
+        jmp_buf_set = 1;
+
+        // FIXME: check the result
+        // Do the actual translation
+        vtr = LibVEX_Translate(&vta);
+
+        assert(irbb_current);
+
+        if (insn_size)
+        {
+            *insn_size = size_current;
+        }
+    }
+    else
+    {
+        fprintf(stderr, "WARNING: Critical VEX error, instruction was not translated\n");
     }
 
     return irbb_current;
