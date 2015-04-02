@@ -248,6 +248,7 @@ IRSB *translate_insn(VexArch guest,
     else
     {
         fprintf(stderr, "WARNING: Critical VEX error, instruction was not translated\n");
+        return NULL;
     }
 
     return irbb_current;
