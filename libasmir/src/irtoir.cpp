@@ -11,9 +11,6 @@
 #define Ist_MFence Ist_MBE
 #endif
 
-// flag to disable warnings (for unit test's sake)
-bool print_warnings = 1;
-
 // enable/disable lazy eflags computation.
 // this is for transitional purposes, and should be removed soon.
 bool use_eflags_thunks = 0;
@@ -51,22 +48,6 @@ void modify_flags(bap_block_t *block);
 static void insert_specials(bap_block_t *block);
 void do_cleanups_before_processing();
 
-
-//======================================================================
-//
-// Helper functions for output (generally should only be used by automated
-// testing)
-//
-//======================================================================
-void asmir_set_print_warning(bool value)
-{
-    print_warnings = value;
-}
-
-bool asmir_get_print_warning()
-{
-    return print_warnings;
-}
 
 //======================================================================
 //
@@ -264,20 +245,14 @@ reg_t IRType_to_reg_type(IRType type)
     
     case Ity_F32:
 
-        if (print_warnings)
-        {
-            fprintf(stderr, "WARNING: Float32 register encountered\n");
-        }
+        fprintf(stderr, "WARNING: Float32 register encountered\n");
 
         t = REG_32;
         break;
     
     case Ity_F64:
 
-        if (print_warnings)
-        {
-            fprintf(stderr, "WARNING: Float64 register encountered\n");
-        }
+        fprintf(stderr, "WARNING: Float64 register encountered\n");
 
         t = REG_64;
         break;

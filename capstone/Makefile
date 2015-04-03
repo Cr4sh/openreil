@@ -3,7 +3,7 @@ capstone/libcapstone.a:
 
 	[ -d capstone ] || git clone https://github.com/Cr4sh/capstone.git
 	cp config.mk capstone
-	cd capstone && ./make.sh
+	cd capstone && make
 
 all: capstone/libcapstone.a
 
