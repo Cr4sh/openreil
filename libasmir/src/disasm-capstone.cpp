@@ -1,4 +1,5 @@
 #include <string>
+#include <algorithm>
 #include <vector>
 
 #include "capstone/capstone.h"
@@ -326,10 +327,14 @@ int disasm_insn(VexArch guest, uint8_t *data, string &mnemonic, string &op)
 
     size_t count = cs_disasm(handle, data, DISASM_MAX_INST_LEN, 0, 1, &insn);    
     if (count > 0) 
-    {
+    {   
+        // get instruction length     
         ret = (int)insn[0].size;
+
+        // get assembly code
         mnemonic = string(insn[0].mnemonic);
-        op = string(insn[0].op_str);
+        op = string(insn[0].op_str);        
+
         cs_free(insn, count);
     } 
     else
@@ -526,29 +531,42 @@ int disasm_arg(VexArch guest, uint8_t *data, vector<Temp *> &args, dsiasm_arg_t 
         // get all registers accessed by this instruction
         if (cs_regs_access(handle, insn, regs_read, &read_count, regs_write, &write_count) == 0) 
         {
+            uint16_t *regs = NULL;
+            uint8_t count = 0;
+
             if (read_count > 0 && type == disasm_arg_t_src) 
             {                
-                for (int i = 0; i < read_count; i++) 
-                {
-                    Temp *temp = disasm_arg_to_temp(guest, regs_read[i]);
-                    if (temp)
-                    {
-                        args.push_back(temp);
-                        ret += 1;
-                    }
-                }
+                regs = regs_read;
+                count = read_count;                
+            }
+            else if (write_count > 0 && type == disasm_arg_t_dst) 
+            {                
+                regs = regs_write;
+                count = write_count;                
             }
 
-            if (write_count > 0 && type == disasm_arg_t_dst) 
-            {   
-                for (int i = 0; i < write_count; i++) 
+            for (int i = 0; i < count; i++) 
+            {
+                Temp *temp = disasm_arg_to_temp(guest, regs[i]);
+                if (temp)
                 {
-                    Temp *temp = disasm_arg_to_temp(guest, regs_write[i]);
-                    if (temp)
+                    bool exists = false;
+                    vector<Temp *>::iterator it;
+
+                    for (it = args.begin(); it != args.end(); ++it)
+                    {
+                        if ((*it)->name == temp->name)
+                        {
+                            exists = true;
+                            break;
+                        }
+                    }
+
+                    if (!exists)
                     {
                         args.push_back(temp);
                         ret += 1;
-                    }
+                    }                    
                 }
             }
         }

@@ -31,6 +31,8 @@ using namespace std;
 
 #include "disasm.h"
 
+#define DBG_BAP
+
 const char *reil_inst_name[] = 
 {
     "NONE", "UNK", "JCC", 
@@ -369,7 +371,7 @@ void CReilFromBilTranslator::process_reil_inst(reil_inst_t *reil_inst)
             reil_inst->raw_info.data = current_raw_info->data;
             reil_inst->raw_info.str_mnem = current_raw_info->str_mnem;
             reil_inst->raw_info.str_op = current_raw_info->str_op;
-        }
+        }        
 
         // call user-specified REIL instruction handler
         inst_handler(reil_inst, inst_handler_context);
@@ -1226,7 +1228,7 @@ void CReilFromBilTranslator::process_empty_insn(void)
 void CReilFromBilTranslator::process_unknown_insn(void)
 {  
     vector<Temp *>::iterator it;
-    vector<Temp *> arg_src, arg_dst, arg_all;    
+    vector<Temp *> arg_src, arg_dst, arg_all;   
 
     // get instruction arguments
     disasm_arg_src(guest, current_raw_info->data, arg_src);
@@ -1298,25 +1300,36 @@ void CReilFromBilTranslator::process_unknown_insn(void)
 
     for (it = arg_all.begin(); it != arg_all.end(); ++it)
     {
-        Temp *temp = *it;        
+        Temp *temp = *it;    
+
+        memset(&reil_inst.a, 0, sizeof(reil_arg_t));
+        memset(&reil_inst.c, 0, sizeof(reil_arg_t));
 
         if (it + 1 == arg_all.end())
         {
             reil_inst.flags = IOPT_ASM_END;        
-        }        
+        }
+        else
+        {
+            reil_inst.flags = 0;
+        }
 
         if (find(arg_src.begin(), arg_src.end(), temp) != arg_src.end())
         {
+            reil_inst.a.type = A_REG;
+            reil_inst.a.size = convert_operand_size(temp->typ);
+            strncpy(reil_inst.a.name, temp->name.c_str(), REIL_MAX_NAME_LEN - 1);
+
             // generate I_UNK with source argument access
-            memset(&reil_inst.c, 0, sizeof(reil_arg_t));
-            convert_operand(temp, &reil_inst.a);
             process_reil_inst(&reil_inst);
         }
         else if (find(arg_dst.begin(), arg_dst.end(), temp) != arg_dst.end())
         {
+            reil_inst.c.type = A_REG;
+            reil_inst.c.size = convert_operand_size(temp->typ);
+            strncpy(reil_inst.c.name, temp->name.c_str(), REIL_MAX_NAME_LEN - 1);
+
             // generate I_UNK with destination argument access
-            memset(&reil_inst.a, 0, sizeof(reil_arg_t));
-            convert_operand(temp, &reil_inst.c);
             process_reil_inst(&reil_inst);
         }
 
@@ -1442,6 +1455,18 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
         current_raw_info = raw_info;
     }
 
+#ifdef DBG_BAP
+
+    for (int i = 0; i < size; i++)
+    {
+        // enumerate BIL statements        
+        Stmt *s = block->bap_ir->at(i);
+        
+        printf("%s\n", s->tostring().c_str());
+    }
+
+#endif     
+
     if (is_unknown_insn(block))
     {
         fprintf(stderr, "WARNING: 0x%llx was not translated\n", raw_info->addr);
@@ -1486,11 +1511,6 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
                 inst_flags |= convert_special(special);
             }
         }   
-
-#ifdef DBG_BAP
-        
-        printf("%s\n", s->tostring().c_str());
-#endif     
 
         // convert statement to REIL code
         process_bil_stmt(s, inst_flags);
@@ -1537,15 +1557,15 @@ int CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
     // translate to VEX
     bap_block_t *block = generate_vex_ir(guest, data, addr);
     
-    assert(block);
-    assert(block->inst_size != 0 && block->inst_size != -1);
+    reil_assert(block, "process_inst(): unable to create BAP block");
+    reil_assert(block->inst_size != 0 && block->inst_size != -1, "process_inst(): invalid length");
 
     ret = block->inst_size;
 
     // tarnslate to BAP
     generate_bap_ir_block(guest, block);  
 
-    assert(block->bap_ir);
+    reil_assert(block->bap_ir, "process_inst(): unable to generate BAP IR");
 
 #ifdef DBG_BAP
 

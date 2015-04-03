@@ -96,7 +96,7 @@ bool get_use_eflags_thunks()
 void set_call_return_translation(int value)
 {
     cerr << "Warning: set_call_return_translation() is deprecated. Use replace_calls_and_returns instead.\n";
-    translate_calls_and_returns = (bool) value;
+    translate_calls_and_returns = (bool)value;
 }
 
 //----------------------------------------------------------------------
@@ -283,7 +283,7 @@ reg_t IRType_to_reg_type(IRType type)
     
     default:
 
-        throw "Unknown IRType";
+        panic("Unknown IRType");
     }
 
     return t;
@@ -789,17 +789,21 @@ Exp *translate_unop(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 
     switch (expr->Iex.Unop.op)
     {
-
     case Iop_Clz32:
+        
         return translate_Clz32(expr, irbb, irout);
+
     case Iop_Ctz32:
+        
         return translate_Ctz32(expr, irbb, irout);
 
     case Iop_AbsF64:
+        
         return new Unknown("Floating point op", REG_64);
 
     default:
-        throw "Unrecognized unary op";
+        
+        panic("Unrecognized unary op");
     }
 
     return NULL;
@@ -1156,7 +1160,7 @@ Exp *translate_binop(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 */
     default:
 
-        throw "Unrecognized binary op";
+        panic("Unrecognized binary op");
     }
 
     return NULL;
@@ -1179,7 +1183,6 @@ Exp *translate_triop(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 
     switch (expr->Iex.Triop.details->op)
     {
-
     case Iop_AddF64:
     case Iop_SubF64:
     case Iop_MulF64:
@@ -1198,7 +1201,7 @@ Exp *translate_triop(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 
     default:
 
-        throw "Unrecognized ternary op";
+        panic("Unrecognized ternary op");
     }
 
     return NULL;
@@ -1407,7 +1410,7 @@ Exp *translate_expr(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
     
     default:
     
-        throw "Unrecognized expression type";
+        panic("Unrecognized expression type");
     }
 
     return result;
@@ -1559,7 +1562,7 @@ Stmt *translate_stmt(IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout)
     
     default:
     
-        throw "Unrecognized statement type";
+        panic("Unrecognized statement type");
     }
 
     assert(result);
@@ -1649,7 +1652,7 @@ Stmt *translate_jumpkind(IRSB *irbb, vector<Stmt *> *irout)
     default:
     
         Exp::destroy(dest);
-        throw "Unrecognized jump kind";
+        panic("Unrecognized jump kind");
     }
 
     assert(result);
@@ -1669,11 +1672,22 @@ vector<Stmt *> *translate_special(address_t inst)
 }
 
 //----------------------------------------------------------------------
+// Generate Stmts for unknown/untranslated machine instruction
+//----------------------------------------------------------------------
+vector<Stmt *> *translate_unknown(string tag)
+{
+    vector<Stmt *> *irout = new vector<Stmt *>();
+
+    irout->push_back(new Special(uTag + tag));
+
+    return irout;
+}
+
+//----------------------------------------------------------------------
 // Translate an IRSB into a vector of Stmts in our IR
 //----------------------------------------------------------------------
 vector<Stmt *> *translate_irbb(IRSB *irbb)
 {
-
     //
     // It's assumed that each irbb only contains the translation for
     // 1 instruction
@@ -1763,18 +1777,24 @@ bap_block_t *generate_vex_ir(VexArch guest, uint8_t *data, address_t inst)
     
     vblock->inst = inst;
     vblock->inst_size = disasm_insn(guest, data, vblock->str_mnem, vblock->str_op);
-    assert(vblock->inst_size != 0 && vblock->inst_size != -1);
-
-    // Skip the VEX translation of special instructions because these
-    // are also the ones that VEX does not handle
-    if (!is_special(inst))
+    
+    if (vblock->inst_size > 0)
     {
-        vblock->vex_ir = translate_insn(guest, data, inst, NULL);
-    }
+        // Skip the VEX translation of special instructions because these
+        // are also the ones that VEX does not handle
+        if (!is_special(inst))
+        {
+            vblock->vex_ir = translate_insn(guest, data, inst, NULL);
+        }
+        else
+        {
+            vblock->vex_ir = NULL;
+        }
+    }    
     else
     {
-        vblock->vex_ir = NULL;
-    }
+        panic("generate_vex_ir(): Error while disassembling instruction");
+    }    
 
     return vblock;
 }
@@ -1900,7 +1920,11 @@ void generate_bap_ir_block(VexArch guest, bap_block_t *block)
 
             vir->at(j)->ir_address = ir_addr++;
         }
-    }    
+    } 
+    else
+    {
+        block->bap_ir = translate_unknown("Untranslated");
+    }   
 }
 
 vector<bap_block_t *> generate_bap_ir(VexArch guest, vector<bap_block_t *> vblocks)
