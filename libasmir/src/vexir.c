@@ -221,7 +221,7 @@ IRSB *translate_insn(VexArch guest,
     if (guest == VexArchARM)
     {
         // We must set the ARM version of VEX aborts
-        vta.archinfo_guest.hwcaps |= 5 /* ARMv5 */;
+        vta.archinfo_guest.hwcaps |= 7 /* ARMv7 */;
     }
 
     vta.guest_bytes = insn_start; // Ptr to actual bytes of start of instruction
@@ -248,7 +248,8 @@ IRSB *translate_insn(VexArch guest,
     else
     {
         fprintf(stderr, "WARNING: Critical VEX error, instruction was not translated\n");
-        return NULL;
+        
+        irbb_current = NULL;
     }
 
     return irbb_current;

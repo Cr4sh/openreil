@@ -428,22 +428,19 @@ class Insn(object):
 
                 c = c if self.c.type == A_CONST else out_state[c]
 
+                if isinstance(c, SymConst):
+
+                    # make IR addr from numeric constant
+                    c = SymIRAddr(c.val, 0)
+
                 if self.a.type == A_CONST:
 
                     # unconditional
                     if self.a.get_val() != 0: out_state.update(SymIP(), c)
 
-                else:
+                else:                    
 
-                    if self.has_attr(IATTR_NEXT):
-
-                        next = self.get_attr(IATTR_NEXT)[0]
-
-                    else:
-
-                        next = self.addr + self.size
-
-                    true, false = c, SymConst(next, U32)
+                    true, false = c, SymIRAddr(*self.next())
                     assert true is not None and false is not None
 
                     # conditional
@@ -719,6 +716,10 @@ class InsnList(list):
     def __str__(self):
 
         return '\n'.join(map(lambda insn: insn.to_str(show_asm = True, show_bin = True), self)) + '\n'
+
+    def sort(self):
+
+        super(InsnList, self).sort(key = lambda insn: insn.ir_addr())
 
     def get_range(self, first, last = None):
 
@@ -2437,6 +2438,8 @@ class CodeStorageTranslator(CodeStorage):
 
             CFGraphBuilder.traverse(self, ir_addr)
 
+            self.func.sort()
+
     def __init__(self, reader = None, storage = None):        
 
         arch = None
@@ -2461,6 +2464,33 @@ class CodeStorageTranslator(CodeStorage):
 
         # generate IR instructions
         ret = self.translator.to_reil(data, addr = addr)
+
+        #
+        # Represent Cjmp + Jmp (libasmir artifact) as Not + Cjmp.
+        #
+        if len(ret) > 2 and \
+           Insn_op(ret[-1]) == I_JCC and \
+           Insn_op(ret[-2]) == I_JCC:
+
+            jcc_1 = Insn(ret[-2])
+            jcc_2 = Insn(ret[-1])
+
+            if jcc_1.a.type == A_TEMP and \
+               jcc_1.c.type == A_CONST and jcc_1.c.get_val() == jcc_1.addr + jcc_1.size and \
+               jcc_2.a.type == A_CONST and jcc_2.a.get_val() != 0 and \
+               jcc_2.c.type == A_CONST and jcc_2.c.get_val() != jcc_2.addr + jcc_2.size:
+
+                # allocate new temp register
+                num = int(jcc_1.a.name[2:])
+                tmp = Arg(A_TEMP, jcc_1.a.size, 'V_%.2d' % (num + 1))
+
+                ret = ret[:len(ret) - 2]
+
+                ret.append(Insn(op = I_NOT, ir_addr = jcc_1.ir_addr(), size = jcc_1.size, 
+                                a = jcc_1.a, c = tmp).serialize())
+
+                ret.append(Insn(op = I_JCC, ir_addr = jcc_2.ir_addr(),  size = jcc_2.size,
+                                a = tmp, c = jcc_2.c, attr = jcc_2.attr).serialize())
 
         #
         # Convert untranslated instruction representation into the 

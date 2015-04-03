@@ -1862,42 +1862,45 @@ void generate_bap_ir_block(VexArch guest, bap_block_t *block)
 
     // Set the global everyone else will look at.
     guest_arch = guest;
+    block->bap_ir = NULL;
 
     // Translate the block
     if (is_special(block->inst))
     {
         block->bap_ir = translate_special(block->inst);
     }
-    else
+    else if (block->vex_ir)
     {
         block->bap_ir = translate_irbb(block->vex_ir);
     }
 
-    assert(block->bap_ir);
-    vector<Stmt *> *vir = block->bap_ir;
-
-    // Go through block and add Special's for ret
-    insert_specials(block);
-
-    // Go through the block and add on eflags modifications
-    modify_flags(block);
-
-    // Delete EFLAGS get thunks
-    if (!use_eflags_thunks)
+    if (block->bap_ir)
     {
-        del_get_thunk(block);
-    }
+        vector<Stmt *> *vir = block->bap_ir;
 
-    // Add the asm and ir addresses
-    for (int j = 0; j < vir->size(); j++)
-    {
-        if (block->inst)
+        // Go through block and add Special's for ret
+        insert_specials(block);
+
+        // Go through the block and add on eflags modifications
+        modify_flags(block);
+
+        // Delete EFLAGS get thunks
+        if (!use_eflags_thunks)
         {
-            vir->at(j)->asm_address = block->inst;
+            del_get_thunk(block);
         }
 
-        vir->at(j)->ir_address = ir_addr++;
-    }
+        // Add the asm and ir addresses
+        for (int j = 0; j < vir->size(); j++)
+        {
+            if (block->inst)
+            {
+                vir->at(j)->asm_address = block->inst;
+            }
+
+            vir->at(j)->ir_address = ir_addr++;
+        }
+    }    
 }
 
 vector<bap_block_t *> generate_bap_ir(VexArch guest, vector<bap_block_t *> vblocks)

@@ -31,6 +31,8 @@ using namespace std;
 
 #include "disasm.h"
 
+#define DBG_BAP
+
 const char *reil_inst_name[] = 
 {
     "NONE", "UNK", "JCC", 
@@ -1110,6 +1112,11 @@ void CReilFromBilTranslator::process_bil_stmt(Stmt *s, uint64_t inst_flags)
                 target = target_tmp = new Constant(REG_32, addr);
             }
 
+            reil_assert(
+                target->exp_type == CONSTANT || target->exp_type == TEMP, 
+                "Unexpected JMP target"
+            );
+
             Constant cond(REG_1, 1);
             process_bil_inst(I_JCC, inst_flags, target, &cond);
 
@@ -1539,6 +1546,8 @@ int CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
 
     // tarnslate to BAP
     generate_bap_ir_block(guest, block);  
+
+    assert(block->bap_ir);
 
 #ifdef DBG_BAP
 
