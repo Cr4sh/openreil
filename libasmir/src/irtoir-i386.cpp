@@ -585,7 +585,7 @@ static Exp *translate_get_reg_8(int offset)
     
     default:
     
-        throw "Unrecognized 8-bit register";
+        panic("Unrecognized 8-bit register");
     }
 
     // Create the corresponding named register
@@ -634,7 +634,7 @@ static Exp *translate_get_segreg_base(int offset)
 
     default:
     
-        throw "Unrecognized register offset";
+        panic("Unrecognized register offset");
     }
 
     if (usebase)
@@ -750,7 +750,7 @@ static Exp *translate_get_reg_16(int offset)
 
     default:
     
-        throw "Unrecognized register offset";
+        panic("Unrecognized register offset");
     }
 
     Exp *value = NULL;
@@ -1341,7 +1341,7 @@ static Stmt *translate_put_reg_8(int offset, Exp *data, IRSB *irbb)
 
     default:
     
-        throw "Unrecognized 8-bit register";
+        panic("Unrecognized 8-bit register");
     }
 
     // Create the corresponding named register
@@ -1476,7 +1476,7 @@ static Stmt *translate_put_reg_16(int offset, Exp *data, IRSB *irbb)
 
     default:
     
-        throw "Unrecognized register offset";
+        panic("Unrecognized register offset");
     }
 
     Exp *masked;

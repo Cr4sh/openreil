@@ -280,7 +280,7 @@ Temp *disasm_arg_to_temp(VexArch guest, uint8_t arg)
     
     default:
     
-        throw "disasm_arg_to_temp(): unsupported arch";
+        panic("disasm_arg_to_temp(): unsupported arch");
     }    
 
     return NULL;
@@ -307,12 +307,12 @@ void disasm_open(VexArch guest, csh *handle)
     
     default:
     
-        throw "disasm_open(): unsupported arch";
+        panic("disasm_open(): unsupported arch");
     }
 
     if (cs_open(arch, mode, handle) != CS_ERR_OK)
     {
-        throw "cs_open() fails";
+        panic("cs_open() fails");
     }    
 }
 
@@ -499,7 +499,7 @@ int disasm_arg_special(VexArch guest, cs_insn *insn, vector<Temp *> &args, dsias
     
     default:
     
-        throw "disasm_arg_special(): unsupported arch";
+        panic("disasm_arg_special(): unsupported arch");
     }    
 
     return -1;

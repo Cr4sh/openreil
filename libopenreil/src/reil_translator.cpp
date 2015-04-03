@@ -31,8 +31,6 @@ using namespace std;
 
 #include "disasm.h"
 
-#define DBG_BAP
-
 const char *reil_inst_name[] = 
 {
     "NONE", "UNK", "JCC", 

@@ -172,6 +172,7 @@ Stmt *translate_put(IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout)
         return arm_translate_put(stmt, irbb, irout);
     
     default:
+        
         panic("translate_put");
     }
 }
