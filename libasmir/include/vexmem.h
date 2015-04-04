@@ -1,18 +1,5 @@
-/*
- Owned and copyright BitBlaze, 2007. All rights reserved.
- Do not copy, disclose, or distribute without explicit written
- permission.
-*/
-
-//======================================================================
-//
-// Vexmem is a memory management module created for Vexir. See Notes
-// for more details.
-//
-//======================================================================
-
-#ifndef __VEXMEM_H
-#define __VEXMEM_H
+#ifndef VEXMEM_H
+#define VEXMEM_H
 
 #ifdef __cplusplus
 extern "C"
@@ -23,6 +10,7 @@ extern "C"
 
 void *vx_Alloc(Int nbytes);
 void vx_FreeAll();
+
 IRSB* vx_dopyIRSB(IRSB* bb);
 
 #ifdef __cplusplus
@@ -30,4 +18,3 @@ IRSB* vx_dopyIRSB(IRSB* bb);
 #endif
 
 #endif
-

@@ -1,16 +1,6 @@
-/*
- Owned and copyright BitBlaze, 2007. All rights reserved.
- Do not copy, disclose, or distribute without explicit written
- permission.
-*/
+#ifndef EXP_H
+#define EXP_H
 
-/*
- * When editing this file, please make sure to also update libasmir.idl
- * appropriately.
- */
-
-#ifndef _EXP_H
-#define _EXP_H
 #include "common.h"
 #include "irvisitor.h"
 

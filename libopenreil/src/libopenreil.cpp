@@ -6,8 +6,10 @@
 #include <iostream>
 #include <string>
 
+using namespace std;
+
 // libasmir includes
-#include "irtoir.h"
+#include "irtoir-internal.h"
 
 // OpenREIL includes
 #include "libopenreil.h"

@@ -1,8 +1,12 @@
-#include "irtoir-internal.h"
-#include "libvex_guest_arm.h"
+#include <string>
+#include <iostream>
 #include <assert.h>
 #include <stddef.h>
 
+using namespace std;
+
+#include "irtoir-internal.h"
+#include "libvex_guest_arm.h"
 
 //
 // Register offsets, copied from VEX/priv/guest_arm/toIR.c

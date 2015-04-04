@@ -1,14 +1,7 @@
-/*
- Owned and copyright BitBlaze, 2008. All rights reserved.
- Do not copy, disclose, or distribute without explicit written
- permission. bla bla bla
-*/
+#ifndef IRTOIR_INTERNAL_H
+#define IRTOIR_INTERNAL_H
 
-#ifndef __IRTOIR_INTERNAL_H
-#define __IRTOIR_INTERNAL_H
-
-#include <setjmp.h>
-
+#include "common.h"
 #include "irtoir.h"
 
 /* We need this for emit_mux/match_mux etc. */
@@ -28,9 +21,6 @@
 #define MUX_OFFSET 2
 
 #define MUX_SUB (MUX_LENGTH + MUX_OFFSET - 1)
-
-// functions internal to irtoir.cpp and irtoir-*.cpp
-void panic(string msg);
 
 Temp *mk_reg(string name, reg_t width);
 reg_t IRType_to_reg_type(IRType type);

@@ -1,5 +1,5 @@
-#ifndef __JUMPBUF_H
-#define __JUMPBUF_H
+#ifndef JUMPBUF_H
+#define JUMPBUF_H
 
 #include <setjmp.h>
 

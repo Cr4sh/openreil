@@ -1,10 +1,5 @@
-/*
- Owned and copyright BitBlaze, 2007. All rights reserved.
- Do not copy, disclose, or distribute without explicit written
- permission.
-*/
-#ifndef _IRVISITOR_H
-#define _IRVISITOR_H
+#ifndef IRVISITOR_H
+#define IRVISITOR_H
 
 class VarDecl;
 class Temp;

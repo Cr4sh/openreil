@@ -1,3 +1,15 @@
+#include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "vexmem.h"
+#include "config.h"
+
+#if VEX_VERSION >= 1793
+#define Ist_MFence Ist_MBE
+#endif
+
 //======================================================================
 //
 // This file contains the functions for memory management needed by
@@ -5,18 +17,6 @@
 // file was copied from irdefs.c in VEX.
 //
 //======================================================================
-
-#include <assert.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "vexmem.h"
-
-#include "config.h"
-#if VEX_VERSION >= 1793
-#define Ist_MFence Ist_MBE
-#endif
 
 static IRCallee *vx_mkIRCallee(Int regparms, const HChar *name, void *addr);
 static IRRegArray *vx_mkIRRegArray(Int base, IRType elemTy, Int nElems);

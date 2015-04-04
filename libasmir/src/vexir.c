@@ -9,11 +9,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <setjmp.h>
 
 #include "libvex.h"
 #include "vexmem.h"
-
+#include "jumpbuf.h"
 
 //======================================================================
 //
@@ -42,10 +41,6 @@ static Int tmpbuf_used;
 // within the callback (instrument1)
 static IRSB *irbb_current = NULL;
 static int size_current = 0;
-
-// For returning back to libasmir when critical VEX error occurs
-extern jmp_buf vex_error;
-extern char jmp_buf_set;
 
 //======================================================================
 //

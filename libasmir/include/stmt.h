@@ -1,10 +1,5 @@
-/*
- Owned and copyright BitBlaze, 2007. All rights reserved.
- Do not copy, disclose, or distribute without explicit written
- permission.
-*/
-#ifndef _STMT_H
-#define _STMT_H
+#ifndef STMT_H
+#define STMT_H
 
 #include "irvisitor.h"
 #include "exp.h"

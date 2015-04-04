@@ -1,11 +1,5 @@
-/*
- Owned and copyright BitBlaze, 2007. All rights reserved.
- Do not copy, disclose, or distribute without explicit written
- permission.
-*/
-
-#ifndef __IRTOIR_H
-#define __IRTOIR_H
+#ifndef IRTOIR_H
+#define IRTOIR_H
 
 typedef struct bap_block_s bap_block_t;
 
@@ -13,16 +7,9 @@ typedef struct bap_block_s bap_block_t;
 // VEX headers (inside Valgrind/VEX/pub)
 //
 #include "vexmem.h"
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #include "libvex.h"
 
 #ifdef __cplusplus
-}
 
 #include <vector>
 

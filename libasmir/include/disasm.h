@@ -1,5 +1,7 @@
-#ifndef _DISASM_H
-#define _DISASM_H
+#ifndef DISASM_H
+#define DISASM_H
+
+#define DISASM_MAX_INST_LEN 24
 
 #ifdef __cplusplus
 extern "C" {

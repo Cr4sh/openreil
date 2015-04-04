@@ -1,16 +1,11 @@
-/*
- Owned and copyright BitBlaze, 2007. All rights reserved.
- Do not copy, disclose, or distribute without explicit written
- permission.
-*/
-#include "exp.h"
-#include "stmt.h"
 #include <iostream>
 #include <map>
 #include <cassert>
 #include <cstdio>
 
 using namespace std;
+
+#include "stmt.h"
 
 // Do NOT change this. It is used in producing XML output.
 static string binopnames[] =

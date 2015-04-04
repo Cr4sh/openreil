@@ -5,7 +5,7 @@
 // IR format definitions
 #include "reil_ir.h"
 
-#define MAX_INST_LEN 30
+#define MAX_INST_LEN 24
 
 #define REIL_ERROR -1
 

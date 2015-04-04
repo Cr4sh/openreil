@@ -4,8 +4,10 @@
 #include <stdio.h>
 #include <assert.h>
 
+using namespace std;
+
 #include "irtoir-internal.h"
-#include "config.h"
+#include "disasm.h"
 
 #if VEX_VERSION >= 1793
 #define Ist_MFence Ist_MBE
@@ -24,10 +26,6 @@ bool translate_calls_and_returns = 0;
 // It might be cleaner to pass this around, but that would require a lot of
 // refactoring.
 VexArch guest_arch = VexArch_INVALID;
-
-using namespace std;
-
-#include "disasm.h"
 
 //
 // For labeling untranslated VEX IR instructions
@@ -78,17 +76,6 @@ void set_call_return_translation(int value)
 {
     cerr << "Warning: set_call_return_translation() is deprecated. Use replace_calls_and_returns instead.\n";
     translate_calls_and_returns = (bool)value;
-}
-
-//----------------------------------------------------------------------
-// A panic function that prints a msg and terminates the program
-//----------------------------------------------------------------------
-void panic(string msg)
-{
-    ostringstream os;
-
-    os << "Panic: " << msg;    
-    throw os.str().c_str();
 }
 
 //---------------------------------------------------------------------

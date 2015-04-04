@@ -7,14 +7,11 @@
 #include <string>
 #include <algorithm>
 
-extern "C" 
-{ 
-#include "libvex.h" 
-}
+using namespace std;
 
 // libasmir includes
-#include "irtoir.h"
 #include "irtoir-internal.h"
+#include "disasm.h"
 
 // libasmir architecture specific
 #include "irtoir-i386.h"
@@ -26,10 +23,6 @@ extern string sTag;
 // OpenREIL includes
 #include "libopenreil.h"
 #include "reil_translator.h"
-
-using namespace std;
-
-#include "disasm.h"
 
 const char *reil_inst_name[] = 
 {

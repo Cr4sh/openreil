@@ -1,14 +1,11 @@
-/*
- Owned and copyright BitBlaze, 2007. All rights reserved.
- Do not copy, disclose, or distribute without explicit written
- permission.
-*/
-#include "stmt.h"
+#include <string>
 #include <iostream>
 #include <fstream>
 #include <assert.h>
 
 using namespace std;
+
+#include "stmt.h"
 
 Stmt *Stmt::clone(Stmt *s)
 {

@@ -6,13 +6,9 @@
 
 #include "libvex.h"
 
-#include "irtoir.h"
-#include "irtoir-internal.h"
-
-#define DISASM_MAX_INST_LEN 30
-
 using namespace std;
 
+#include "irtoir-internal.h"
 #include "disasm.h"
 
 typedef enum _dsiasm_arg_t

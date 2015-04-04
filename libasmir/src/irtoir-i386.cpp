@@ -4,6 +4,8 @@
 #include <assert.h>
 #include <stddef.h>
 
+using namespace std;
+
 #include "irtoir-internal.h"
 #include "libvex_guest_x86.h"
 
