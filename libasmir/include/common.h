@@ -38,6 +38,7 @@ typedef uint64_t address_t;
 
 
 #define LOG_TO_STDERR
+#define LOG_TO_FILE
 
 
 #ifdef __cplusplus
@@ -67,7 +68,7 @@ void panic(string msg);
 uint32_t log_stderr(uint32_t mask);
 
 int log_init(uint32_t mask, const char *path);
-int log_close(void);
+void log_close(void);
 
 void log_write(uint32_t level, const char *msg, ...);
 
