@@ -93,6 +93,9 @@ void log_write(uint32_t level, const char *msg, ...)
     char *buff = NULL;
     int len = vsnprintf(NULL, 0, msg, mylist); 
 
+    va_end(mylist);
+    va_start(mylist, msg);
+
     // allocate buffer for message string
     if (len > 0 && (buff = (char *)malloc(len + 1)))
     {
