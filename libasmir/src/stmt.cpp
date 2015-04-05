@@ -535,5 +535,3 @@ Label *mk_label()
  
     return new Label("L_" + int_to_str(label_counter++));
 }
-
-

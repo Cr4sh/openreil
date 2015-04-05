@@ -6,6 +6,7 @@
 using namespace std;
 
 #include "stmt.h"
+#include "common.h"
 
 // Do NOT change this. It is used in producing XML output.
 static string binopnames[] =
@@ -209,7 +210,7 @@ void Exp::destroy(Exp *expr)
 
         // Fixme: need to make a destroy virtual function that all
         // exp have.
-        fprintf(stderr, "warning: Memory lost on unhandled destroy");
+        
         break;
     }
 }
@@ -571,8 +572,6 @@ Temp *Temp::clone() const
 
 string Temp::tostring() const
 {
-    // Argh! Stop removing useful error checking and debugging information.
-    // It doesn't hurt anyone.
     return name + ":" + Exp::string_type(typ);
 }
 
@@ -706,7 +705,7 @@ string Cast::tostring() const
     
     default:
     
-        cout << "Unrecognized cast type" << endl;
+        log_write(LOG_ERR, "Cast::tostring(): unrecognized cast type");
         assert(0);
     }
 
@@ -720,10 +719,6 @@ string Cast::cast_type_to_string(const cast_t ctype)
 
     switch (ctype)
     {
-    
-    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // Do NOT change this. It is used in producing XML output.
-    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     case CAST_UNSIGNED:
     
         tstr = "Unsigned";
@@ -766,7 +761,7 @@ string Cast::cast_type_to_string(const cast_t ctype)
     
     default:
     
-        cout << "Unrecognized cast type" << endl;
+        log_write(LOG_ERR, "Cast::cast_type_to_string(): unrecognized cast type");
         assert(0);
     }
 
@@ -1234,4 +1229,3 @@ Cast *ex_rf_cast(Exp *arg, reg_t width)
     
     return new Cast(arg, width, CAST_RFLOAT);
 }
-

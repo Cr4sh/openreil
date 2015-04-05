@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <algorithm>
 
@@ -207,7 +208,7 @@ string CReilFromBilTranslator::tempreg_get(string name)
 
 #ifdef DBG_TEMPREG
 
-        printf("Temp reg %d reserved for %s\n", tempreg_num, name.c_str());
+        log_write(LOG_INFO, "Temp reg %d reserved for %s", tempreg_num, name.c_str());
 #endif
 
     }
@@ -216,7 +217,7 @@ string CReilFromBilTranslator::tempreg_get(string name)
 
 #ifdef DBG_TEMPREG
 
-        printf("Temp reg %d found for %s\n", tempreg_num, name.c_str());   
+        log_write(LOG_INFO, "Temp reg %d found for %s", tempreg_num, name.c_str());   
 #endif
 
     }
@@ -1062,11 +1063,9 @@ void CReilFromBilTranslator::process_bil_stmt(Stmt *s, uint64_t inst_flags)
                 label_inum = 0;
             }
 
-#ifdef DBG_BAP
-
-            printf("// BAP label %s at 0x%llx.%.2x\n", label->label.c_str(), 
+            log_write(LOG_BIL, "// BAP label %s at %.8llx.%.2x", label->label.c_str(), 
                 label_addr, label_inum);
-#endif
+
             break;
         }
 
@@ -1167,7 +1166,7 @@ void CReilFromBilTranslator::process_bil_stmt(Stmt *s, uint64_t inst_flags)
     case CALL:
     case RETURN:
         {            
-            fprintf(stderr, "ERROR: Statement %d is not implemented\n", s->stmt_type);
+            log_write(LOG_ERR, "Statement %d is not implemented", s->stmt_type);
             reil_assert(0, "unimplemented statement");
         }
 
@@ -1227,52 +1226,32 @@ void CReilFromBilTranslator::process_unknown_insn(void)
 
     if (arg_src.size() > 0)
     {
+        string regs;
 
-#ifdef DBG_BAP
-
-        printf("// src registers: ");
-#endif
         for (it = arg_src.begin(); it != arg_src.end(); ++it)
         {
-
-#ifdef DBG_BAP
-
             Temp *temp = *it;
-            printf("%s ", temp->name.c_str());
-#endif
-            arg_all.push_back(*it);
+            regs += temp->name + " ";
+
+            arg_all.push_back(temp);
         }
 
-#ifdef DBG_BAP
-
-        printf("\n");
-#endif
-
+        log_write(LOG_BIL, "// src registers: %s", regs.c_str());
     }    
 
     if (arg_dst.size() > 0)
     {
+        string regs;
 
-#ifdef DBG_BAP
-
-        printf("// dst registers: ");
-#endif
         for (it = arg_dst.begin(); it != arg_dst.end(); ++it)
         {
-
-#ifdef DBG_BAP
-
             Temp *temp = *it;
-            printf("%s ", temp->name.c_str());
-#endif
-            arg_all.push_back(*it);
+            regs += temp->name + " ";
+
+            arg_all.push_back(temp);
         }
 
-#ifdef DBG_BAP
-
-        printf("\n");
-#endif
-
+        log_write(LOG_BIL, "// dst registers: %s", regs.c_str());
     }
 
     reil_inst_t reil_inst;
@@ -1394,9 +1373,8 @@ bool CReilFromBilTranslator::get_bil_label(string name, reil_addr_t *addr)
                     {
                         // label belongs to the next instruction
                         ret = current_raw_info->addr + current_raw_info->size;
-#ifdef DBG_BAP
-                        printf("// %s -> 0x%llx\n", name.c_str(), ret);
-#endif
+
+                        log_write(LOG_BIL, "// %s -> %.8llx", name.c_str(), ret);
                     }
                     else
                     {
@@ -1446,21 +1424,19 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
         current_raw_info = raw_info;
     }
 
-#ifdef DBG_BAP
+    log_write(LOG_BIL, "BAP {");
 
     for (int i = 0; i < size; i++)
     {
         // enumerate BIL statements        
         Stmt *s = block->bap_ir->at(i);
         
-        printf("%s\n", s->tostring().c_str());
+        log_write(LOG_BIL, "%s", s->tostring().c_str());
     }
-
-#endif     
 
     if (is_unknown_insn(block))
     {
-        fprintf(stderr, "WARNING: 0x%llx was not translated\n", raw_info->addr);
+        log_write(LOG_WARN, "// %.8llx was not translated", raw_info->addr);
 
         // add metainformation about unknown instruction into the code
         process_unknown_insn();
@@ -1515,11 +1491,7 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
 
 _end:
 
-#ifdef DBG_BAP
-        
-    printf("\n");
-
-#endif  
+    log_write(LOG_BIL, "}");
 
     return;
 }
@@ -1558,15 +1530,23 @@ int CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
 
     reil_assert(block->bap_ir, "process_inst(): unable to generate BAP IR");
 
-#ifdef DBG_BAP
+    string bytes;
 
-    printf(
-        "// %.8llx: %s %s ; len = %d\n",
+    for (int i = 0; i < block->inst_size; i++)
+    {
+        ostringstream byte;
+        byte << hex << setfill('0') << setw(2) << nouppercase << (int)data[i];
+
+        bytes += byte.str() + " ";
+    }
+
+    log_write(LOG_BIN, "BIN { %.8llx: %s}", addr, bytes.c_str());
+
+    log_write(
+        LOG_ASM, "ASM { %.8llx: %s %s ; len = %d }",
         addr, block->str_mnem.c_str(), block->str_op.c_str(), 
         block->inst_size
     );              
-    
-#endif
 
     raw_info.addr = addr;
     raw_info.size = ret;

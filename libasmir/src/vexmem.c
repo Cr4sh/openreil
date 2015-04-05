@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "vexmem.h"
-#include "config.h"
+#include "common.h"
 
 #if VEX_VERSION >= 1793
 #define Ist_MFence Ist_MBE
@@ -54,14 +54,6 @@ static IRDirty *vx_dopyIRDirty(IRDirty *d);
 static IRStmt *vx_dopyIRStmt(IRStmt *s);
 static IRTypeEnv *vx_dopyIRTypeEnv(IRTypeEnv *src);
 
-//
-// Function for panicking
-//
-void vx_panic(HChar *str)
-{
-    fprintf(stderr, "\nlibasmir-vex: the impossible happened:\n%s\n", str);
-    exit(-1);
-}
 
 //======================================================================
 //
@@ -603,11 +595,11 @@ IRExpr *vx_dopyIRExpr(IRExpr *e)
 
     case Iex_Binder:
         
-        vx_panic("vx_dopyIRExpr: case Iex_Binder (this should not be seen outside VEX)");
+        _panic("vx_dopyIRExpr(): case Iex_Binder (this should not be seen outside VEX)");
 
     default:
 
-        vx_panic("vx_dopyIRExpr");
+        _panic("vx_dopyIRExpr(): unknown expression");
     }
 
     return NULL;
@@ -726,7 +718,7 @@ IRStmt *vx_dopyIRStmt(IRStmt *s)
 
     default:
     
-        vx_panic("vx_dopyIRStmt");
+        _panic("vx_dopyIRStmt(): unknown statement");
     }
 
     return NULL;

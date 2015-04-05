@@ -74,7 +74,6 @@ bool get_use_eflags_thunks()
 
 void set_call_return_translation(int value)
 {
-    cerr << "Warning: set_call_return_translation() is deprecated. Use replace_calls_and_returns instead.\n";
     translate_calls_and_returns = (bool)value;
 }
 
@@ -232,16 +231,16 @@ reg_t IRType_to_reg_type(IRType type)
     
     case Ity_F32:
 
-        fprintf(stderr, "WARNING: Float32 register encountered\n");
-
+        log_write(LOG_WARN, "Float32 register encountered");
         t = REG_32;
+
         break;
     
     case Ity_F64:
 
-        fprintf(stderr, "WARNING: Float64 register encountered\n");
-
+        log_write(LOG_WARN, "Float64 register encountered");
         t = REG_64;
+
         break;
     
     default:
@@ -2075,4 +2074,3 @@ void do_cleanups_before_processing()
         count_opnd = NULL;
     }
 }
-

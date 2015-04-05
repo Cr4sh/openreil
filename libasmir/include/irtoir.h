@@ -107,4 +107,3 @@ typedef struct vector<bap_block_t *> bap_blocks_t;
 #endif
 
 #endif
-

@@ -131,8 +131,12 @@ extern "C" void reil_close(reil_t reil)
 
 int reil_translate_report_error(reil_addr_t addr, const char *reason)
 {
-    fprintf(stderr, "Eror while processing instruction at address 0x%llx\n", addr);
-    fprintf(stderr, "Exception occurs: %s\n", reason);
+    log_write(LOG_ERR, "Eror while processing instruction at address 0x%llx", addr);
+
+    if (reason)
+    {
+        log_write(LOG_ERR, "Exception occurs: %s", reason);
+    }    
     
     return REIL_ERROR;
 }
@@ -141,22 +145,26 @@ extern "C" int reil_translate_insn(reil_t reil, reil_addr_t addr, unsigned char 
 {
     int inst_len = 0;
     reil_context *c = (reil_context *)reil;
-    assert(c);    
+    assert(c);
 
     try
     {
         inst_len = c->translator->process_inst(addr, buff, len);    
         assert(inst_len != 0 && inst_len != -1);
     }
+    catch (BapException e)
+    {        
+        // libasmir exception
+        return reil_translate_report_error(addr, e.reason.c_str());
+    }
     catch (CReilTranslatorException e)
     {
         // libopenreil exception
         return reil_translate_report_error(addr, e.reason.c_str());
     }
-    catch (const char *e)
+    catch (...)
     {
-        // libasmir exception
-        return reil_translate_report_error(addr, e);
+        return reil_translate_report_error(addr, NULL);
     }
 
     return inst_len;

@@ -1019,7 +1019,6 @@ Exp *i386_translate_ccall(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
             /* temp is a reference to t5 */
             if (tempexp->tag != Iex_RdTmp)
             {
-                cerr << tempexp->tag << endl;
                 panic("Expected unop");
             }
 
@@ -2723,13 +2722,7 @@ static void modify_eflags_helper(string op, reg_t type, vector<Stmt *> *ir, int 
     }
     else
     {
-        cerr << "Warning! No EFLAGS thunk was found for \""
-             << op << "\"!" << endl;
-
-        for (vector<Stmt *>::iterator i = ir->begin(); i != ir->end(); i++)
-        {
-            cerr << (*i)->tostring() << endl;
-        }
+        log_write(LOG_WARN, "No EFLAGS thunk was found for \"%s\"!", op.c_str());
     }
 }
 
@@ -3023,10 +3016,7 @@ void i386_modify_flags(bap_block_t *block)
         }
         else 
         {
-            cerr << "Warning! Flags not handled for " << op 
-                 << hex 
-                 << " at " << block->inst
-                 << endl;
+            log_write(LOG_WARN, "Flags not handled for %s at %llx", op.c_str(), block->inst);
         }
     }
 }

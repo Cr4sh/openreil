@@ -13,6 +13,7 @@
 #include "libvex.h"
 #include "vexmem.h"
 #include "jumpbuf.h"
+#include "common.h"
 
 //======================================================================
 //
@@ -242,11 +243,10 @@ IRSB *translate_insn(VexArch guest,
     }
     else
     {
-        fprintf(stderr, "WARNING: Critical VEX error, instruction was not translated\n");
+        log_write(LOG_ERR, "Critical VEX error, instruction was not translated");
         
         irbb_current = NULL;
     }
 
     return irbb_current;
 }
-

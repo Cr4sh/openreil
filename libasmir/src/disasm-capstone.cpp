@@ -24,7 +24,7 @@ Temp *i386_disasm_arg_to_temp(uint8_t arg)
     {
     case X86_REG_AH:
 
-        fprintf(stderr, "i386_disasm_arg_to_temp() WARNING: using AX instead AH\n");
+        log_write(LOG_WARN, "i386_disasm_arg_to_temp(): using AX instead AH\n");
         return mk_reg("EAX", REG_16);
 
     case X86_REG_AL:
@@ -37,7 +37,7 @@ Temp *i386_disasm_arg_to_temp(uint8_t arg)
     
     case X86_REG_BH:
 
-        fprintf(stderr, "i386_disasm_arg_to_temp() WARNING: using BX instead BH\n");
+        log_write(LOG_WARN, "i386_disasm_arg_to_temp(): using BX instead BH\n");
         return mk_reg("EBX", REG_16);
     
     case X86_REG_BL:
@@ -54,7 +54,7 @@ Temp *i386_disasm_arg_to_temp(uint8_t arg)
     
     case X86_REG_CH:
 
-        fprintf(stderr, "i386_disasm_arg_to_temp() WARNING: using CX instead CH\n");
+        log_write(LOG_WARN, "i386_disasm_arg_to_temp(): using CX instead CH\n");
         return mk_reg("ECX", REG_16);
     
     case X86_REG_CL:
@@ -71,7 +71,7 @@ Temp *i386_disasm_arg_to_temp(uint8_t arg)
     
     case X86_REG_DH:
 
-        fprintf(stderr, "i386_disasm_arg_to_temp() WARNING: using DX instead DH\n");
+        log_write(LOG_WARN, "i386_disasm_arg_to_temp(): using DX instead DH\n");
         return mk_reg("EDX", REG_16);
     
     case X86_REG_DI:
@@ -335,7 +335,7 @@ int disasm_insn(VexArch guest, uint8_t *data, string &mnemonic, string &op)
     } 
     else
     {
-        fprintf(stderr, "ERROR: Failed to disassemble\n");
+        log_write(LOG_ERR, "disasm_insn(): failed to disassemble\n");
     }
 
     cs_close(&handle);
@@ -571,7 +571,7 @@ int disasm_arg(VexArch guest, uint8_t *data, vector<Temp *> &args, dsiasm_arg_t 
     } 
     else
     {
-        fprintf(stderr, "ERROR: Failed to disassemble\n");
+        log_write(LOG_ERR, "disasm_arg(): failed to disassemble\n");
     }
 
     cs_close(&handle);
