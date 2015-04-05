@@ -38,6 +38,8 @@ static Int tmpbuf_used;
 
 #endif
 
+#define VEX_TRACE_INST (1 << 5)
+
 // Global for saving the intermediate results of translation from
 // within the callback (instrument1)
 static IRSB *irbb_current = NULL;
@@ -57,17 +59,7 @@ static void failure_exit(void)
 
 static void log_bytes(const HChar *bytes, SizeT nbytes)
 {
-    SizeT i;
-
-    for (i = 0; i < nbytes - 3; i += 4)
-    {
-        printf("%c%c%c%c", bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]);
-    }
-
-    for (; i < nbytes; i++)
-    {
-        printf("%c", bytes[i]);
-    }
+    log_write_bytes(LOG_VEX, bytes, nbytes);
 }
 
 static Bool chase_into_ok(void *closureV, Addr addr)
@@ -134,7 +126,7 @@ void translate_init()
 
     LibVEX_Init(&failure_exit,
                 &log_bytes,
-                0,              // Debug level
+                0, // Debug level
                 &vc);
 
     LibVEX_default_VexArchInfo(&vai);
@@ -153,7 +145,7 @@ void translate_init()
 #endif // USE_SSE
 
     // Setup the translation args
-    vta.arch_guest                  = VexArch_INVALID; // to be assigned later
+    vta.arch_guest                  = VexArch_INVALID;  // to be assigned later
     vta.archinfo_guest              = vai;
 
     //
@@ -193,7 +185,7 @@ void translate_init()
 
     vta.instrument1                 = instrument1;      // Callback we defined to help us save the IR
     vta.instrument2                 = NULL;
-    vta.traceflags                  = 0;                // Debug verbosity
+    vta.traceflags                  = VEX_TRACE_INST;   // Debug verbosity
     
     vta.disp_cp_chain_me_to_slowEP  = dispatch;         // Not used
     vta.disp_cp_chain_me_to_fastEP  = dispatch;         // Not used

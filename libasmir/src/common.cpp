@@ -110,35 +110,44 @@ void log_write(uint32_t level, const char *msg, ...)
 
     if (buff)
     {
+        ostringstream data;
+        data << buff << endl;
+
+        const char *str = data.str().c_str();
+        log_write_bytes(level, str, strlen(str));
+
+        free(buff);
+    }
+}
+
+size_t log_write_bytes(uint32_t level, const char *msg, size_t len)
+{
+    size_t ret = 0;
 
 #ifdef LOG_TO_STDERR
 
-        if (level & log_stderr_mask)
-        {
-            // write message to stderr
-            cerr << buff << endl;
-        }        
+    if (level & log_stderr_mask)
+    {
+        // write message to stderr
+        ret = write(STDERR_FILENO, msg, len);
+    }        
 
 #endif
 
 #ifdef LOG_TO_FILE
 
-        if (level & log_file_mask)
+    if (level & log_file_mask)
+    {
+        if (log_file_fd)
         {
-            ostringstream data;
-            data << buff << endl;
-
-            if (log_file_fd)
-            {
-                const char *str = data.str().c_str();
-
-                // write message to file
-                fwrite(str, strlen(str), 1, log_file_fd);                
-            }
+            // write message to file
+            ret = fwrite(msg, len, 1, log_file_fd);                
         }
-#endif
-        free(buff);
     }
+
+#endif
+
+    return ret;
 }
 
 //----------------------------------------------------------------------

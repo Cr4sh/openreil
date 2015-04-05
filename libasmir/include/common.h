@@ -71,7 +71,7 @@ int log_init(uint32_t mask, const char *path);
 void log_close(void);
 
 void log_write(uint32_t level, const char *msg, ...);
-
+size_t log_write_bytes(uint32_t level, const char *msg, size_t len);
 
 #ifdef __cplusplus
 }
