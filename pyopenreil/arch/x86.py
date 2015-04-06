@@ -12,7 +12,7 @@ ptr_len = 4
 class Registers:
 
     # flag registers
-    flags = ( 'R_ZF', 'R_PF', 'R_CF', 'R_AF', 'R_SF', 'R_OF' )
+    flags = ( 'R_ZF', 'R_PF', 'R_CF', 'R_AF', 'R_SF', 'R_OF', 'R_DFLAG' )
 
     # general purpose registers
     general = ( 'R_EAX', 'R_EBX', 'R_ECX', 'R_EDX', 'R_ESI', 'R_EDI', 'R_EBP', 'R_ESP' )

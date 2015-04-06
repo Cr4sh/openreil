@@ -14,6 +14,7 @@
 #include "vexmem.h"
 #include "jumpbuf.h"
 #include "common.h"
+#include "disasm.h"
 
 //======================================================================
 //
@@ -193,7 +194,6 @@ void translate_init()
     vta.disp_cp_xassisted           = dispatch;         // Not used
 
     vta.needs_self_check            = needs_self_check; // Not used
-
 }
 
 //----------------------------------------------------------------------
@@ -210,6 +210,12 @@ IRSB *translate_insn(VexArch guest,
     {
         // We must set the ARM version of VEX aborts
         vta.archinfo_guest.hwcaps |= 7 /* ARMv7 */;
+
+        if (IS_ARM_THUMB(insn_addr))
+        {
+            // in thumb mode we also need to increment buffer pointer as VEX wants
+            insn_start += 1;
+        }
     }
 
     vta.guest_bytes = insn_start; // Ptr to actual bytes of start of instruction

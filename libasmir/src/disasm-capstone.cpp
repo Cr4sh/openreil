@@ -282,7 +282,7 @@ Temp *disasm_arg_to_temp(VexArch guest, uint8_t arg)
     return NULL;
 }
 
-void disasm_open(VexArch guest, csh *handle)
+void disasm_open(VexArch guest, address_t addr, csh *handle)
 {
     cs_arch arch;
     cs_mode mode;
@@ -298,7 +298,7 @@ void disasm_open(VexArch guest, csh *handle)
     case VexArchARM:
     
         arch = CS_ARCH_ARM;
-        mode = CS_MODE_ARM;
+        mode = IS_ARM_THUMB(addr) ? CS_MODE_THUMB : CS_MODE_ARM;
         break;
     
     default:
@@ -312,14 +312,14 @@ void disasm_open(VexArch guest, csh *handle)
     }    
 }
 
-int disasm_insn(VexArch guest, uint8_t *data, string &mnemonic, string &op)
+int disasm_insn(VexArch guest, uint8_t *data, address_t addr, string &mnemonic, string &op)
 {
     int ret = -1;
     
     csh handle;
     cs_insn *insn;
 
-    disasm_open(guest, &handle);
+    disasm_open(guest, addr, &handle);
 
     size_t count = cs_disasm(handle, data, DISASM_MAX_INST_LEN, 0, 1, &insn);    
     if (count > 0) 
@@ -501,14 +501,14 @@ int disasm_arg_special(VexArch guest, cs_insn *insn, vector<Temp *> &args, dsias
     return -1;
 }
 
-int disasm_arg(VexArch guest, uint8_t *data, vector<Temp *> &args, dsiasm_arg_t type)
+int disasm_arg(VexArch guest, uint8_t *data, address_t addr, vector<Temp *> &args, dsiasm_arg_t type)
 {
     int ret = -1;
     
     csh handle;
     cs_insn *insn;
 
-    disasm_open(guest, &handle);
+    disasm_open(guest, addr, &handle);
     cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
 
     size_t count = cs_disasm(handle, data, DISASM_MAX_INST_LEN, 0, 1, &insn);    
@@ -578,12 +578,12 @@ int disasm_arg(VexArch guest, uint8_t *data, vector<Temp *> &args, dsiasm_arg_t 
     return ret;
 }
 
-int disasm_arg_src(VexArch guest, uint8_t *data, vector<Temp *> &args)
+int disasm_arg_src(VexArch guest, uint8_t *data, address_t addr, vector<Temp *> &args)
 {
-    return disasm_arg(guest, data, args, disasm_arg_t_src);
+    return disasm_arg(guest, data, addr, args, disasm_arg_t_src);
 }
 
-int disasm_arg_dst(VexArch guest, uint8_t *data, vector<Temp *> &args)
+int disasm_arg_dst(VexArch guest, uint8_t *data, address_t addr, vector<Temp *> &args)
 {
-    return disasm_arg(guest, data, args, disasm_arg_t_dst);
+    return disasm_arg(guest, data, addr, args, disasm_arg_t_dst);
 }

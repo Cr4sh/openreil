@@ -14,7 +14,7 @@ using namespace std;
 
 #ifdef LOG_TO_STDERR
 
-uint32_t log_stderr_mask = LOG_MSG;
+uint32_t log_stderr_mask = LOG_STDERR_DEFAULT;
 
 #endif
 

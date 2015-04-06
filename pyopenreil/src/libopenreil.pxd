@@ -68,7 +68,11 @@ cdef extern from "libopenreil.h":
     
     ctypedef void* reil_t
     ctypedef void* reil_inst_handler_t    
-    cdef enum _reil_arch_t: ARCH_X86
+    
+    cdef enum _reil_arch_t: 
+
+        ARCH_X86, 
+        ARCH_ARM
 
     ctypedef _reil_arg_t reil_arg_t
     ctypedef _reil_inst_t reil_inst_t
@@ -76,4 +80,4 @@ cdef extern from "libopenreil.h":
 
     int reil_translate_insn(reil_t reil, reil_addr_t addr, unsigned char *buff, int len)
     reil_t reil_init(reil_arch_t arch, reil_inst_handler_t handler, void *context)
-    void reil_close(reil_t reil)    
+    void reil_close(reil_t reil) 

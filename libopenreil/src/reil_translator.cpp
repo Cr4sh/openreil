@@ -357,6 +357,8 @@ void CReilFromBilTranslator::process_reil_inst(reil_inst_t *reil_inst)
 {
     if (inst_handler)
     {
+        address_t addr = reil_inst->raw_info.addr;
+
         if (reil_inst->inum == 0 && current_raw_info)
         {
             // first IR instruction must contain extended information about machine code
@@ -365,8 +367,16 @@ void CReilFromBilTranslator::process_reil_inst(reil_inst_t *reil_inst)
             reil_inst->raw_info.str_op = current_raw_info->str_op;
         }        
 
+        if (guest == VexArchARM)
+        {
+            // clear zero bit of address that used only for enabling thumb mode
+            reil_inst->raw_info.addr &= -2;
+        }
+
         // call user-specified REIL instruction handler
         inst_handler(reil_inst, inst_handler_context);
+
+        reil_inst->raw_info.addr = addr;
     }
 }
 
@@ -1063,7 +1073,7 @@ void CReilFromBilTranslator::process_bil_stmt(Stmt *s, uint64_t inst_flags)
                 label_inum = 0;
             }
 
-            log_write(LOG_BIL, "// BAP label %s at %.8llx.%.2x", label->label.c_str(), 
+            log_write(LOG_BIL, "   // BAP label %s at %.8llx.%.2x", label->label.c_str(), 
                 label_addr, label_inum);
 
             break;
@@ -1221,8 +1231,8 @@ void CReilFromBilTranslator::process_unknown_insn(void)
     vector<Temp *> arg_src, arg_dst, arg_all;   
 
     // get instruction arguments
-    disasm_arg_src(guest, current_raw_info->data, arg_src);
-    disasm_arg_dst(guest, current_raw_info->data, arg_dst);   
+    disasm_arg_src(guest, current_raw_info->data, current_raw_info->addr, arg_src);
+    disasm_arg_dst(guest, current_raw_info->data, current_raw_info->addr, arg_dst);   
 
     if (arg_src.size() > 0)
     {
@@ -1236,7 +1246,7 @@ void CReilFromBilTranslator::process_unknown_insn(void)
             arg_all.push_back(temp);
         }
 
-        log_write(LOG_BIL, "// src registers: %s", regs.c_str());
+        log_write(LOG_BIL, "   // src registers: %s", regs.c_str());
     }    
 
     if (arg_dst.size() > 0)
@@ -1251,7 +1261,7 @@ void CReilFromBilTranslator::process_unknown_insn(void)
             arg_all.push_back(temp);
         }
 
-        log_write(LOG_BIL, "// dst registers: %s", regs.c_str());
+        log_write(LOG_BIL, "   // dst registers: %s", regs.c_str());
     }
 
     reil_inst_t reil_inst;
@@ -1374,7 +1384,7 @@ bool CReilFromBilTranslator::get_bil_label(string name, reil_addr_t *addr)
                         // label belongs to the next instruction
                         ret = current_raw_info->addr + current_raw_info->size;
 
-                        log_write(LOG_BIL, "// %s -> %.8llx", name.c_str(), ret);
+                        log_write(LOG_BIL, "   // %s -> %.8llx", name.c_str(), ret);
                     }
                     else
                     {
@@ -1431,12 +1441,12 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
         // enumerate BIL statements        
         Stmt *s = block->bap_ir->at(i);
         
-        log_write(LOG_BIL, "%s", s->tostring().c_str());
+        log_write(LOG_BIL, "   %s", s->tostring().c_str());
     }
 
     if (is_unknown_insn(block))
     {
-        log_write(LOG_WARN, "// %.8llx was not translated", raw_info->addr);
+        log_write(LOG_BIL, "   // %.8llx was not translated", raw_info->addr);
 
         // add metainformation about unknown instruction into the code
         process_unknown_insn();
@@ -1528,7 +1538,7 @@ int CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
     // tarnslate to BAP
     generate_bap_ir_block(guest, block);  
 
-    reil_assert(block->bap_ir, "process_inst(): unable to generate BAP IR");
+    reil_assert(block->bap_ir, "process_inst(): unable to generate BAP IR");    
 
     string bytes;
 

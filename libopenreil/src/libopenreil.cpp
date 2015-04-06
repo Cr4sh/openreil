@@ -10,6 +10,7 @@ using namespace std;
 
 // libasmir includes
 #include "irtoir-internal.h"
+#include "disasm.h"
 
 // OpenREIL includes
 #include "libopenreil.h"
@@ -19,8 +20,12 @@ using namespace std;
 #define STR_VAR(_name_, _t_) "(" + (_name_) + ", " + to_string_size((_t_)) + ")"
 #define STR_CONST(_val_, _t_) "(" + to_string_constant((_val_), (_t_)) + ", " + to_string_size((_t_)) + ")"
 
+// number of zero bytes reserved for VEX at beginning of the code buffer 
+#define VEX_BYTES 18
+
 typedef struct _reil_context
 {
+    reil_arch_t arch;
     CReilTranslator *translator;
 
 } reil_context;
@@ -102,14 +107,26 @@ extern "C" reil_t reil_init(reil_arch_t arch, reil_inst_handler_t handler, void 
         guest = VexArchX86; 
         break;
 
+#ifdef TESTING
+
+    case ARCH_ARM: 
+
+        guest = VexArchARM; 
+        break;
+
+#endif // TESTING
+
     default: 
 
-        assert(0);
+        log_write(LOG_ERR, "Unknown architecture");
+        return NULL;
     }
 
     // allocate translator context
     reil_context *c = (reil_context *)malloc(sizeof(reil_context));
     assert(c);
+
+    c->arch = arch;    
 
     // create new translator instance
     c->translator = new CReilTranslator(guest, handler, context);
@@ -131,7 +148,7 @@ extern "C" void reil_close(reil_t reil)
 
 int reil_translate_report_error(reil_addr_t addr, const char *reason)
 {
-    log_write(LOG_ERR, "Eror while processing instruction at address 0x%llx", addr);
+    log_write(LOG_ERR, "Error while processing instruction at address 0x%x", addr);
 
     if (reason)
     {
@@ -149,7 +166,18 @@ extern "C" int reil_translate_insn(reil_t reil, reil_addr_t addr, unsigned char 
 
     try
     {
-        inst_len = c->translator->process_inst(addr, buff, len);    
+        uint8_t inst_buff[VEX_BYTES + MAX_INST_LEN];
+        unsigned char *inst_ptr = inst_buff + VEX_BYTES;
+
+        /* 
+            VEX thumb ITstate analysis needs to examine the 18 bytes
+            preceding the first instruction. So let's leave the first 18
+            zeroed out. 
+        */        
+        memset(inst_buff, 0, sizeof(inst_buff));
+        memcpy(inst_buff + VEX_BYTES, buff, len);                
+
+        inst_len = c->translator->process_inst(addr, inst_ptr, len);    
         assert(inst_len != 0 && inst_len != -1);
     }
     catch (BapException e)
@@ -183,7 +211,7 @@ extern "C" int reil_translate(reil_t reil, reil_addr_t addr, unsigned char *buff
         memset(inst_buff, 0, sizeof(inst_buff));
         memcpy(inst_buff, buff + p, copy_len);
 
-        inst_len = reil_translate_insn(reil, addr + p, inst_buff, sizeof(inst_buff));
+        inst_len = reil_translate_insn(reil, addr + p, inst_buff, MAX_INST_LEN);
         if (inst_len == REIL_ERROR) return REIL_ERROR;
 
         p += inst_len;

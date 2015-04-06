@@ -37,6 +37,8 @@ typedef uint64_t address_t;
 #define LOG_NONE 0
 
 
+#define LOG_STDERR_DEFAULT LOG_MSG
+
 #define LOG_TO_STDERR
 #define LOG_TO_FILE
 

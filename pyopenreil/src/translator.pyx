@@ -1,6 +1,7 @@
 cimport libopenreil
 
 ARCH_X86 = 0
+ARCH_ARM = 1
 
 # IR instruction attributes
 IATTR_ASM = 0
@@ -75,6 +76,11 @@ class Error(Exception):
         return self.msg
 
 
+class InitError(Error):
+
+    pass
+
+
 class TranslationError(Error):
 
     def __init__(self, addr):
@@ -100,6 +106,10 @@ cdef class Translator:
         self.reil = libopenreil.reil_init(self.reil_arch, 
             <libopenreil.reil_inst_handler_t>process_insn, <void*>self.translated)
 
+        if self.reil == NULL:
+
+            raise InitError('Error while initializing REIL translator')
+
     def __del__(self):
 
         libopenreil.reil_close(self.reil)
@@ -108,11 +118,12 @@ cdef class Translator:
 
         try: 
 
-            return { ARCH_X86: libopenreil.ARCH_X86 }[ arch ]
+            return { ARCH_X86: libopenreil.ARCH_X86, 
+                     ARCH_ARM: libopenreil.ARCH_ARM }[ arch ]
 
         except KeyError: 
 
-            raise Error('Unknown architecture')
+            raise InitError('Unknown architecture')
 
     def to_reil(self, data, addr = 0):
 

@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string>
 #include <iostream>
 #include <assert.h>
@@ -30,7 +31,7 @@ using namespace std;
 #define OFFB_R12      offsetof(VexGuestARMState, guest_R12)
 #define OFFB_R13      offsetof(VexGuestARMState, guest_R13)
 #define OFFB_R14      offsetof(VexGuestARMState, guest_R14)
-#define OFFB_R15T      offsetof(VexGuestARMState, guest_R15T)
+#define OFFB_R15T     offsetof(VexGuestARMState, guest_R15T)
 
 // We assume you are compiling with the included patched version of
 // VEX. If not, you may need to define ARM_THUNKS to revert to
@@ -39,6 +40,8 @@ using namespace std;
 #define OFFB_CC_DEP1  offsetof(VexGuestARMState, guest_CC_DEP1)
 #define OFFB_CC_DEP2  offsetof(VexGuestARMState, guest_CC_DEP2)
 #define OFFB_CC_NDEP  offsetof(VexGuestARMState, guest_CC_NDEP)
+
+#define OFFB_ITSTATE  offsetof(VexGuestARMState, guest_ITSTATE)
 
 vector<VarDecl *> arm_get_reg_decls()
 {
@@ -157,8 +160,14 @@ static string reg_offset_to_name(int offset)
     case OFFB_CC_NDEP:
     
         return "CC_NDEP";
+
+    case OFFB_ITSTATE:
+
+        return "ITSTATE";
     
     default:
+
+        fprintf(stderr, "%d\n", offset);
     
         panic("reg_offset_to_name(arm): Unrecognized register offset");
     }

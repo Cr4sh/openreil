@@ -7,10 +7,11 @@ from IR import *
 from symbolic import *
 
 # supported arhitectures
-from arch import x86
+from arch import x86, arm
 
 # architecture constants
 ARCH_X86 = 0
+ARCH_ARM = 1
 
 
 class Error(Exception):
@@ -51,7 +52,8 @@ def get_arch(arch):
 
     try: 
 
-        return { ARCH_X86: x86 }[ arch ]
+        return { ARCH_X86: x86, 
+                 ARCH_ARM: arm }[ arch ]
 
     except KeyError: 
 
@@ -2426,6 +2428,16 @@ class TestCodeStorageMem(unittest.TestCase):
 
 class CodeStorageTranslator(CodeStorage):
 
+    #
+    # OpenREIL (as well as VEX) uses the least significant bit of 
+    # address to determinate encoding mode for ARM instruction:
+    # 0 -- it's regular ARM instruction, 1 -- it's Thumb instruction.
+    #
+    _arm_addr_decode = lambda self, addr: ( addr & 0xfffffffffffffffe, addr & 1 )
+
+    # Thumb enable helper
+    arm_thumb = lambda self, addr: addr | 1
+
     class CFGraphBuilderFunc(CFGraphBuilder):
 
         def process_node(self, bb, state, context):
@@ -2456,14 +2468,12 @@ class CodeStorageTranslator(CodeStorage):
         self.storage = CodeStorageMem(arch) if storage is None else storage
         self.reader = reader
 
-    def translate_insn(self, data, addr):                
+    def translate_insn(self, data, addr):           
 
-        src, dst = [], []
-        unk_insn = Insn(I_UNK, ir_addr = ( addr, 0 ))
-        unk_insn.set_flag(IOPT_ASM_END)        
+        src, dst = [], []        
 
         # generate IR instructions
-        ret = self.translator.to_reil(data, addr = addr)
+        ret = self.translator.to_reil(data, addr = addr)        
 
         #
         # Represent Cjmp + Jmp (libasmir artifact) as Not + Cjmp.
@@ -2497,6 +2507,9 @@ class CodeStorageTranslator(CodeStorage):
         # single I_NONE IR instruction and save operands information
         # into it's attributes.
         #
+        unk_insn = Insn(I_UNK, ir_addr = ( addr, 0 ))
+        unk_insn.set_flag(IOPT_ASM_END)        
+
         for insn in ret:
 
             if Insn_inum(insn) == 0:
@@ -2535,26 +2548,42 @@ class CodeStorageTranslator(CodeStorage):
     def get_insn(self, ir_addr):
 
         ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)
-        ret = InsnList()
+        addr, inum, arm_thumb = ir_addr[0], ir_addr[1], 0
 
-        try: 
+        if self.arch == arm:
+
+            # clear least significant bit of instruction address in case of ARM
+            arm_addr, arm_thumb = self._arm_addr_decode(ir_addr[0])
+            ir_addr = ( arm_addr, inum )
+
+        try:             
 
             # query already translated IR instructions for this address
             return self.storage.get_insn(ir_addr)
 
         except StorageError:
 
-            if self.reader is None: raise ReadError(ir_addr[0])
+            pass
 
-            # read instruction bytes from memory
-            data = self.reader.read_insn(ir_addr[0])
-            if data is None: raise ReadError(ir_addr[0])
+        mem_addr = ir_addr[0]
+        if self.reader is None: raise ReadError(mem_addr)
 
-            # translate to REIL
-            ret = self.translate_insn(data, ir_addr[0])
+        # read instruction bytes from memory
+        data = self.reader.read_insn(mem_addr)
+        if data is None: raise ReadError(mem_addr)
+
+        #
+        # Translate to REIL.
+        # Please note, that in case of ARM we need to pass 
+        # a memory address with thumb enabled/disabled bit included.
+        #
+        ret = self.translate_insn(data, addr)
 
         # save to storage
-        for insn in ret: self.storage.put_insn(insn)
+        for insn in ret: 
+
+            self.storage.put_insn(insn)
+
         return self.storage.get_insn(ir_addr)
 
     def put_insn(self, insn_or_insn_list):

@@ -1738,7 +1738,7 @@ bap_block_t *generate_vex_ir(VexArch guest, uint8_t *data, address_t inst)
     bap_block_t *vblock = new bap_block_t;
     
     vblock->inst = inst;
-    vblock->inst_size = disasm_insn(guest, data, vblock->str_mnem, vblock->str_op);
+    vblock->inst_size = disasm_insn(guest, data, inst, vblock->str_mnem, vblock->str_op);
     
     if (vblock->inst_size > 0)
     {

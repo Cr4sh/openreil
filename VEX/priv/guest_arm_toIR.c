@@ -17457,7 +17457,7 @@ DisResult disInstr_THUMB_WRK (
       required. */
    r15written = False;
    r15guard   = IRTemp_INVALID; /* unconditional */
-   r15kind    = Ijk_Boring;
+   r15kind    = Ijk_Boring;   
 
    /* Insns could be 2 or 4 bytes long.  Just get the first 16 bits at
       this point.  If we need the second 16, get them later.  We can't
@@ -17603,7 +17603,7 @@ DisResult disInstr_THUMB_WRK (
          suboptimal. */
       vassert(guaranteedUnconditional == False);
 
-      UInt pc = guest_R15_curr_instr_notENC;
+      UInt pc = (UInt)guest_instr;
       vassert(0 == (pc & 1));
 
       UInt pageoff = pc & 0xFFF;
@@ -17612,7 +17612,7 @@ DisResult disInstr_THUMB_WRK (
             insn.  So, have a look at them. */
          guaranteedUnconditional = True; /* assume no 'it' insn found,
                                             till we do */
-         UShort* hwp = (UShort*)(HWord)pc;
+         const UShort* hwp = (const UShort*)guest_instr;
          Int i;
          for (i = -1; i >= -9; i--) {
             /* We're in the same page.  (True, but commented out due
@@ -22051,7 +22051,7 @@ DisResult disInstr_ARM ( IRSB*        irsb_IN,
                                 resteerCisOk, callback_opaque,
                                 &guest_code_IN[delta_ENCODED],
                                 archinfo, abiinfo, sigill_diag_IN );
-   }
+   }   
 
    return dres;
 }
