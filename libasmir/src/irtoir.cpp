@@ -1601,6 +1601,11 @@ Stmt *translate_jumpkind(IRSB *irbb, vector<Stmt *> *irout)
         result = new Special(uTag + "NoDecode");
         break;
     
+    case Ijk_SigTRAP:
+
+        result = new Special(uTag + "SIGTRAP");
+        break;
+
     case Ijk_Sys_syscall:
     case Ijk_Sys_int32:
     case Ijk_Sys_int128:

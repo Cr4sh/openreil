@@ -616,7 +616,7 @@ class TestCpu(unittest.TestCase):
         # test code that reads itself
         code = ( 'nop', 'nop', 
                  'nop', 'nop', 
-                 'mov eax, dword [%Xh]' % addr, 
+                 'mov eax, dword ptr [0x%X]' % addr, 
                  'ret' )
 
         # create reader and translator

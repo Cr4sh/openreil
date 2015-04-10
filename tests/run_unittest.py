@@ -36,13 +36,11 @@ try:
 
 except ImportError, why: print '[!]', str(why)
 
-def check_nasm():
-
-    from pyopenreil.utils import asm
+def check_program(command):
 
     try:
 
-        p = Popen([ asm.NASM_PATH, '-h' ], stdout = PIPE, stderr = PIPE)
+        p = Popen(command, stdout = PIPE, stderr = PIPE)
         stdout, stderr = p.communicate()
         
         p.stdout.close()
@@ -57,8 +55,19 @@ def check_nasm():
     except OSError, why:
 
         print str(why)
-        print 'check_nasm(): Error while executing "%s"' % asm.NASM_PATH        
+        print 'check_nasm(): Error while executing "%s"' % command[0]
         return False
+
+def check_nasm():
+
+    from pyopenreil.utils import asm
+
+    return check_program([ asm.CompilerNasm.nasm_path, '-h' ])
+
+def check_binutils():
+
+    return check_program([ 'as', '--help' ]) and \
+           check_program([ 'objcopy', '--help' ])
 
 def check_numpy():
 
@@ -78,7 +87,7 @@ def main():
     ok = True
 
     # check for required programs and modules
-    if not check_nasm(): ok = False
+    if not check_binutils(): ok = False
     if not check_numpy(): ok = False
 
     if ok:
