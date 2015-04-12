@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <stdarg.h>
 #include <assert.h>
 
@@ -55,7 +56,7 @@ int log_init(uint32_t mask, const char *path)
     log_close();
 
     // start new log file
-    if (log_file_fd = fopen(path, "w"))
+    if ((log_file_fd = fopen(path, "w")) != NULL)
     {
         log_file_mask = mask;
         return 0;

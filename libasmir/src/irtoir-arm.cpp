@@ -172,6 +172,7 @@ static string reg_offset_to_name(int offset)
         panic("reg_offset_to_name(arm): Unrecognized register offset");
     }
 
+    return NULL;
 }
 
 static Exp *translate_get_reg_32(int offset)

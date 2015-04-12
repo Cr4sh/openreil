@@ -371,7 +371,7 @@ int i386_disasm_arg_special(cs_insn *insn, vector<Temp *> &args, dsiasm_arg_t ty
     {
     case X86_INS_SIDT:        
 
-        if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
+        if ((reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm))) != NULL)
         {
             if (src)
             {
@@ -389,7 +389,7 @@ int i386_disasm_arg_special(cs_insn *insn, vector<Temp *> &args, dsiasm_arg_t ty
 
     case X86_INS_SGDT:
 
-        if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
+        if ((reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm))) != NULL)
         {
             if (src)
             {
@@ -407,7 +407,7 @@ int i386_disasm_arg_special(cs_insn *insn, vector<Temp *> &args, dsiasm_arg_t ty
 
     case X86_INS_SLDT:
 
-        if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
+        if ((reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm))) != NULL)
         {
             if (src)
             {
@@ -425,7 +425,7 @@ int i386_disasm_arg_special(cs_insn *insn, vector<Temp *> &args, dsiasm_arg_t ty
 
     case X86_INS_LIDT:
 
-        if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
+        if ((reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm))) != NULL)
         {
             if (src)
             {
@@ -443,7 +443,7 @@ int i386_disasm_arg_special(cs_insn *insn, vector<Temp *> &args, dsiasm_arg_t ty
 
     case X86_INS_LGDT:
 
-        if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
+        if ((reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm))) != NULL)
         {
             if (src)
             {
@@ -461,7 +461,7 @@ int i386_disasm_arg_special(cs_insn *insn, vector<Temp *> &args, dsiasm_arg_t ty
 
     case X86_INS_LLDT:
 
-        if (reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm)))
+        if ((reg = i386_reg_name(I386_MODRM_RM(insn->detail->x86.modrm))) != NULL)
         {
             if (src)
             {

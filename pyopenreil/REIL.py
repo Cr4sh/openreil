@@ -887,8 +887,8 @@ class TestBasicBlock(unittest.TestCase):
         lhs, rhs = bb.get_successors()
 
         # check for valid next instructions of JNE
-        assert lhs == Insn.IRAddr(( 2, 0 ))
-        assert rhs == Insn.IRAddr(( 3, 0 ))
+        assert lhs == Insn.IRAddr(( tr.get_insn(( 0, 0 )).size, 0 ))
+        assert rhs == Insn.IRAddr(( tr.get_insn(( 0, 0 )).size + 1, 0 ))
 
 
 class Func(InsnList):

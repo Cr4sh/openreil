@@ -1,16 +1,28 @@
-import sys, os, time
+import sys, os, time, subprocess
 
 from pyopenreil import REIL
 
 class CompilerGas(object):    
 
-    default_path = {
+    default_cmd_binutils = {
 
         #
         # Default path to as and objcopy of binutils for each architecture.
+        # This constants are Windows/Linux only, on OS X we uses as + otool.
         #
         REIL.ARCH_X86: ( 'as', 'objcopy' ),
         REIL.ARCH_ARM: ( 'arm-linux-gnueabi-as', 'arm-linux-gnueabi-objcopy' )
+    }
+
+    # 
+    # On OS X we uses as + otool for all of the architectures.
+    #
+    default_cmd_mac = ( 'as', 'otool' )
+
+    arch_names = {
+
+        # architecture name for -arch/-march as option
+        REIL.ARCH_X86: 'i686', REIL.ARCH_ARM: 'arm'
     }
 
     code_section = '.text'
@@ -19,6 +31,7 @@ class CompilerGas(object):
                        as_path = None, objcopy_path = None):
 
         self.arch, self.att_syntax, self.thumb = arch, att_syntax, thumb
+        self.is_mac = sys.platform == 'darwin'
 
         if att_syntax and arch != REIL.ARCH_X86:
 
@@ -30,8 +43,18 @@ class CompilerGas(object):
 
         try:
 
-            # get architecture specific command names
-            self.as_path, self.objcopy_path = self.default_path[arch]    
+            self.arch_name = self.arch_names[arch]
+
+            if self.is_mac:
+
+                self.as_path, self.otool_path = self.default_cmd_mac
+                self.objcopy_path = None
+
+            else:
+
+                # get architecture specific commands in case of binutils
+                self.as_path, self.objcopy_path = self.default_cmd_binutils[arch]              
+                self.otool_path = None
 
         except KeyError:
 
@@ -48,9 +71,102 @@ class CompilerGas(object):
         self.prog_bin = temp_name('bin')  
         self.prog_obj = temp_name('o')
 
-    def prog_read(self):
+    def prog_read_objcopy(self):
 
-        with open(self.prog_bin, 'rb') as fd: return fd.read()
+        ret = None
+
+        # dump code section into file using objcopy
+        code = os.system('%s -O binary -j %s "%s" "%s"' % \
+               (self.objcopy_path, self.code_section, self.prog_obj, self.prog_bin))        
+
+        if code != 0: raise OSError('%s error %d' % (self.objcopy_path, code))
+
+        with open(self.prog_bin, 'rb') as fd: 
+
+            ret = fd.read()
+
+        os.unlink(self.prog_bin)
+
+        return ret
+
+    def prog_read_otool(self):
+
+        '''
+            Print hex dump of code section contents into stdout.
+            Example of otool -t output:
+
+            $ otool -t tmp_1428708613.o
+            tmp_1428708613.o:
+            (__TEXT,__text) section
+            00000000 0f 85 01 00 00 00 90 c3
+
+        '''
+        p = subprocess.Popen(( self.otool_path, '-t', self.prog_obj ), 
+                             stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+
+        stdout, stderr = p.communicate()
+        
+        p.stdout.close()
+        p.stderr.close()
+
+        if p.returncode != 0:
+
+            print stdout
+            print stderr
+            raise OSError('%s error %d' % (self.otool_path, code))
+
+        ret, addr = '', 0
+        parse = lambda line, sep: filter(lambda s: len(s) > 0, 
+                                         map(lambda s: s.strip(), line.split(sep)))
+
+        for line in parse(stdout, '\n'):
+
+            try:                            
+
+                # parse hexadecimal values sequence
+                line = parse(line, ' ') 
+                items = map(lambda s: ( long(s, 16), len(s) / 2 ), line)
+
+                for item in line:
+
+                    # each hexadecimal value must be a byte, word or dword
+                    if not len(item) in [ 2, 4, 8 ]:
+
+                        raise Exception('Error while parsing otool -t output')
+
+                # first value of each line in otool -t output must be a valid address
+                if len(items) < 2 or items[0][0] != addr:
+
+                    if addr != 0:
+
+                        raise Exception('Error while parsing otool -t output')
+
+                    else:
+
+                        raise ValueError()
+
+                for val, size in items[1:]:
+
+                    bv = lambda byte: (val >> (8 * byte)) & 0xff
+
+                    # split words and dwords to bytes
+                    ret += ''.join(map(lambda val: chr(val), {
+
+                        1: lambda: ( bv(0), ),
+                        2: lambda: ( bv(0), bv(1) ),
+                        4: lambda: ( bv(0), bv(1), bv(2), bv(3) )
+
+                    }[size]()))
+
+                    addr += size
+
+            except ValueError: 
+
+                if addr != 0:
+
+                    raise Exception('Error while parsing otool -t output')
+
+        return ret            
 
     def prog_write(self, data):
 
@@ -73,24 +189,27 @@ class CompilerGas(object):
             
             fd.write(data + '\n')
 
-    def compile_file(self, path):
+    def compile_file(self, path):        
         
         # generate object file
-        code = os.system('%s "%s" -o "%s"' % \
-               (self.as_path, path, self.prog_obj))        
+        code = os.system('%s "%s" -o "%s" %s %s' % \
+               (self.as_path, path, self.prog_obj, \
+                '-arch' if self.is_mac else '-march', \
+                self.arch_name))        
 
-        if code != 0: raise Exception('"as" error %d' % code)
+        if code != 0: raise OSError('%s error %d' % (self.as_path, code))
 
-        # dump contents of the code section
-        code = os.system('%s -O binary --only-section=%s "%s" "%s"' % \
-               (self.objcopy_path, self.code_section, self.prog_obj, self.prog_bin))        
+        if self.is_mac:
 
-        if code != 0: raise Exception('"objcopy" error %d' % code)
+            # on OS X we need to use otool to dump code section
+            ret = self.prog_read_otool()
 
-        # read destination binary contents
-        ret = self.prog_read()  
+        else:
+
+            # on other operating systems we using objcopy
+            ret = self.prog_read_objcopy() 
+
         os.unlink(self.prog_obj)
-        os.unlink(self.prog_bin)
 
         return ret
 
@@ -148,7 +267,7 @@ class CompilerNasm(object):
         code = os.system('%s %s -o %s' % \
                (self.nasm_path, path, self.prog_dst))        
 
-        if code != 0: raise Exception('nasm error %d' % code)
+        if code != 0: raise OSError('nasm error %d' % code)
 
         # read compiled binary contents
         ret = self.prog_read()

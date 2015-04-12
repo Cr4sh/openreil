@@ -98,6 +98,7 @@ void Stmt::destroy(Stmt *s)
     case SPECIAL:
     case LABEL:
     case VARDECL:
+    case ASSERT:
         
         break;
     }

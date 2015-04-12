@@ -83,6 +83,8 @@ void set_call_return_translation(int value)
 
 vector<VarDecl *> get_reg_decls(VexArch arch)
 {
+    vector<VarDecl *> ret;
+
     switch (arch)
     {
     case VexArchX86:
@@ -97,6 +99,8 @@ vector<VarDecl *> get_reg_decls(VexArch arch)
     
         panic("irtoir.cpp: translate_get: unsupported arch");
     }
+
+    return ret;
 }
 
 vector<VarDecl *> get_reg_decls(void)
@@ -124,6 +128,8 @@ Exp *translate_get(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
     
         panic("irtoir.cpp: translate_get: unsupported arch");
     }
+
+    return NULL;
 }
 
 Stmt *translate_put(IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout)
@@ -142,6 +148,8 @@ Stmt *translate_put(IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout)
         
         panic("translate_put");
     }
+
+    return NULL;
 }
 
 Exp *translate_ccall(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
@@ -164,6 +172,8 @@ Exp *translate_ccall(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 
         panic("translate_ccall");
     }
+
+    return NULL;
 }
 
 void modify_flags(bap_block_t *block)
@@ -1636,6 +1646,8 @@ bool is_special(address_t inst)
 vector<Stmt *> *translate_special(address_t inst)
 {
     panic("Why did this get called? We are now saying that no instruction is a special.");
+
+    return NULL;
 }
 
 //----------------------------------------------------------------------
@@ -1920,7 +1932,7 @@ int match_mux0x(vector<Stmt *> *ir, unsigned int i, Exp **cond, Exp **exp0,	Exp 
 // this code depends on the order of statements from emit_mux0x()
 #ifndef MUX_AS_CJMP
 
-    if (i < 0 || 
+    if ((int)i < 0 || 
         i >= ir->size() || 
         ir->at(i + 0)->stmt_type != VARDECL || /* temp */
         ir->at(i + 1)->stmt_type != VARDECL || /* widened_cond */
@@ -1986,7 +1998,7 @@ int match_mux0x(vector<Stmt *> *ir, unsigned int i, Exp **cond, Exp **exp0,	Exp 
 
 #else
 
-    if (i < 0 || i >= ir->size() || 
+    if ((int)i < 0 || i >= ir->size() || 
         ir->at(i)->stmt_type != MOVE || 
         ir->at(i + 3)->stmt_type != MOVE || 
         ir->at(i + 2)->stmt_type != LABEL || 
@@ -2045,6 +2057,7 @@ int match_mux0x(vector<Stmt *> *ir, unsigned int i, Exp **cond, Exp **exp0,	Exp 
 reg_t get_exp_type_from_cast(Cast *cast)
 {
     assert(cast);
+
     return cast->typ;
 }
 

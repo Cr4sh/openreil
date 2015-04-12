@@ -36,7 +36,7 @@ try:
 
 except ImportError, why: print '[!]', str(why)
 
-def check_program(command):
+def check_program(command, code = 0):
 
     try:
 
@@ -46,7 +46,7 @@ def check_program(command):
         p.stdout.close()
         p.stderr.close()
 
-        if p.returncode != 0:
+        if p.returncode != code:
 
             raise OSError('Process returned %d' % p.returncode)
 
@@ -55,7 +55,7 @@ def check_program(command):
     except OSError, why:
 
         print str(why)
-        print 'check_nasm(): Error while executing "%s"' % command[0]
+        print 'Error while executing "%s"' % command[0]
         return False
 
 def check_nasm():
@@ -64,10 +64,13 @@ def check_nasm():
 
     return check_program([ asm.CompilerNasm.nasm_path, '-h' ])
 
-def check_binutils():
+def check_objcopy():
 
-    return check_program([ 'as', '--help' ]) and \
-           check_program([ 'objcopy', '--help' ])
+    return check_program([ 'objcopy', '--help' ])
+
+def check_otool():
+
+    return check_program([ 'otool' ], code = 1)
 
 def check_numpy():
 
@@ -87,8 +90,15 @@ def main():
     ok = True
 
     # check for required programs and modules
-    if not check_binutils(): ok = False
     if not check_numpy(): ok = False
+
+    if sys.platform == 'darwin':
+
+        ok = check_otool()
+
+    else:
+
+        og = check_objcopy()
 
     if ok:
 
@@ -96,7 +106,7 @@ def main():
 
     else:
 
-        print 'Unable to run tests, check for installed nasm and python-numpy'
+        print 'Unable to run tests, check for installed as, objcopy/otool and python-numpy'
 
 if __name__ == '__main__':  
 

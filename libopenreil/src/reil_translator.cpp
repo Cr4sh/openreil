@@ -454,6 +454,8 @@ reil_const_t reil_cast_high(reil_size_t size)
     case U64: return 32;
     default: reil_assert(0, "invalid size");
     }
+
+    return 0;
 }
 
 #define COPY_ARG(_dst_, _src_) memcpy((_dst_), (_src_), sizeof(reil_arg_t))
@@ -787,7 +789,16 @@ bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
             free_bil_exp(tmp_4);
 
             return true;
-        }    
+        }  
+
+    case CAST_FLOAT:
+    case CAST_RFLOAT:
+    case CAST_INTEGER:
+    case CAST_RINTEGER:
+        {
+            log_write(LOG_ERR, "process_bil_cast(): unsupported cast type %d", cast->cast_type);
+            return false;
+        }
     }
 
     return false;
@@ -828,7 +839,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
         }
 
         // parse value expression
-        if (exp_temp = process_bil_exp(exp))
+        if ((exp_temp = process_bil_exp(exp)) != NULL)
         {
             exp = exp_temp;
         }
@@ -912,7 +923,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
         Mem *mem = (Mem *)exp;
         reil_inst.op = I_LDM;
 
-        if (a_temp = process_bil_exp(mem->addr))
+        if ((a_temp = process_bil_exp(mem->addr)) != NULL)
         {
             a = a_temp;
         }
@@ -1184,6 +1195,8 @@ void CReilFromBilTranslator::process_bil_stmt(Stmt *s, uint64_t inst_flags)
     case COMMENT:
     case SPECIAL:
     case VARDECL:
+    case FUNCTION:
+    case ASSERT:
 
         break;
     }  
@@ -1399,6 +1412,11 @@ bool CReilFromBilTranslator::get_bil_label(string name, reil_addr_t *addr)
                     return true;
                 }                
 
+                break;
+            }
+
+        default:
+            {
                 break;
             }
         }        
