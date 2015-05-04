@@ -189,13 +189,20 @@ class CompilerGas(object):
             
             fd.write(data + '\n')
 
-    def compile_file(self, path):        
+    def compile_file(self, path):
+
+        options = []        
+
+        if self.arch == REIL.ARCH_X86 and not self.is_mac:
+
+            # to avoid "64bit mode not supported on `i686'" error on 64-bit Linux
+            options += [ '--32' ]            
         
         # generate object file
-        code = os.system('%s "%s" -o "%s" %s %s' % \
+        code = os.system('%s "%s" -o "%s" %s %s %s' % \
                (self.as_path, path, self.prog_obj, \
                 '-arch' if self.is_mac else '-march', \
-                self.arch_name))        
+                self.arch_name, ' '.join(options)))        
 
         if code != 0: raise OSError('%s error %d' % (self.as_path, code))
 
