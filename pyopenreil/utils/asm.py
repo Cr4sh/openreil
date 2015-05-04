@@ -8,14 +8,14 @@ class CompilerGas(object):
 
         #
         # Default path to as and objcopy of binutils for each architecture.
-        # This constants are Windows/Linux only, on OS X we uses as + otool.
+        # This constants are Windows/Linux only.
         #
         REIL.ARCH_X86: ( 'as', 'objcopy' ),
         REIL.ARCH_ARM: ( 'arm-linux-gnueabi-as', 'arm-linux-gnueabi-objcopy' )
     }
 
     # 
-    # On OS X we uses as + otool for all of the architectures.
+    # On OS X we using as + otool for all of the architectures.
     #
     default_cmd_mac = ( 'as', 'otool' )
 
@@ -92,7 +92,7 @@ class CompilerGas(object):
     def prog_read_otool(self):
 
         '''
-            Print hex dump of code section contents into stdout.
+            Print hex dump of code section contents into stdout and parse it.
             Example of otool -t output:
 
             $ otool -t tmp_1428708613.o

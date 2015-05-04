@@ -146,11 +146,11 @@
 <a id="user-content-linux-and-os-x-" class="anchor" href="#linux-and-os-x-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Linux and OS X <a id="user-content-_2_1"></a>
 </h3>
 
-<p>To build OpenREIL under *nix operating systems you need to install git, gcc, nasm, make, Python 2.x with header files, <a href="https://pypi.python.org/pypi/numpy">NumPy</a> and <a href="http://cython.org/">Cython</a>. After that you can run configure and make just as usual. </p>
+<p>To build OpenREIL under *nix operating systems you need to install git, gcc, make, Python 2.x with header files, <a href="https://pypi.python.org/pypi/numpy">NumPy</a> and <a href="http://cython.org/">Cython</a>. After that you can run configure and make just as usual. </p>
 
 <p>Example for Debian:</p>
 
-<pre><code>$ sudo apt-get install git gcc make nasm python python-dev python-numpy cython
+<pre><code>$ sudo apt-get install git gcc make python python-dev python-numpy cython
 $ git clone https://github.com/Cr4sh/openreil.git
 $ cd openreil
 $ ./autogen.sh
@@ -181,8 +181,8 @@ $ sudo easy_install pefile pybfd
 <p>You also can download compiled Win32 binaries of OpenREIL:</p>
 
 <ul>
-<li><a href="https://github.com/Cr4sh/openreil/releases/download/0.1.1/libopenreil-0.1.1-win32.zip">libopenreil-0.1.1-win32.zip</a></li>
-<li><a href="https://github.com/Cr4sh/openreil/releases/download/0.1.1/pyopenreil-0.1.1-win32-python2.7.zip">pyopenreil-0.1.1-win32-python2.7.zip</a></li>
+<li><a href="https://github.com/Cr4sh/openreil/releases/download/0.1.2/libopenreil-0.1.2-win32.zip">libopenreil-0.1.2-win32.zip</a></li>
+<li><a href="https://github.com/Cr4sh/openreil/releases/download/0.1.2/pyopenreil-0.1.2-win32-python2.7.zip">pyopenreil-0.1.2-win32-python2.7.zip</a></li>
 </ul>
 
 <h2>
@@ -375,7 +375,7 @@ $ sudo easy_install pefile pybfd
 <a id="user-content-optional-instruction-flags-" class="anchor" href="#optional-instruction-flags-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Optional instruction flags <a id="user-content-_3_2"></a>
 </h3>
 
-<p>In addition to address, operation code and arguments IR instruction also has flags which used to store useful metainformation:</p>
+<p>In addition to address, operation code and arguments IR instruction also has flags that used to store useful metainformation:</p>
 
 <ul>
 <li>
@@ -449,7 +449,7 @@ $ sudo easy_install pefile pybfd
 
 <p>OpenREIL uses separate 1-bit registers to represent <code>ZF</code>, <code>PF</code>, <code>CF</code>, <code>AF</code>, <code>SF</code> and <code>OF</code> bits of <code>EFLAGS</code> register.</p>
 
-<p>Example of IR code for <code>test eax, eax</code> x86 instruction which sets some of these bits:</p>
+<p>Example of IR code for <code>test eax, eax</code> x86 instruction that sets some of these bits:</p>
 
 <pre><code>;
 ; asm: test eax, eax
@@ -482,7 +482,7 @@ $ sudo easy_install pefile pybfd
 00000000.18     STR              0:1,                 ,           R_OF:1
 </code></pre>
 
-<p>For machine instructions which operates with whole <code>EFLAGS</code> value (<code>pushfd</code>, <code>popfd</code>, etc.) OpenREIL composes it's value from values of 1-bit registers:</p>
+<p>For machine instructions that operates with whole <code>EFLAGS</code> value (<code>pushfd</code>, <code>popfd</code>, etc.) OpenREIL composes it's value from values of 1-bit registers:</p>
 
 <p>Example of IR code for pushfd x86 instruction:</p>
 
@@ -790,7 +790,7 @@ storage <span class="pl-k">=</span> CodeStorageMem(ARCH_X86, <span class="pl-smi
 <span class="pl-c"># using existing instance</span>
 storage.from_file(<span class="pl-s"><span class="pl-pds">'</span>test.json<span class="pl-pds">'</span></span>)</pre></div>
 
-<p>Instead of raw instruction reader you also can use x86 assembly instruction reader which based on nasm. OpenREIL uses this reader in unit tests, it also might be useful for other purposes:</p>
+<p>Instead of raw instruction reader you also can use x86 assembly instruction reader that based on GAS. OpenREIL uses this reader in unit tests, it also might be useful for other purposes:</p>
 
 <div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> asm
 
@@ -815,7 +815,7 @@ storage <span class="pl-k">=</span> mongodb.CodeStorageMongo(ARCH_X86,
 <span class="pl-c"># clear old contents of collection</span>
 storage.clear()</pre></div>
 
-<p>Here is an example of MongoDB collection record format which is used by OpenREIL:</p>
+<p>Here is an example of MongoDB collection record format that is used by OpenREIL:</p>
 
 <pre><code>{ 
   "_id" : ObjectId("54e2a2fad87fe0462f000000"), 
@@ -918,7 +918,7 @@ sym <span class="pl-k">=</span> bb.to_symbolic(<span class="pl-smi">temp_regs</s
 <span class="pl-c"># print SymState object</span>
 <span class="pl-k">print</span> sym</pre></div>
 
-<p>Program output (symbolic representation of first basic block which contains first 5 machine instructions of the test code):</p>
+<p>Program output (symbolic representation of first basic block that contains first 5 machine instructions of the test code):</p>
 
 <pre><code>R_ESP = (R_ESP - 0x4)
 *(R_ESP - 0x4) = R_EBP
@@ -1293,7 +1293,7 @@ dfg.store(tr.storage)
 
 <p>During static code analysis it will be useful to have ability to get metainformation about machine instruction (source and destination registers, etc.) even if translation of this instruction to IR was unsuccessful. With such ability it will be not necessary to interrupt code analysis on unknown/untranslated machine instruction, you'll just loose some analysis accuracy.</p>
 
-<p>VEX library which used in OpenREIL has excellent support of x86 general purpose instructions, but it can't translate to IR some certain system instructions like <code>rdmsr</code>, <code>wrmsr</code>, <code>cpuid</code>, <code>sidt</code>, <code>sgdt</code>, <code>sldt</code> and some others. In this case libopenreil will try to use Capstone engine to get information about registers reads and writes, and pass this information to upper abstraction levels. For representing of unknown/untranslated instructions OpenREIL has <code>I_UNK</code> IR instruction.</p>
+<p>VEX library used in OpenREIL has excellent support of x86 general purpose instructions, but it can't translate to IR some certain system instructions like <code>rdmsr</code>, <code>wrmsr</code>, <code>cpuid</code>, <code>sidt</code>, <code>sgdt</code>, <code>sldt</code> and some others. In this case libopenreil will try to use Capstone engine to get information about registers reads and writes, and pass this information to upper abstraction levels. For representing of unknown/untranslated instructions OpenREIL has <code>I_UNK</code> IR instruction.</p>
 
 <p>Let's try to translate to IR some code that uses <code>cpuid</code> instruction to get information about x86 processor info and features:</p>
 
@@ -1353,7 +1353,7 @@ dfg.optimize_all(tr.storage)
 
 <p>As you can see, it has <code>I_UNK</code> instruction with <code>a.00</code> IR address.</p>
 
-<p>Data flow graph of IR code with <code>I_UNK</code> node which represents <code>cpuid</code> instruction with <code>R_EAX</code>, <code>R_ECX</code> as source and <code>R_EDX</code>, <code>R_ECX</code>, <code>R_EBX</code> as destination arguments:</p>
+<p>Data flow graph of IR code with <code>I_UNK</code> node that represents <code>cpuid</code> instruction with <code>R_EAX</code>, <code>R_ECX</code> as source and <code>R_EDX</code>, <code>R_ECX</code>, <code>R_EBX</code> as destination arguments:</p>
 
 <p><a href="https://camo.githubusercontent.com/5c5e2fa7891f6752a2d543aaf2a2ddfc216a86fc/68747470733a2f2f646c2e64726f70626f7875736572636f6e74656e742e636f6d2f752f32323930333039332f6f70656e7265696c2f6466675f332e706e67" target="_blank"><img src="https://camo.githubusercontent.com/5c5e2fa7891f6752a2d543aaf2a2ddfc216a86fc/68747470733a2f2f646c2e64726f70626f7875736572636f6e74656e742e636f6d2f752f32323930333039332f6f70656e7265696c2f6466675f332e706e67" alt="OpenREIL Python API diagram" width="426" height="266" data-canonical-src="https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_3.png" style="max-width:100%;"></a></p>
 
@@ -1420,7 +1420,7 @@ cpu.dump()</pre></div>
     R_SF: 0000000000000000
 </code></pre>
 
-<p>For more user friendly interacting with emulated code OpenREIL has <code>pyopenreil.VM.Abi</code> class which allows to allocate emulator memory and place arbitrary data there (<code>Abi.string()</code> and <code>Abi.buffer()</code> methods), or call native code functions using <code>Abi.stdcall()</code>, <code>Abi.cdecl()</code> and <code>Abi.fastcall()</code> methods. There's also <code>pyopenreil.VM.Stack</code> class to represent a stack memory.</p>
+<p>For more user friendly interacting with emulated code OpenREIL has <code>pyopenreil.VM.Abi</code> class that allows to allocate emulator memory and place arbitrary data there (<code>Abi.string()</code> and <code>Abi.buffer()</code> methods), or call native code functions using <code>Abi.stdcall()</code>, <code>Abi.cdecl()</code> and <code>Abi.fastcall()</code> methods. There's also <code>pyopenreil.VM.Stack</code> class to represent a stack memory.</p>
 
 <p>Here is example of calling test code from above using <code>pyopenreil.VM.Abi</code>:</p>
 
@@ -1608,7 +1608,7 @@ val_2 <span class="pl-k">=</span> rc4.encrypt(test_val)
 
 <span class="pl-k">assert</span> val_1 <span class="pl-k">==</span> val_2</pre></div>
 
-<p>It took around 5 seconds to execute this code, which shows that Python implementation of IR code emulator is a quite slow. I'm not sure if OpenREIL emulation features will be useful for any research purposes (it seems that no), but as was said above, it helps me a lot with translator testing.</p>
+<p>It's took around 5 seconds to execute this code, it shows that Python implementation of IR code emulator is a quite slow. I'm not sure if OpenREIL emulation features will be useful for any research purposes (it seems that no), but as was said above, it helps me a lot with translator testing.</p>
 
 <h2>
 <a id="user-content-using-with-third-party-tools-" class="anchor" href="#using-with-third-party-tools-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Using with third party tools <a id="user-content-_6"></a>

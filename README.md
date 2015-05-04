@@ -67,12 +67,12 @@ OpenREIL supports Linux, Mac OS X and Windows. Structure of the project source c
 
 ### Linux and OS X <a id="_2_1"></a>
 
-To build OpenREIL under *nix operating systems you need to install git, gcc, nasm, make, Python 2.x with header files, [NumPy](https://pypi.python.org/pypi/numpy) and [Cython](http://cython.org/). After that you can run configure and make just as usual. 
+To build OpenREIL under *nix operating systems you need to install git, gcc, make, Python 2.x with header files, [NumPy](https://pypi.python.org/pypi/numpy) and [Cython](http://cython.org/). After that you can run configure and make just as usual. 
 
 Example for Debian:
 
 ```
-$ sudo apt-get install git gcc make nasm python python-dev python-numpy cython
+$ sudo apt-get install git gcc make python python-dev python-numpy cython
 $ git clone https://github.com/Cr4sh/openreil.git
 $ cd openreil
 $ ./autogen.sh
@@ -103,8 +103,8 @@ Building OpenREIL on Windows requires [MinGW](http://www.mingw.org/) build envir
 
 You also can download compiled Win32 binaries of OpenREIL:
 
-* [libopenreil-0.1.1-win32.zip](https://github.com/Cr4sh/openreil/releases/download/0.1.1/libopenreil-0.1.1-win32.zip)
-* [pyopenreil-0.1.1-win32-python2.7.zip](https://github.com/Cr4sh/openreil/releases/download/0.1.1/pyopenreil-0.1.1-win32-python2.7.zip)
+* [libopenreil-0.1.2-win32.zip](https://github.com/Cr4sh/openreil/releases/download/0.1.2/libopenreil-0.1.2-win32.zip)
+* [pyopenreil-0.1.2-win32-python2.7.zip](https://github.com/Cr4sh/openreil/releases/download/0.1.2/pyopenreil-0.1.2-win32-python2.7.zip)
 
 
 ## IR format  <a id="_3"></a>
@@ -188,7 +188,7 @@ Group of IR instructions that represent one machine instruction can set value of
 
 ### Optional instruction flags <a id="_3_2"></a>
 
-In addition to address, operation code and arguments IR instruction also has flags which used to store useful metainformation:
+In addition to address, operation code and arguments IR instruction also has flags that used to store useful metainformation:
 
    * `IOPT_CALL` &minus; this JCC instruction represents a function call.
    * `IOPT_RET` &minus; this JCC instruction represents a function exit.
@@ -257,7 +257,7 @@ And IR code of this function:
 
 OpenREIL uses separate 1-bit registers to represent `ZF`, `PF`, `CF`, `AF`, `SF` and `OF` bits of `EFLAGS` register.
 
-Example of IR code for `test eax, eax` x86 instruction which sets some of these bits:
+Example of IR code for `test eax, eax` x86 instruction that sets some of these bits:
 
 ```
 ;
@@ -292,7 +292,7 @@ Example of IR code for `test eax, eax` x86 instruction which sets some of these 
 ```
 
 
-For machine instructions which operates with whole `EFLAGS` value (`pushfd`, `popfd`, etc.) OpenREIL composes it's value from values of 1-bit registers:
+For machine instructions that operates with whole `EFLAGS` value (`pushfd`, `popfd`, etc.) OpenREIL composes it's value from values of 1-bit registers:
 
 Example of IR code for pushfd x86 instruction:
 
@@ -605,7 +605,7 @@ storage.from_file('test.json')
 ```
 
 
-Instead of raw instruction reader you also can use x86 assembly instruction reader which based on nasm. OpenREIL uses this reader in unit tests, it also might be useful for other purposes:
+Instead of raw instruction reader you also can use x86 assembly instruction reader that based on GAS. OpenREIL uses this reader in unit tests, it also might be useful for other purposes:
 
 ```python
 from pyopenreil.utils import asm
@@ -633,7 +633,7 @@ storage = mongodb.CodeStorageMongo(ARCH_X86,
 storage.clear()
 ```
 
-Here is an example of MongoDB collection record format which is used by OpenREIL:
+Here is an example of MongoDB collection record format that is used by OpenREIL:
 
 ```
 { 
@@ -742,7 +742,7 @@ sym = bb.to_symbolic(temp_regs = False)
 print sym
 ```
 
-Program output (symbolic representation of first basic block which contains first 5 machine instructions of the test code):
+Program output (symbolic representation of first basic block that contains first 5 machine instructions of the test code):
 ```
 R_ESP = (R_ESP - 0x4)
 *(R_ESP - 0x4) = R_EBP
@@ -1145,7 +1145,7 @@ It also will be necessary to say, that described optimizations was designed not 
 
 During static code analysis it will be useful to have ability to get metainformation about machine instruction (source and destination registers, etc.) even if translation of this instruction to IR was unsuccessful. With such ability it will be not necessary to interrupt code analysis on unknown/untranslated machine instruction, you'll just loose some analysis accuracy.
 
-VEX library which used in OpenREIL has excellent support of x86 general purpose instructions, but it can't translate to IR some certain system instructions like `rdmsr`, `wrmsr`, `cpuid`, `sidt`, `sgdt`, `sldt` and some others. In this case libopenreil will try to use Capstone engine to get information about registers reads and writes, and pass this information to upper abstraction levels. For representing of unknown/untranslated instructions OpenREIL has `I_UNK` IR instruction.
+VEX library used in OpenREIL has excellent support of x86 general purpose instructions, but it can't translate to IR some certain system instructions like `rdmsr`, `wrmsr`, `cpuid`, `sidt`, `sgdt`, `sldt` and some others. In this case libopenreil will try to use Capstone engine to get information about registers reads and writes, and pass this information to upper abstraction levels. For representing of unknown/untranslated instructions OpenREIL has `I_UNK` IR instruction.
 
 Let's try to translate to IR some code that uses `cpuid` instruction to get information about x86 processor info and features:
 
@@ -1208,7 +1208,7 @@ Generated IR code:
 
 As you can see, it has `I_UNK` instruction with `a.00` IR address.
 
-Data flow graph of IR code with `I_UNK` node which represents `cpuid` instruction with `R_EAX`, `R_ECX` as source and `R_EDX`, `R_ECX`, `R_EBX` as destination arguments:
+Data flow graph of IR code with `I_UNK` node that represents `cpuid` instruction with `R_EAX`, `R_ECX` as source and `R_EDX`, `R_ECX`, `R_EBX` as destination arguments:
 
 <img src="https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_3.png" alt="OpenREIL Python API diagram" width="426" height="266">
 
@@ -1277,7 +1277,7 @@ Console output of the `cpu.dump()` call:
     R_SF: 0000000000000000
 ```
 
-For more user friendly interacting with emulated code OpenREIL has `pyopenreil.VM.Abi` class which allows to allocate emulator memory and place arbitrary data there (`Abi.string()` and `Abi.buffer()` methods), or call native code functions using `Abi.stdcall()`, `Abi.cdecl()` and `Abi.fastcall()` methods. There's also `pyopenreil.VM.Stack` class to represent a stack memory.
+For more user friendly interacting with emulated code OpenREIL has `pyopenreil.VM.Abi` class that allows to allocate emulator memory and place arbitrary data there (`Abi.string()` and `Abi.buffer()` methods), or call native code functions using `Abi.stdcall()`, `Abi.cdecl()` and `Abi.fastcall()` methods. There's also `pyopenreil.VM.Stack` class to represent a stack memory.
 
 Here is example of calling test code from above using `pyopenreil.VM.Abi`:
 
@@ -1472,7 +1472,7 @@ val_2 = rc4.encrypt(test_val)
 assert val_1 == val_2
 ```
 
-It took around 5 seconds to execute this code, which shows that Python implementation of IR code emulator is a quite slow. I'm not sure if OpenREIL emulation features will be useful for any research purposes (it seems that no), but as was said above, it helps me a lot with translator testing.
+It's took around 5 seconds to execute this code, it shows that Python implementation of IR code emulator is a quite slow. I'm not sure if OpenREIL emulation features will be useful for any research purposes (it seems that no), but as was said above, it helps me a lot with translator testing.
 
 
 ## Using with third party tools <a id="_6"></a>
