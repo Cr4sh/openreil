@@ -14,6 +14,17 @@ ARCH_X86 = 0
 ARCH_ARM = 1
 
 
+LOG_MASK = None
+LOG_PATH = None
+
+# translator logging options
+def log_init(log_mask, log_path = None):
+
+    global LOG_MASK, LOG_PATH
+
+    LOG_MASK, LOG_PATH = log_mask, log_path
+
+
 class Error(Exception):
 
     pass
@@ -2462,7 +2473,12 @@ class CodeStorageTranslator(CodeStorage):
         else: raise Error('Storage or reader instance must be specified')
 
         import translator
-        self.translator = translator.Translator(arch)
+        
+        log_path = LOG_PATH
+        log_mask = LOG_MASK if LOG_MASK is not None else translator.LOG_MASK_DEFAULT
+
+        self.translator = translator.Translator(arch, log_path = log_path, \
+                                                      log_mask = log_mask)
         
         self.arch = get_arch(arch)        
         self.storage = CodeStorageMem(arch) if storage is None else storage

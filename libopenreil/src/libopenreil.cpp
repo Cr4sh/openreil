@@ -146,6 +146,25 @@ extern "C" void reil_close(reil_t reil)
     free(c);
 }
 
+int reil_log_init(uint32_t mask, const char *path)
+{
+    // setup stderr logging options
+    log_stderr(mask);
+
+    if (path)
+    {
+        // open log file
+        return log_init(mask, path);
+    }   
+
+    return 0; 
+}
+
+void reil_log_close(void)
+{
+    log_close();
+}
+
 int reil_translate_report_error(reil_addr_t addr, const char *reason)
 {
     log_write(LOG_ERR, "Error while processing instruction at address 0x%x", addr);
