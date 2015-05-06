@@ -110,7 +110,7 @@ using namespace std;
 #define OF_POS  11
 
 //
-// Condition code enum copied from VEX/priv/guest-x86/gdefs.h
+// Condition code enum copied from VEX/priv/guest_x86_defs.h
 // Note: If these constants are ever changed, then they would
 //       need to be re-copied from the newer version of VEX.
 //
@@ -144,7 +144,9 @@ typedef enum
 
 } X86Condcode;
 
-// XXX: copied from VEX/priv/guest-x86/gdefs.h
+//
+// Copied from VEX/priv/guest_x86_defs.h
+//
 enum
 {
     X86G_CC_OP_COPY = 0, /* DEP1 = current flags, DEP2 = 0, NDEP = unused */
@@ -207,20 +209,20 @@ enum
 
 // eflags helpers
 // (making these public to help generate thunks)
-vector<Stmt *> mod_eflags_copy(reg_t type, Exp *arg1, Exp *arg2);
-vector<Stmt *> mod_eflags_add(reg_t type, Exp *arg1, Exp *arg2);
-vector<Stmt *> mod_eflags_sub(reg_t type, Exp *arg1, Exp *arg2);
-vector<Stmt *> mod_eflags_adc(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
-vector<Stmt *> mod_eflags_sbb(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
-vector<Stmt *> mod_eflags_logic(reg_t type, Exp *arg1, Exp *arg2);
-vector<Stmt *> mod_eflags_inc(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
-vector<Stmt *> mod_eflags_dec(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
-vector<Stmt *> mod_eflags_shl(reg_t type, Exp *arg1, Exp *arg2);
-vector<Stmt *> mod_eflags_shr(reg_t type, Exp *arg1, Exp *arg2);
-vector<Stmt *> mod_eflags_rol(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
-vector<Stmt *> mod_eflags_ror(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
-vector<Stmt *> mod_eflags_umul(reg_t type, Exp *arg1, Exp *arg2);
-vector<Stmt *> mod_eflags_smul(reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_copy(reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_add(reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_sub(reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_adc(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
+static vector<Stmt *> mod_eflags_sbb(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
+static vector<Stmt *> mod_eflags_logic(reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_inc(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
+static vector<Stmt *> mod_eflags_dec(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
+static vector<Stmt *> mod_eflags_shl(reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_shr(reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_rol(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
+static vector<Stmt *> mod_eflags_ror(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
+static vector<Stmt *> mod_eflags_umul(reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_smul(reg_t type, Exp *arg1, Exp *arg2);
 
 using namespace std;
 
@@ -1559,94 +1561,6 @@ Stmt *i386_translate_put(IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout)
 //
 //----------------------------------------------------------------------
 
-void del_get_thunk(bap_block_t *block)
-{
-    assert(block);
-
-    vector<Stmt *> rv;
-    vector<Stmt *> *ir = block->bap_ir;
-    string mnemonic = block->str_mnem;
-
-    if (i386_op_is_very_broken(mnemonic)) 
-    {       
-        return;
-    }
-
-    assert(ir);
-
-    for (vector<Stmt *>::iterator i = ir->begin(); i != ir->end(); i++)
-    {
-        Stmt *stmt = (*i);
-        rv.push_back(stmt);
-
-        if (stmt->stmt_type == MOVE)
-        {
-            Move *move = (Move *)stmt;
-
-            if (move->rhs->exp_type == TEMP)
-            {
-                Temp *temp = (Temp *)(move->rhs);
-
-                if (temp->name.find("CC_OP") != string::npos || 
-                    temp->name.find("CC_DEP1") != string::npos || 
-                    temp->name.find("CC_DEP2") != string::npos || 
-                    temp->name.find("CC_NDEP") != string::npos)
-                {
-                    // remove and Free the Stmt
-                    Stmt::destroy(rv.back());
-                    rv.pop_back();
-                }
-            }
-        }
-    }
-
-    ir->clear();
-    ir->insert(ir->begin(), rv.begin(), rv.end());
-}
-
-void get_thunk_index(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *ndep, int *mux0x)
-{
-    assert(ir);
-
-    unsigned int i;
-
-    *op = -1;
-
-    for (i = 0; i < ir->size(); i++)
-    {
-        Stmt *stmt = ir->at(i);
-
-        if (stmt->stmt_type != MOVE || ((Move *)stmt)->lhs->exp_type != TEMP)
-        {
-            continue;
-        }
-
-        Temp *temp = (Temp *)((Move *)stmt)->lhs;
-
-        if (temp->name.find("CC_OP") != string::npos)
-        {
-            *op = i;
-
-            if (match_mux0x(ir, (i - MUX_SUB), NULL, NULL, NULL, NULL) >= 0)
-            {
-                *mux0x = (i - MUX_SUB);
-            }
-        }
-        else if (temp->name.find("CC_DEP1") != string::npos)
-        {
-            *dep1 = i;
-        }
-        else if (temp->name.find("CC_DEP2") != string::npos)
-        {
-            *dep2 = i;
-        }
-        else if (temp->name.find("CC_NDEP") != string::npos)
-        {
-            *ndep = i;
-        }
-    }
-}
-
 //
 // Set the bits of EFLAGS using the given flag registers. The flag args are COPIED, not consumed.
 //
@@ -1729,17 +1643,6 @@ void get_eflags_bits(vector<Stmt *> *irout)
                               REG_1)));
 }
 
-//
-// This function CONSUMES the cond and flag expressions passed in, i.e.
-// they are not cloned before use.
-//
-void set_flag(vector<Stmt *> *irout, reg_t type, Temp *flag, Exp *cond)
-{
-    // set flag directly to condition
-    //    irout->push_back( new Move(flag, emit_mux0x(irout, type, cond, ex_const(0), ex_const(1))) );
-    irout->push_back(new Move(flag, cond));
-}
-
 //----------------------------------------------------------------------
 //
 // Functions that generate IR to modify EFLAGS. These functions all
@@ -1814,7 +1717,7 @@ Exp *mask_overflow(Exp *e, reg_t to)
     return _ex_and(e, ex_const(REG_32, mask));
 }
 
-vector<Stmt *> mod_eflags_copy(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_copy(reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
 
@@ -1841,7 +1744,7 @@ vector<Stmt *> mod_eflags_copy(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-vector<Stmt *> mod_eflags_add(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_add(reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
     Temp *res = mk_temp(REG_32, &irout);
@@ -1893,7 +1796,7 @@ vector<Stmt *> mod_eflags_add(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-vector<Stmt *> mod_eflags_sub(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_sub(reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
     Temp *res = mk_temp(REG_32, &irout);
@@ -1946,7 +1849,7 @@ vector<Stmt *> mod_eflags_sub(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-vector<Stmt *> mod_eflags_adc(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
+static vector<Stmt *> mod_eflags_adc(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
 {
     vector<Stmt *> irout;
     Temp *res = mk_temp(REG_32, &irout);
@@ -2017,7 +1920,7 @@ vector<Stmt *> mod_eflags_adc(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
     return irout;
 }
 
-vector<Stmt *> mod_eflags_sbb(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
+static vector<Stmt *> mod_eflags_sbb(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
 {
     vector<Stmt *> irout;
     Temp *res = mk_temp(REG_32, &irout);
@@ -2085,7 +1988,7 @@ vector<Stmt *> mod_eflags_sbb(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
     return irout;
 }
 
-vector<Stmt *> mod_eflags_logic(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_logic(reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
     Exp *res = arg1;
@@ -2130,7 +2033,7 @@ vector<Stmt *> mod_eflags_logic(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-vector<Stmt *> mod_eflags_inc(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
+static vector<Stmt *> mod_eflags_inc(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
 {
     vector<Stmt *> irout;
     int type_size = get_type_size(type);
@@ -2189,7 +2092,7 @@ vector<Stmt *> mod_eflags_inc(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
     return irout;
 }
 
-vector<Stmt *> mod_eflags_dec(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
+static vector<Stmt *> mod_eflags_dec(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
 {
     vector<Stmt *> irout;
     int type_size = get_type_size(type);
@@ -2244,7 +2147,7 @@ vector<Stmt *> mod_eflags_dec(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
     return irout;
 }
 
-vector<Stmt *> mod_eflags_shl(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_shl(reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
     int type_size = get_type_size(type);
@@ -2314,7 +2217,7 @@ vector<Stmt *> mod_eflags_shl(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-vector<Stmt *> mod_eflags_shr(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_shr(reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
     int type_size = get_type_size(type);
@@ -2389,7 +2292,7 @@ vector<Stmt *> mod_eflags_shr(reg_t type, Exp *arg1, Exp *arg2)
 }
 
 // FIXME: should not modify flags when shifting by zero
-vector<Stmt *> mod_eflags_rol(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
+static vector<Stmt *> mod_eflags_rol(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
 {
     vector<Stmt *> irout;
     int type_size = get_type_size(type);
@@ -2423,7 +2326,7 @@ vector<Stmt *> mod_eflags_rol(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
 }
 
 // FIXME: should not modify flags when shifting by zero
-vector<Stmt *> mod_eflags_ror(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
+static vector<Stmt *> mod_eflags_ror(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
 {
     vector<Stmt *> irout;
     int type_size = get_type_size(type);
@@ -2455,7 +2358,7 @@ vector<Stmt *> mod_eflags_ror(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
     return irout;
 }
 
-vector<Stmt *> mod_eflags_umul(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_umul(reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
     int type_size = get_type_size(type);
@@ -2531,7 +2434,7 @@ vector<Stmt *> mod_eflags_umul(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-vector<Stmt *> mod_eflags_smul(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_smul(reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
     int type_size = get_type_size(type);
@@ -2606,126 +2509,6 @@ vector<Stmt *> mod_eflags_smul(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-int del_put_thunk(vector<Stmt *> *ir, string mnemonic, int opi, int dep1, int dep2, int ndep, int mux0x)
-{
-    assert(ir);
-    assert(opi >= 0 && dep1 >= 0 && dep2 >= 0 && ndep >= 0);
-
-    vector<Stmt *> rv;
-    int len = 0;
-    int j = 0;
-
-    // Delete statements assigning to flag thunk temps
-    for (vector<Stmt *>::iterator i = ir->begin(); i != ir->end(); i++, j++)
-    {
-        Stmt *stmt = (*i);
-        rv.push_back(stmt);
-
-        len++;
-
-        if (i386_op_is_very_broken(mnemonic))
-        {
-            // ...
-        }
-        else
-        {
-            /* OLD deletion code */
-            if (stmt->stmt_type == MOVE)
-            {
-                Move *move = (Move *)stmt;
-
-                if (move->lhs->exp_type == TEMP)
-                {
-                    Temp *temp = (Temp *)(move->lhs);
-
-                    if (temp->name.find("CC_OP") != string::npos || 
-                        temp->name.find("CC_DEP1") != string::npos || 
-                        temp->name.find("CC_DEP2") != string::npos || 
-                        temp->name.find("CC_NDEP") != string::npos)
-                    {
-                        //// XXX: don't delete for now.
-                        //// remove and Free the Stmt
-                        // CC_OP, CC_DEP1, CC_DEP2, CC_NDEP are never set unless use_eflags_thunks is true.
-                        if (!use_eflags_thunks)
-                        {
-                            Stmt::destroy(rv.back());
-                            rv.pop_back();
-                            len--;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    assert(len >= 0);
-    
-    ir->clear();
-    ir->insert(ir->begin(), rv.begin(), rv.end());
-    
-    return len;
-}
-
-//
-// These typedefs are specifically for casting mod_eflags_func to the
-// function that accepts the right number of arguments
-//
-typedef vector<Stmt *> Mod_Func_0(void);
-typedef vector<Stmt *> Mod_Func_2(reg_t, Exp *, Exp *);
-typedef vector<Stmt *> Mod_Func_3(reg_t, Exp *, Exp *, Exp *);
-
-static void modify_eflags_helper(string op, reg_t type, vector<Stmt *> *ir, int argnum, Mod_Func_0 *mod_eflags_func)
-{
-    assert(ir);
-    assert(argnum == 2 || argnum == 3);
-    assert(mod_eflags_func);
-
-    // Look for occurrence of CC_OP assignment
-    // These will have the indices of the CC_OP stmts
-    int opi, dep1, dep2, ndep, mux0x;
-    opi = dep1 = dep2 = ndep = mux0x = -1;
-    get_thunk_index(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
-
-    if (opi >= 0)
-    {
-        vector<Stmt *> mods;
-
-        if (argnum == 2)
-        {
-            // Get the arguments we need from these Stmt's
-            Exp *arg1 = ((Move *)(ir->at(dep1)))->rhs;
-            Exp *arg2 = ((Move *)(ir->at(dep2)))->rhs;
-
-            // Do the translation
-            // To figure out the type, we assume the rhs of the
-            // assignment to CC_DEP is always either a Constant or a Temp
-            // Otherwise, we have no way of figuring out the expression type
-            Mod_Func_2 *mod_func = (Mod_Func_2 *)mod_eflags_func;
-            mods = mod_func(type, arg1, arg2);
-        }
-        else // argnum == 3
-        {
-            Exp *arg1 = ((Move *)(ir->at(dep1)))->rhs;
-            Exp *arg2 = ((Move *)(ir->at(dep2)))->rhs;
-            Exp *arg3 = ((Move *)(ir->at(ndep)))->rhs;
-
-            Mod_Func_3 *mod_func = (Mod_Func_3 *)mod_eflags_func;
-            mods = mod_func(type, arg1, arg2, arg3);
-        }
-
-        // Delete the thunk
-        int pos = del_put_thunk(ir, op, opi, dep1, dep2, ndep, mux0x);
-        
-        // Insert the eflags mods in this position
-        ir->insert(ir->begin() + pos, mods.begin(), mods.end());
-        ir->insert(ir->begin() + pos, new Comment("eflags thunk: " + op));
-    }
-    else
-    {
-        log_write(LOG_WARN, "No EFLAGS thunk was found for \"%s\"!", op.c_str());
-    }
-}
-
 /* List of operations we should not delete thunks for.
  *
  * Or, put another way, a list of operations for which the eflags code
@@ -2752,7 +2535,6 @@ void i386_modify_flags(bap_block_t *block)
 
     // Look for occurrence of CC_OP assignment
     // These will have the indices of the CC_OP stmts
-    // FIXME: cut-and-paste from modify_eflags_helper, which will do this again
     int opi, dep1, dep2, ndep, mux0x;
     opi = dep1 = dep2 = ndep = mux0x = -1;
     get_thunk_index(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
@@ -2764,15 +2546,10 @@ void i386_modify_flags(bap_block_t *block)
     }
 
     Stmt *op_stmt = ir->at(opi);
+    bool got_op = false;
+    int op = 0;
 
-    bool got_op;
-    int op;
-
-    if (!(op_stmt->stmt_type == MOVE))
-    {
-        got_op = false;
-    }
-    else
+    if (op_stmt->stmt_type == MOVE)
     {
         Move *op_mov = (Move *)op_stmt;
 
@@ -2791,6 +2568,10 @@ void i386_modify_flags(bap_block_t *block)
     if (got_op)
     {
         reg_t type;
+        string op_s;
+
+        Mod_Func_0 *cb = NULL;
+        int num_params = 0;
 
         switch (op)
         {
@@ -2853,11 +2634,7 @@ void i386_modify_flags(bap_block_t *block)
         default:
         
             assert(0);
-        }
-
-        string op_s;
-        Mod_Func_0 *cb;
-        int num_params;
+        }        
 
         switch (op)
         {
@@ -2865,7 +2642,7 @@ void i386_modify_flags(bap_block_t *block)
         
             op_s = "copy";
             num_params = 2;
-            cb = (Mod_Func_0 *) mod_eflags_copy;
+            cb = (Mod_Func_0 *)mod_eflags_copy;
             break;
 
         case X86G_CC_OP_ADDB:
@@ -2874,7 +2651,7 @@ void i386_modify_flags(bap_block_t *block)
         
             op_s = "add";
             num_params = 2;
-            cb = (Mod_Func_0 *) mod_eflags_add;
+            cb = (Mod_Func_0 *)mod_eflags_add;
             break;
 
         case X86G_CC_OP_ADCB:
@@ -2883,7 +2660,7 @@ void i386_modify_flags(bap_block_t *block)
         
             op_s = "adc";
             num_params = 3;
-            cb = (Mod_Func_0 *) mod_eflags_adc;
+            cb = (Mod_Func_0 *)mod_eflags_adc;
             break;
 
         case X86G_CC_OP_SUBB:
@@ -2892,7 +2669,7 @@ void i386_modify_flags(bap_block_t *block)
         
             op_s = "sub";
             num_params = 2;
-            cb = (Mod_Func_0 *) mod_eflags_sub;
+            cb = (Mod_Func_0 *)mod_eflags_sub;
             break;
 
         case X86G_CC_OP_SBBB:
@@ -2901,7 +2678,7 @@ void i386_modify_flags(bap_block_t *block)
         
             op_s = "sbb";
             num_params = 3;
-            cb = (Mod_Func_0 *) mod_eflags_sbb;
+            cb = (Mod_Func_0 *)mod_eflags_sbb;
             break;
 
         case X86G_CC_OP_LOGICB:
@@ -2919,7 +2696,7 @@ void i386_modify_flags(bap_block_t *block)
         
             op_s = "inc";
             num_params = 3;
-            cb = (Mod_Func_0 *) mod_eflags_inc;
+            cb = (Mod_Func_0 *)mod_eflags_inc;
             break;
 
         case X86G_CC_OP_DECB:
@@ -2990,8 +2767,14 @@ void i386_modify_flags(bap_block_t *block)
             panic("unhandled cc_op!");
         }
 
-        modify_eflags_helper(op_s, type, ir, num_params, cb);
-        return;
+        if (cb)
+        {
+            modify_eflags_helper(op_s, type, ir, num_params, cb);
+        }        
+        else
+        {
+            panic("eflags handler is not set!");   
+        }
     }
     else 
     {

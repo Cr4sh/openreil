@@ -49,6 +49,21 @@ extern Exp *count_opnd;
 // arch specific functions used in irtoir.cpp
 //
 
+//
+// These typedefs are specifically for casting mod_eflags_func to the
+// function that accepts the right number of arguments
+//
+typedef vector<Stmt *> Mod_Func_0(void);
+typedef vector<Stmt *> Mod_Func_2(reg_t, Exp *, Exp *);
+typedef vector<Stmt *> Mod_Func_3(reg_t, Exp *, Exp *, Exp *);
+
+// defined in irtoir.cpp
+void set_flag(vector<Stmt *> *irout, reg_t type, Temp *flag, Exp *cond);
+void modify_eflags_helper(string op, reg_t type, vector<Stmt *> *ir, int argnum, Mod_Func_0 *mod_eflags_func);
+void del_get_thunk(bap_block_t *block);
+int del_put_thunk(vector<Stmt *> *ir, string mnemonic, int opi, int dep1, int dep2, int ndep, int mux0x);
+void get_thunk_index(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *ndep, int *mux0x);
+
 // defined in irtoir-i386.cpp
 vector<VarDecl *> i386_get_reg_decls();
 Exp  *i386_translate_get(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout);
@@ -56,7 +71,6 @@ Stmt *i386_translate_put(IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout);
 Exp  *i386_translate_ccall(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout);
 void  i386_modify_flags(bap_block_t *block);
 bool i386_op_is_very_broken(string op);
-void del_get_thunk(bap_block_t *block);
 
 // defined in irtoir-arm.cpp
 vector<VarDecl *> arm_get_reg_decls();

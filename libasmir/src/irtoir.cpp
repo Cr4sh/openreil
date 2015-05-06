@@ -77,6 +77,217 @@ void set_call_return_translation(int value)
     translate_calls_and_returns = (bool)value;
 }
 
+//
+// This function CONSUMES the cond and flag expressions passed in, i.e.
+// they are not cloned before use.
+//
+void set_flag(vector<Stmt *> *irout, reg_t type, Temp *flag, Exp *cond)
+{
+    // set flag directly to condition
+    //    irout->push_back( new Move(flag, emit_mux0x(irout, type, cond, ex_const(0), ex_const(1))) );
+    irout->push_back(new Move(flag, cond));
+}
+
+void modify_eflags_helper(string op, reg_t type, vector<Stmt *> *ir, int argnum, Mod_Func_0 *mod_eflags_func)
+{
+    assert(ir);
+    assert(argnum == 2 || argnum == 3);
+    assert(mod_eflags_func);
+
+    // Look for occurrence of CC_OP assignment
+    // These will have the indices of the CC_OP stmts
+    int opi, dep1, dep2, ndep, mux0x;
+    opi = dep1 = dep2 = ndep = mux0x = -1;
+    get_thunk_index(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
+
+    if (opi >= 0)
+    {
+        vector<Stmt *> mods;
+
+        if (argnum == 2)
+        {
+            // Get the arguments we need from these Stmt's
+            Exp *arg1 = ((Move *)(ir->at(dep1)))->rhs;
+            Exp *arg2 = ((Move *)(ir->at(dep2)))->rhs;
+
+            // Do the translation
+            // To figure out the type, we assume the rhs of the
+            // assignment to CC_DEP is always either a Constant or a Temp
+            // Otherwise, we have no way of figuring out the expression type
+            Mod_Func_2 *mod_func = (Mod_Func_2 *)mod_eflags_func;
+            mods = mod_func(type, arg1, arg2);
+        }
+        else // argnum == 3
+        {
+            Exp *arg1 = ((Move *)(ir->at(dep1)))->rhs;
+            Exp *arg2 = ((Move *)(ir->at(dep2)))->rhs;
+            Exp *arg3 = ((Move *)(ir->at(ndep)))->rhs;
+
+            Mod_Func_3 *mod_func = (Mod_Func_3 *)mod_eflags_func;
+            mods = mod_func(type, arg1, arg2, arg3);
+        }
+
+        // Delete the thunk
+        int pos = del_put_thunk(ir, op, opi, dep1, dep2, ndep, mux0x);
+        
+        // Insert the eflags mods in this position
+        ir->insert(ir->begin() + pos, mods.begin(), mods.end());
+        ir->insert(ir->begin() + pos, new Comment("eflags thunk: " + op));
+    }
+    else
+    {
+        log_write(LOG_WARN, "No EFLAGS thunk was found for \"%s\"!", op.c_str());
+    }
+}
+
+void del_get_thunk(bap_block_t *block)
+{
+    assert(block);
+
+    vector<Stmt *> rv;
+    vector<Stmt *> *ir = block->bap_ir;
+    string mnemonic = block->str_mnem;
+
+    if (i386_op_is_very_broken(mnemonic)) 
+    {       
+        return;
+    }
+
+    assert(ir);
+
+    for (vector<Stmt *>::iterator i = ir->begin(); i != ir->end(); i++)
+    {
+        Stmt *stmt = (*i);
+        rv.push_back(stmt);
+
+        if (stmt->stmt_type == MOVE)
+        {
+            Move *move = (Move *)stmt;
+
+            if (move->rhs->exp_type == TEMP)
+            {
+                Temp *temp = (Temp *)(move->rhs);
+
+                if (temp->name.find("CC_OP") != string::npos || 
+                    temp->name.find("CC_DEP1") != string::npos || 
+                    temp->name.find("CC_DEP2") != string::npos || 
+                    temp->name.find("CC_NDEP") != string::npos)
+                {
+                    // remove and Free the Stmt
+                    Stmt::destroy(rv.back());
+                    rv.pop_back();
+                }
+            }
+        }
+    }
+
+    ir->clear();
+    ir->insert(ir->begin(), rv.begin(), rv.end());
+}
+
+int del_put_thunk(vector<Stmt *> *ir, string mnemonic, int opi, int dep1, int dep2, int ndep, int mux0x)
+{
+    assert(ir);
+    assert(opi >= 0 && dep1 >= 0 && dep2 >= 0 && ndep >= 0);
+
+    vector<Stmt *> rv;
+    int len = 0;
+    int j = 0;
+
+    // Delete statements assigning to flag thunk temps
+    for (vector<Stmt *>::iterator i = ir->begin(); i != ir->end(); i++, j++)
+    {
+        Stmt *stmt = (*i);
+        rv.push_back(stmt);
+
+        len++;
+
+        if (i386_op_is_very_broken(mnemonic))
+        {
+            // ...
+        }
+        else
+        {
+            /* OLD deletion code */
+            if (stmt->stmt_type == MOVE)
+            {
+                Move *move = (Move *)stmt;
+
+                if (move->lhs->exp_type == TEMP)
+                {
+                    Temp *temp = (Temp *)(move->lhs);
+
+                    if (temp->name.find("CC_OP") != string::npos || 
+                        temp->name.find("CC_DEP1") != string::npos || 
+                        temp->name.find("CC_DEP2") != string::npos || 
+                        temp->name.find("CC_NDEP") != string::npos)
+                    {
+                        //// XXX: don't delete for now.
+                        //// remove and Free the Stmt
+                        // CC_OP, CC_DEP1, CC_DEP2, CC_NDEP are never set unless use_eflags_thunks is true.
+                        if (!use_eflags_thunks)
+                        {
+                            Stmt::destroy(rv.back());
+                            rv.pop_back();
+                            len--;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    assert(len >= 0);
+    
+    ir->clear();
+    ir->insert(ir->begin(), rv.begin(), rv.end());
+    
+    return len;
+}
+
+void get_thunk_index(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *ndep, int *mux0x)
+{
+    assert(ir);
+
+    unsigned int i;
+
+    *op = -1;
+
+    for (i = 0; i < ir->size(); i++)
+    {
+        Stmt *stmt = ir->at(i);
+
+        if (stmt->stmt_type != MOVE || ((Move *)stmt)->lhs->exp_type != TEMP)
+        {
+            continue;
+        }
+
+        Temp *temp = (Temp *)((Move *)stmt)->lhs;
+
+        if (temp->name.find("CC_OP") != string::npos)
+        {
+            *op = i;
+
+            if (match_mux0x(ir, (i - MUX_SUB), NULL, NULL, NULL, NULL) >= 0)
+            {
+                *mux0x = (i - MUX_SUB);
+            }
+        }
+        else if (temp->name.find("CC_DEP1") != string::npos)
+        {
+            *dep1 = i;
+        }
+        else if (temp->name.find("CC_DEP2") != string::npos)
+        {
+            *dep2 = i;
+        }
+        else if (temp->name.find("CC_NDEP") != string::npos)
+        {
+            *ndep = i;
+        }
+    }
+}
+
 //---------------------------------------------------------------------
 // Helper wrappers around arch specific functions
 //---------------------------------------------------------------------

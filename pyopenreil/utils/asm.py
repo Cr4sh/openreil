@@ -28,7 +28,7 @@ class CompilerGas(object):
     code_section = '.text'
 
     def __init__(self, arch = None, att_syntax = False, thumb = False, \
-                       as_path = None, objcopy_path = None):
+                       as_path = None, objcopy_path = None, otool_path = None):
 
         self.arch, self.att_syntax, self.thumb = arch, att_syntax, thumb
         self.is_mac = sys.platform == 'darwin'
@@ -62,6 +62,7 @@ class CompilerGas(object):
 
         self.as_path = self.as_path if as_path is None else as_path  
         self.objcopy_path = self.objcopy_path if objcopy_path is None else objcopy_path  
+        self.otool_path = self.otool_path if otool_path is None else otool_path  
 
         timestamp = int(time.time())
         temp_name = lambda ext: 'tmp_%d.%s' % (timestamp, ext)
