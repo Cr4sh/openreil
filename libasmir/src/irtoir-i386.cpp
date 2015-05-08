@@ -814,7 +814,15 @@ Exp *i386_translate_get(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 
     else if (type == Ity_I64)
     {
-        panic("Unhandled register type (I64)");
+	if (offset == OFFB_GDT || offset == OFFB_LDT)
+	{
+	    result = mk_reg(reg_offset_to_name(offset), REG_64);
+	}
+
+	else 
+	{
+	    panic("Unhandled register type (I64)");
+	}
     }
     else if (type == Ity_F32)
     {
