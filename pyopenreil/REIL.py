@@ -486,12 +486,12 @@ class Insn(object):
         elif self.has_flag(IOPT_ASM_END):
 
             # go to first IR instruction of next assembly instruction
-            return self.next_asm(), 0
+            return self.IRAddr(( self.next_asm(), 0 ))
 
         else:
 
             # go to next IR instruction of current assembly instruction
-            return self.addr, self.inum + 1
+            return self.IRAddr(( self.addr, self.inum + 1 ))
 
     def next_asm(self):
 
@@ -500,8 +500,13 @@ class Insn(object):
 
     def jcc_loc(self):
 
-        if self.op == I_JCC and self.c.type == A_CONST: return self.c.get_val(), 0
-        return None
+        if self.op == I_JCC and self.c.type == A_CONST: 
+
+            return self.IRAddr(( self.c.get_val(), 0 ))
+
+        else:
+
+            return None
 
     def clone(self):
 
@@ -1386,6 +1391,7 @@ class CFGraphBuilder(object):
 
             # process immediate postdominators
             lhs, rhs = bb.last.next(), bb.last.jcc_loc()
+
             if rhs is not None: 
 
                 _process_edge(( bb.ir_addr, rhs ))
@@ -2561,7 +2567,7 @@ class CodeStorageTranslator(CodeStorage):
 
         return self.storage.size()
 
-    def get_insn(self, ir_addr):
+    def get_insn(self, ir_addr):        
 
         ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)
         addr, inum, arm_thumb = ir_addr[0], ir_addr[1], 0
@@ -2593,14 +2599,15 @@ class CodeStorageTranslator(CodeStorage):
         # Please note, that in case of ARM we need to pass 
         # a memory address with thumb enabled/disabled bit included.
         #
-        ret = self.translate_insn(data, addr)
+        ret = InsnList()
 
-        # save to storage
-        for insn in ret: 
+        for insn in self.translate_insn(data, addr):
 
+            # save translated instructions
             self.storage.put_insn(insn)
+            ret.append(Insn(insn))
 
-        return self.storage.get_insn(ir_addr)
+        return ret
 
     def put_insn(self, insn_or_insn_list):
 
@@ -2656,9 +2663,30 @@ class TestCodeStorageTranslator(unittest.TestCase):
 
         # test with reader + storage
         tr = CodeStorageTranslator(reader, storage)
-        assert tr.arch == x86 and tr.get_insn(0) == insn_list
+        assert tr.arch == x86 and tr.get_insn(0) == insn_list    
 
-    def test_unknown_insn_x86(self):
+    def test_get_insn(self):
+
+        print '\n', self.tr.get_insn(0)
+
+    def test_get_bb(self):
+
+        print '\n', self.tr.get_bb(0)
+
+    def test_get_func(self):
+
+        print '\n', self.tr.get_func(0)    
+
+
+class TestArchX86(unittest.TestCase):
+
+    arch = ARCH_X86
+
+    def setUp(self):        
+
+        pass
+
+    def test_unknown_insn(self):
 
         from pyopenreil.utils import asm
 
@@ -2745,17 +2773,34 @@ class TestCodeStorageTranslator(unittest.TestCase):
         assert _check_args(insn.get_attr(IATTR_SRC), [ 'R_ECX', 'R_LDT' ])
         assert not insn.has_attr(IATTR_DST)
 
-    def test_get_insn(self):
+    def test_seg_access(self):
 
-        print '\n', self.tr.get_insn(0)
+        from pyopenreil.utils import asm
 
-    def test_get_bb(self):
+        code = ( 'mov edi, dword ptr fs:[0x30]', 
+                 'mov esi, dword ptr fs:[ecx]',
+                 'mov dword ptr fs:[0x30], edx', 
+                 'mov dword ptr fs:[ecx], edx', 
+                 'ret' )
 
-        print '\n', self.tr.get_bb(0)
+        tr = CodeStorageTranslator(asm.Reader(self.arch, code))
 
-    def test_get_func(self):
+        bb = tr.get_bb(0)
 
-        print '\n', self.tr.get_func(0)    
+        print bb
+
+        # get symbolic expressions for given bb
+        sym = bb.to_symbolic(temp_regs = False)
+        
+        fs_base = SymVal('R_FS_BASE', U32)        
+
+        assert len(sym.state) == 6
+        
+        assert sym.get(SymVal('R_EDI', U32)) == SymPtr(fs_base + SymConst(0x30, U32))
+        assert sym.get(SymVal('R_ESI', U32)) == SymPtr(fs_base + SymVal('R_ECX', U32))
+
+        assert sym.get(SymPtr(fs_base + SymConst(0x30, U32))) == SymVal('R_EDX', U32)
+        assert sym.get(SymPtr(fs_base + SymVal('R_ECX', U32))) == SymVal('R_EDX', U32)
 
  
 if __name__ == '__main__':

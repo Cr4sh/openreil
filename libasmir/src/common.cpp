@@ -92,7 +92,7 @@ void log_write(uint32_t level, const char *msg, ...)
     va_start(mylist, msg);    
 
     char *buff = NULL;
-    int len = vsnprintf(NULL, 0, msg, mylist); 
+    int len = vsnprintf(NULL, 0, msg, mylist) + 1; 
 
     va_end(mylist);
     va_start(mylist, msg);
@@ -100,23 +100,24 @@ void log_write(uint32_t level, const char *msg, ...)
     // allocate buffer for message string
     if (len > 0 && (buff = (char *)malloc(len + 1)))
     {
-        if (vsnprintf(buff, len + 1, msg, mylist) < 0)
+        memset(buff, 0, len + 1);
+
+        if (vsnprintf(buff, len, msg, mylist) < 0)
         {
             free(buff);
             buff = NULL;
         }
+        else
+        {
+            strcat(buff, "\n");
+        }        
     }
     
     va_end(mylist);    
 
     if (buff)
     {
-        ostringstream data;
-        data << buff << endl;
-
-        const char *str = data.str().c_str();
-        log_write_bytes(level, str, strlen(str));
-
+        log_write_bytes(level, buff, strlen(buff));
         free(buff);
     }
 }
@@ -130,7 +131,7 @@ size_t log_write_bytes(uint32_t level, const char *msg, size_t len)
     if (level & log_stderr_mask)
     {
         // write message to stderr
-        ret = write(STDERR_FILENO, msg, len);
+        ret = fwrite(msg, len, 1, stderr);
     }        
 
 #endif
@@ -142,7 +143,7 @@ size_t log_write_bytes(uint32_t level, const char *msg, size_t len)
         if (log_file_fd)
         {
             // write message to file
-            ret = fwrite(msg, len, 1, log_file_fd);                
+            ret = fwrite(msg, len, 1, log_file_fd);  
         }
     }
 

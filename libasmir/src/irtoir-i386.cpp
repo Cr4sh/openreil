@@ -2,6 +2,7 @@
 #include <vector>
 #include <iostream>
 #include <assert.h>
+#include <stdio.h>
 #include <stddef.h>
 
 using namespace std;
@@ -1102,7 +1103,7 @@ Exp *i386_translate_ccall(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
             segbaseexp = translate_get_segreg_base(segexp->Iex.Get.offset);
 
             finaladdr = _ex_add(segbaseexp, virtual_addr);
-            finaladdr = _ex_u_cast(finaladdr, REG_64);
+            finaladdr = _ex_u_cast(finaladdr, REG_64);            
 
             result = finaladdr;
         }

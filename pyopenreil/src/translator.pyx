@@ -19,6 +19,9 @@ LOG_BIL = 0x00000040 # instruction BAP IL code
 # all log messages mask
 LOG_ALL = 0x7FFFFFFF
 
+# disable log messages mask
+LOG_NONE = 0
+
 # default log messages mask
 LOG_MASK_DEFAULT = LOG_INFO | LOG_WARN | LOG_ERR
 

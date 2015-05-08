@@ -401,10 +401,21 @@ class SymState(object):
             # clear state
             self.state = []
 
+    def get(self, val):
+
+        try: 
+
+            return self[val]
+
+        except KeyError: 
+
+            return None
+
     def query(self, val):
 
-        try: return self[val]
-        except KeyError: return val        
+        ret = self.get(val)
+
+        return val if ret is None else ret 
 
     def arg_in(self):
 

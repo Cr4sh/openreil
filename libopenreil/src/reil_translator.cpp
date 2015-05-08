@@ -367,11 +367,15 @@ void CReilFromBilTranslator::process_reil_inst(reil_inst_t *reil_inst)
             reil_inst->raw_info.str_op = current_raw_info->str_op;
         }        
 
+#ifdef CLEAR_THUMB_BIT
+
         if (guest == VexArchARM)
         {
             // clear zero bit of address that used only for enabling thumb mode
             reil_inst->raw_info.addr &= -2;
         }
+
+#endif
 
         // call user-specified REIL instruction handler
         inst_handler(reil_inst, inst_handler_context);
@@ -470,7 +474,9 @@ reil_const_t reil_cast_high(reil_size_t size)
     new_inst.inum = (_inum_);                           \
     inst_count += 1;    
 
-void CReilFromBilTranslator::process_bil_arshift(reil_inst_t *reil_inst)
+typedef void (CReilFromBilTranslator::*REIL_BINOP_HELPER)(reil_inst_t *reil_inst);
+
+void CReilFromBilTranslator::process_binop_arshift(reil_inst_t *reil_inst)
 {
     reil_inst_t new_inst;
     reil_size_t size_dst = reil_inst->c.size;
@@ -584,8 +590,9 @@ void CReilFromBilTranslator::process_bil_arshift(reil_inst_t *reil_inst)
     free_bil_exp(tmp_6);
 }
 
-void CReilFromBilTranslator::process_bil_neq(reil_inst_t *reil_inst)
+void CReilFromBilTranslator::process_binop_neq(reil_inst_t *reil_inst)
 {
+    // a != b --> !(a == b)
     reil_inst_t new_inst;
     reil_size_t size_dst = reil_inst->c.size;
 
@@ -608,8 +615,9 @@ void CReilFromBilTranslator::process_bil_neq(reil_inst_t *reil_inst)
     free_bil_exp(tmp);
 }
 
-void CReilFromBilTranslator::process_bil_le(reil_inst_t *reil_inst)
+void CReilFromBilTranslator::process_binop_le(reil_inst_t *reil_inst)
 {
+    // a <= b --> (a < b) | (a == b)
     reil_inst_t new_inst;
     reil_size_t size_dst = reil_inst->c.size;
 
@@ -631,6 +639,82 @@ void CReilFromBilTranslator::process_bil_le(reil_inst_t *reil_inst)
     COPY_ARG(&new_inst.a, &reil_inst->a);
     COPY_ARG(&new_inst.b, &reil_inst->b);
     convert_operand(tmp_1, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    // OR tmp_0, tmp_1, c
+    reil_inst->op = I_OR;   
+    convert_operand(tmp_0, &reil_inst->a);
+    convert_operand(tmp_1, &reil_inst->b);
+
+    free_bil_exp(tmp_0);
+    free_bil_exp(tmp_1);
+}
+
+void CReilFromBilTranslator::process_binop_gt(reil_inst_t *reil_inst)
+{
+    // a > b --> (b < a) & (a != b)
+    reil_inst_t new_inst;
+    reil_size_t size_dst = reil_inst->c.size;
+
+    Exp *tmp_0 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);    
+
+    // call a != b helper
+    NEW_INST(I_UNK, reil_inst->inum);
+    COPY_ARG(&new_inst.a, &reil_inst->a);
+    COPY_ARG(&new_inst.b, &reil_inst->b);
+    convert_operand(tmp_0, &new_inst.c);
+    process_binop_neq(&new_inst);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    Exp *tmp_1 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
+
+    // LT b, a, tmp_1
+    NEW_INST(I_LT, reil_inst->inum);
+    COPY_ARG(&new_inst.a, &reil_inst->b);
+    COPY_ARG(&new_inst.b, &reil_inst->a);
+    convert_operand(tmp_1, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    // AND tmp_0, tmp_1, c
+    reil_inst->op = I_AND;   
+    convert_operand(tmp_0, &reil_inst->a);
+    convert_operand(tmp_1, &reil_inst->b);
+
+    free_bil_exp(tmp_0);
+    free_bil_exp(tmp_1);   
+}
+
+void CReilFromBilTranslator::process_binop_ge(reil_inst_t *reil_inst)
+{
+    // a >= b --> (a > b) | (a == b)
+    reil_inst_t new_inst;
+    reil_size_t size_dst = reil_inst->c.size;
+
+    Exp *tmp_0 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);    
+
+    // EQ a, b, tmp_0
+    NEW_INST(I_EQ, reil_inst->inum);
+    COPY_ARG(&new_inst.a, &reil_inst->a);
+    COPY_ARG(&new_inst.b, &reil_inst->b);
+    convert_operand(tmp_0, &new_inst.c);
+
+    process_reil_inst(&new_inst);
+    reil_inst->inum += 1;
+
+    Exp *tmp_1 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
+
+    // call a > b helper
+    NEW_INST(I_NONE, reil_inst->inum);
+    COPY_ARG(&new_inst.a, &reil_inst->a);
+    COPY_ARG(&new_inst.b, &reil_inst->b);
+    convert_operand(tmp_1, &new_inst.c);
+    process_binop_gt(&new_inst);
 
     process_reil_inst(&new_inst);
     reil_inst->inum += 1;
@@ -858,7 +942,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     }
 
     bool binary_logic = false;
-    bool is_arshift = false, is_neq = false, is_le = false;
+    REIL_BINOP_HELPER binop_helper_fn = NULL;
     
     // get a and b operands values from expression
     if (exp->exp_type == BINOP)
@@ -874,20 +958,35 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
             binary_logic = true;
         }
 
-        if (binop->binop_type == ARSHIFT)
+        switch (binop->binop_type)
         {
-            is_arshift = true;
-        }
-        else if (binop->binop_type == NEQ)
-        {
-            is_neq = true;
-        }
-        else if (binop->binop_type == LE)
-        {
-            is_le = true;
-        }
-        else
-        {
+        case ARSHIFT:
+        
+            binop_helper_fn = &CReilFromBilTranslator::process_binop_arshift;
+            break;
+        
+        case NEQ:
+        
+            binop_helper_fn = &CReilFromBilTranslator::process_binop_neq;
+            break;
+        
+        case LE:
+        
+            binop_helper_fn = &CReilFromBilTranslator::process_binop_le;
+            break;
+        
+        case GT:
+        
+            binop_helper_fn = &CReilFromBilTranslator::process_binop_gt;
+            break;
+        
+        case GE:
+        
+            binop_helper_fn = &CReilFromBilTranslator::process_binop_ge;
+            break;
+
+        default:
+            
             reil_assert(reil_inst.op != I_NONE, "invalid binop expression");
         }        
 
@@ -1017,20 +1116,10 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
         }
     }    
 
-    if (is_arshift)
+    if (binop_helper_fn)
     {
-        // generate code for BAP ARSHIFT
-        process_bil_arshift(&reil_inst);
-    }
-    else if (is_neq)
-    {
-        // generate code for BAP NEQ
-        process_bil_neq(&reil_inst);
-    }
-    else if (is_le)
-    {
-        // generate code for BAP LE
-        process_bil_le(&reil_inst);   
+        // call inline code generation helper
+        (this->*binop_helper_fn)(&reil_inst);
     }
 
     // add assembled REIL instruction

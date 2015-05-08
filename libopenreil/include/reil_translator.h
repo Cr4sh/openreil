@@ -41,9 +41,10 @@ private:
     string tempreg_get(string name);
     
     uint64_t convert_special(Special *special);
+    
+    void convert_operand(Exp *exp, reil_arg_t *reil_arg);  
     reg_t convert_operand_size(reil_size_t size);
     reil_size_t convert_operand_size(reg_t typ);
-    void convert_operand(Exp *exp, reil_arg_t *reil_arg);    
 
     Exp *temp_operand(reg_t typ, reil_inum_t inum);
 
@@ -58,13 +59,15 @@ private:
 
     void check_cjmp_false_target(Exp *target);
     
-    void process_bil_arshift(reil_inst_t *reil_inst);
-    void process_bil_neq(reil_inst_t *reil_inst);
-    void process_bil_le(reil_inst_t *reil_inst);
-    bool process_bil_cast(Exp *exp, reil_inst_t *reil_inst);
+    void process_binop_arshift(reil_inst_t *reil_inst);
+    void process_binop_neq(reil_inst_t *reil_inst);
+    void process_binop_le(reil_inst_t *reil_inst);
+    void process_binop_gt(reil_inst_t *reil_inst);
+    void process_binop_ge(reil_inst_t *reil_inst);    
 
     void free_bil_exp(Exp *exp);
     Exp *process_bil_exp(Exp *exp);    
+    bool process_bil_cast(Exp *exp, reil_inst_t *reil_inst);
     
     Exp *process_bil_inst(reil_op_t inst, uint64_t inst_flags, Exp *c, Exp *exp);
 

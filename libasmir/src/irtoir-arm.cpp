@@ -224,8 +224,6 @@ static string reg_offset_to_name(int offset)
         return "ITSTATE";
     
     default:
-
-        fprintf(stderr, "%d\n", offset);
     
         panic("reg_offset_to_name(arm): Unrecognized register offset");
     }
@@ -281,12 +279,157 @@ Exp *arm_translate_ccall(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 
     string func = string(expr->Iex.CCall.cee->name);
 
+    Temp *NF = mk_reg("NF", REG_1);
+    Temp *ZF = mk_reg("ZF", REG_1);
+    Temp *CF = mk_reg("CF", REG_1);
+    Temp *VF = mk_reg("VF", REG_1);
+
     if (func == "armg_calculate_condition")
     {
-        panic("armg_calculate_condition");
+        int arg = -1;
+        IRExpr *cond_op = expr->Iex.CCall.args[0];     
+
+        /*
+            Get value of the condition type for armg_calculate_condition.
+            Example of VEX code:
+
+            t5 = GET:I32(72)
+            t4 = Or32(t5,0xC0:I32)
+            t6 = GET:I32(76)
+            t7 = GET:I32(80)
+            t8 = GET:I32(84)
+            t9 = armg_calculate_condition[mcx=0x9]{0xa6974280}(t4,t6,t7,t8):I32
+
+            ... where desired value is 0xC0:I32
+        */
+        if (cond_op->tag == Iex_RdTmp) 
+        {
+            IRTemp look_for = cond_op->Iex.RdTmp.tmp;
+
+            // enumerate VEX IR statements
+            for (int i = 0; i < irbb->stmts_used; i++)
+            {
+                IRStmt *st = irbb->stmts[i];
+
+                // check for desired temp register assignment
+                if (st->tag == Ist_WrTmp &&
+                    st->Ist.WrTmp.tmp == look_for &&
+                    st->Ist.WrTmp.data->tag == Iex_Binop &&
+                    st->Ist.WrTmp.data->Iex.Binop.op == Iop_Or32)
+                {
+                    IRExpr *e = st->Ist.WrTmp.data->Iex.Binop.arg2;
+
+                    // check for constant 2-nd argument of Iop_Or32
+                    if (e->tag == Iex_Const &&
+                        e->Iex.Const.con->tag == Ico_U32)
+                    {
+                        arg = (e->Iex.Const.con->Ico.U32 >> 4);
+                    }
+
+                    break;                    
+                }
+            }
+        }
+
+        switch (arg)
+        {
+        case ARMCondEQ:
+
+            result = ecl(ZF);
+            break;
+
+        case ARMCondNE:
+
+            result = ex_not(ZF);
+            break;
+
+        case ARMCondHS:
+
+            result = ecl(CF);
+            break;
+
+        case ARMCondLO:
+
+            result = ex_not(CF);
+            break;
+
+        case ARMCondMI:
+
+            result = ecl(NF);
+            break;
+
+        case ARMCondPL:
+
+            result = ex_not(NF);
+            break;
+
+        case ARMCondVS:
+
+            return new Constant(REG_32, 0);
+            result = ecl(VF);
+            break;
+
+        case ARMCondVC:
+
+            result = ex_not(VF);
+            break;
+
+        case ARMCondHI:
+
+            result = _ex_and(ecl(CF), ex_not(ZF));
+            break;
+
+        case ARMCondLS:
+
+            result = _ex_or(ex_not(CF), ecl(ZF));
+            break;
+
+        case ARMCondGE:
+
+            result = ex_eq(NF, VF);
+            break;
+
+        case ARMCondLT:
+
+            result = ex_neq(NF, VF);
+            break;
+
+        case ARMCondGT:
+
+            result = _ex_and(ex_not(ZF), ex_eq(NF, VF));
+            break;
+
+        case ARMCondLE:
+
+            result = _ex_or(ecl(ZF), ex_neq(NF, VF));
+            break;
+
+        case ARMCondAL:
+
+            result = new Constant(REG_32, 1);
+            break;
+
+        case ARMCondNV:
+
+            result = new Constant(REG_32, 0);
+            break;
+
+        default:
+        
+            panic("Unrecognized condition for armg_calculate_condition");
+        }
+    }
+    else
+    {
+        result = new Unknown("CCall: " + func, regt_of_irexpr(irbb, expr));
     }
 
-    return new Unknown("CCall: " + func, regt_of_irexpr(irbb, expr));
+    delete NF;
+    delete ZF;
+    delete CF;
+    delete VF;
+
+    return result;
 }
 
 static vector<Stmt *> mod_eflags_copy(reg_t type, Exp *arg1, Exp *arg2)
@@ -307,7 +450,11 @@ static vector<Stmt *> mod_eflags_add(reg_t type, Exp *arg1, Exp *arg2)
     vector<Stmt *> irout;
     Temp *res = mk_temp(REG_32, &irout);
 
-    // The operation itself
+    // All the static constants we'll ever need
+    Constant c_0(REG_32, 0);
+    Constant c_31(REG_32, 31);
+
+    // The operation itself: res = dep1 + dep2
     irout.push_back(new Move(res, ex_add(arg1, arg2), type));
 
     // Calculate flags
@@ -316,12 +463,28 @@ static vector<Stmt *> mod_eflags_add(reg_t type, Exp *arg1, Exp *arg2)
     Temp *CF = mk_reg("CF", REG_1);
     Temp *VF = mk_reg("VF", REG_1);
 
-    // res = dep1 + dep2
-    // v = ((res ^ dep1) & (res ^ dep2)) >> 31
-    // c = res < dep1
-    // z = res == 0
     // n = res >> 31
-    panic("mod_eflags_add");
+    Exp *condNF = _ex_shr(ecl(res), ecl(&c_31));
+    set_flag(&irout, type, NF, condNF);
+
+    // z = res == 0
+    Exp *condZF = ex_eq(res, &c_0);
+    set_flag(&irout, type, ZF, condZF);
+
+    // c = res < dep1    
+    Exp *condCF = ex_lt(res, arg1);
+    set_flag(&irout, type, CF, condCF);
+
+    // v = ((res ^ dep1) & (res ^ dep2)) >> 31
+    Exp *condVF = _ex_shr(
+        _ex_and(
+            ex_xor(res, arg1), 
+            ex_xor(res, arg2)
+        ), 
+        ecl(&c_31)
+    );
+
+    set_flag(&irout, type, VF, condVF);
 
     return irout;
 }
@@ -331,7 +494,12 @@ static vector<Stmt *> mod_eflags_sub(reg_t type, Exp *arg1, Exp *arg2)
     vector<Stmt *> irout;
     Temp *res = mk_temp(REG_32, &irout);
 
-    // The operation itself
+    // All the static constants we'll ever need
+    Constant c_0(REG_32, 0);
+    Constant c_1(REG_32, 1);
+    Constant c_31(REG_32, 31);
+
+    // The operation itself: res = dep1 - dep2
     irout.push_back(new Move(res, ex_sub(arg1, arg2)));
 
     // Calculate flags
@@ -340,12 +508,31 @@ static vector<Stmt *> mod_eflags_sub(reg_t type, Exp *arg1, Exp *arg2)
     Temp *CF = mk_reg("CF", REG_1);
     Temp *VF = mk_reg("VF", REG_1);
 
-    // res = dep1 - dep2
-    // v = ((dep1 ^ dep2) & (dep1 ^ res)) >> 31
-    // c = dep1 >= dep2
-    // z = res == 0
     // n = res >> 31
-    panic("mod_eflags_sub");
+    Exp *condNF = _ex_eq(_ex_shr(ecl(res), ecl(&c_31)), ecl(&c_1));
+    set_flag(&irout, type, NF, condNF);
+
+    // z = res == 0    
+    Exp *condZF = ex_eq(res, &c_0);
+    set_flag(&irout, type, ZF, condZF);
+
+    // c = dep1 >= dep2
+    Exp *condCF = ex_ge(arg1, arg2);
+    set_flag(&irout, type, CF, condCF);
+    
+    // v = ((dep1 ^ dep2) & (dep1 ^ res)) >> 31    
+    Exp *condVF = _ex_eq(
+        _ex_shr(
+            _ex_and(
+                ex_xor(arg1, arg2), 
+                ex_xor(arg1, res)
+            ), 
+            ecl(&c_31)
+        ), 
+        ecl(&c_1)
+    );
+
+    set_flag(&irout, type, VF, condVF);
 
     return irout;
 }
