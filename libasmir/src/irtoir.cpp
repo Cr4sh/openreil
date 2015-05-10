@@ -326,10 +326,12 @@ void del_seg_selector_trash(bap_block_t *block)
 
                 if (temp_1->name == temp_2->name)
                 {
+                    temp_1->typ = REG_32;
+                    temp_2->typ = REG_32;
+
                     // Remove both of the cast operations
                     ((Move *)stmt)->rhs = ecl(cast_1->exp);
-                    ((Move *)next)->rhs = ecl(cast_2->exp);
-                    temp_1->typ = REG_32;
+                    ((Move *)next)->rhs = ecl(cast_2->exp);                    
                 }                      
             }
         }

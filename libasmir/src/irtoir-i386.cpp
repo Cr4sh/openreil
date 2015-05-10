@@ -801,20 +801,86 @@ Exp *i386_translate_get(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
     {
         result = translate_get_reg_8(offset);
     }
-
     else if (type == Ity_I16)
     {
         result = translate_get_reg_16(offset);
     }
-
     else if (type == Ity_I32)
     {
         result = translate_get_reg_32(offset);
     }
-
     else if (type == Ity_I64)
     {
-        panic("Unhandled register type (I64)");
+        /*
+            Temporary workaround for VEX behaviour: amd64 version of libVEX uses 
+            64-bit lengt variables to store LDT/GDT address even for for i386 guest code,
+            To not fail in this case we need to hardcode some hack.
+
+            Here is VEX code for "mov edi, dword ptr gs:[0x30]" i386 instruction that was 
+            generated on i386 system:
+
+                IRSB {
+                   t0:I32   t1:I32   t2:I32   t3:I64   t4:I32   t5:I32   t6:I16   t7:I64
+                   t8:I1   t9:I32   t10:I32   t11:I32   t12:I32
+
+                   ------ IMark(0x1337, 7, 0) ------
+                   t6 = GET:I16(296)
+                   t5 = 16Uto32(t6)
+                   t1 = GET:I32(300)
+                   t2 = GET:I32(304)
+                   t7 = x86g_use_seg_selector{0xa6b10b10}(t1,t2,t5,0x30:I32):I64
+                   t9 = 64HIto32(t7)
+                   t8 = CmpNE32(t9,0x0:I32)
+                   if (t8) { PUT(68) = 0x1337:I32; exit-MapFail }
+                   t10 = 64to32(t7)
+                   t11 = LDle:I32(t10)
+                   PUT(36) = t11
+                   PUT(68) = 0x133E:I32; exit-Boring
+                }
+
+            ... and VEX code for the same i386 instruction that was generated on amd64 system:
+
+                IRSB {
+                   t0:I32   t1:I64   t2:I64   t3:I64   t4:I32   t5:I32   t6:I16   t7:I64
+                   t8:I1   t9:I32   t10:I32   t11:I32   t12:I32
+
+                   ------ IMark(0x0, 7, 0) ------
+                   t6 = GET:I16(294)
+                   t5 = 16Uto32(t6)
+                   t1 = GET:I64(304)
+                   t2 = GET:I64(312)
+                   t7 = x86g_use_seg_selector{0x7fabefaa6cb0}(t1,t2,t5,0x30:I32):I64
+                   t9 = 64HIto32(t7)
+                   t8 = CmpNE32(t9,0x0:I32)
+                   if (t8) { PUT(68) = 0x0:I32; exit-MapFail }
+                   t10 = 64to32(t7)
+                   t11 = LDle:I32(t10)
+                   PUT(36) = t11
+                   PUT(68) = 0x7:I32; exit-Boring
+                }
+
+            As you can see, t1 and t2 variables that used to store GDT and LDT addresses has 
+            different size.
+
+            64-bit variables for LDT/GDT used only in VEX code for guest instructions that 
+            accessing segment registers, this variables will be eliminated later with
+            del_seg_selector_trash() function. So, this hack is safe because it has no effect 
+            on resulting BAP IR and REIL code.
+
+            More info: https://github.com/Cr4sh/openreil/issues/10
+
+        */    
+#if defined(_M_X64) || defined(__amd64__)
+
+        if (offset == OFFB_GDT || offset == OFFB_LDT)
+        {
+            result = mk_reg(reg_offset_to_name(offset), REG_64);
+        }
+        else
+#endif
+        {
+            panic("Unhandled register type (I64)");
+        }        
     }
     else if (type == Ity_F32)
     {
@@ -824,7 +890,6 @@ Exp *i386_translate_get(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
     {
         panic("Unhandled register type (F64)");
     }
-
     else
     {
         panic("Unrecognized register type");

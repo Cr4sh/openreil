@@ -29,8 +29,7 @@ public:
     ~CReilFromBilTranslator();
 
     void reset_state(bap_block_t *block);    
-
-    void process_bil_stmt(Stmt *s, uint64_t inst_flags);
+    
     void process_bil(reil_raw_t *raw_info, bap_block_t *block);
 
 private:        
@@ -41,7 +40,7 @@ private:
     string tempreg_get(string name);
     
     uint64_t convert_special(Special *special);
-    
+
     void convert_operand(Exp *exp, reil_arg_t *reil_arg);  
     reg_t convert_operand_size(reil_size_t size);
     reil_size_t convert_operand_size(reg_t typ);
@@ -64,13 +63,14 @@ private:
     void process_binop_le(reil_inst_t *reil_inst);
     void process_binop_gt(reil_inst_t *reil_inst);
     void process_binop_ge(reil_inst_t *reil_inst);    
-
-    void free_bil_exp(Exp *exp);
-    Exp *process_bil_exp(Exp *exp);    
+    
     bool process_bil_cast(Exp *exp, reil_inst_t *reil_inst);
+    Exp *process_bil_exp(Exp *exp);    
+    void free_bil_exp(Exp *exp);
     
     Exp *process_bil_inst(reil_op_t inst, uint64_t inst_flags, Exp *c, Exp *exp);
-
+    void process_bil_stmt(Stmt *s, uint64_t inst_flags);
+    
     VexArch guest;
 
     bap_block_t *current_block;
