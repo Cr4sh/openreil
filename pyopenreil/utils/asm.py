@@ -179,6 +179,7 @@ class CompilerGas(object):
 
                 # set ARM/Thumb mode for ARM target
                 fd.write('.code %d\n' % bits)
+                fd.write('.syntax unified\n')
 
             elif self.arch == REIL.ARCH_X86:
 
@@ -198,12 +199,15 @@ class CompilerGas(object):
 
             # to avoid "64bit mode not supported on `i686'" error on 64-bit Linux
             options += [ '--32' ]            
+
+        if self.is_mac:
+
+            # on OS X we need to specify target architecture manually
+            options += [ '-arch %s' % self.arch_name ]
         
         # generate object file
-        code = os.system('%s "%s" -o "%s" %s %s %s' % \
-               (self.as_path, path, self.prog_obj, \
-                '-arch' if self.is_mac else '-march', \
-                self.arch_name, ' '.join(options)))        
+        code = os.system('%s "%s" -o "%s" %s' % \
+               (self.as_path, path, self.prog_obj, ' '.join(options)))
 
         if code != 0: raise OSError('%s error %d' % (self.as_path, code))
 
@@ -305,9 +309,9 @@ class Compiler(CompilerGas):
 
 class Reader(REIL.ReaderRaw):
 
-    def __init__(self, arch, prog, addr = 0):
+    def __init__(self, arch, prog, addr = 0, thumb = False):
         
-        data = Compiler(arch).compile(prog)
+        data = Compiler(arch, thumb = thumb).compile(prog)
 
         super(Reader, self).__init__(arch, data, addr = addr)
 

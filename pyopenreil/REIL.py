@@ -1,4 +1,4 @@
-import json, base64, unittest, copy
+import sys, os, json, base64, unittest, copy
 from abc import ABCMeta, abstractmethod
 from sets import Set
 
@@ -23,6 +23,20 @@ def log_init(log_mask, log_path = None):
     global LOG_MASK, LOG_PATH
 
     LOG_MASK, LOG_PATH = log_mask, log_path
+
+
+def log_get():
+
+    global LOG_MASK, LOG_PATH
+
+    log_mask, log_path = LOG_MASK, LOG_PATH
+
+    env_path = os.getenv('REIL_LOG_PATH')
+    env_mask = os.getenv('REIL_LOG_MASK')
+    log_path = log_path if env_path is None else env_path
+    log_mask = log_mask if env_mask is None else int(env_mask, 16)
+
+    return log_mask, log_path    
 
 
 class Error(Exception):
@@ -2480,8 +2494,8 @@ class CodeStorageTranslator(CodeStorage):
 
         import translator
         
-        log_path = LOG_PATH
-        log_mask = LOG_MASK if LOG_MASK is not None else translator.LOG_MASK_DEFAULT
+        log_mask, log_path = log_get()
+        log_mask = log_mask if log_mask is not None else translator.LOG_MASK_DEFAULT
 
         self.translator = translator.Translator(arch, log_path = log_path, \
                                                       log_mask = log_mask)
@@ -2791,7 +2805,7 @@ class TestArchX86(unittest.TestCase):
 
         # get symbolic expressions for given bb
         sym = bb.to_symbolic(temp_regs = False)
-        
+
         fs_base = SymVal('R_FS_BASE', U32)        
 
         assert len(sym.state) == 6
@@ -2802,7 +2816,7 @@ class TestArchX86(unittest.TestCase):
         assert sym.get(SymPtr(fs_base + SymConst(0x30, U32))) == SymVal('R_EDX', U32)
         assert sym.get(SymPtr(fs_base + SymVal('R_ECX', U32))) == SymVal('R_EDX', U32)
 
- 
+
 if __name__ == '__main__':
 
     unittest.main(verbosity = 2)

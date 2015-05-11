@@ -70,7 +70,7 @@ private:
     
     Exp *process_bil_inst(reil_op_t inst, uint64_t inst_flags, Exp *c, Exp *exp);
     void process_bil_stmt(Stmt *s, uint64_t inst_flags);
-    
+
     VexArch guest;
 
     bap_block_t *current_block;
@@ -90,14 +90,14 @@ class CReilTranslator
 {
 public:
 
-    CReilTranslator(VexArch arch, reil_inst_handler_t handler, void *context);
+    CReilTranslator(VexArch arch, reil_inst_handler_t handler, void *handler_context);
     ~CReilTranslator();
 
     int process_inst(address_t addr, uint8_t *data, int size);
 
 private:
 
-    VexArch guest;
+    bap_context_t *context;
     CReilFromBilTranslator *translator;
 };
 

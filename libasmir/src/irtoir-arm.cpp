@@ -93,6 +93,15 @@ enum
     ARMG_CC_OP_NUMBER
 };
 
+static vector<Stmt *> mod_eflags_copy(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_add(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_sub(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_adc(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
+static vector<Stmt *> mod_eflags_sbb(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
+static vector<Stmt *> mod_eflags_logic(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_umul(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_umull(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
+
 vector<VarDecl *> arm_get_reg_decls()
 {
     vector<VarDecl *> ret;
@@ -240,7 +249,7 @@ static Exp *translate_get_reg_32(int offset)
     return reg;
 }
 
-Exp  *arm_translate_get(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
+Exp  *arm_translate_get(bap_context_t *context, IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 {
     int offset = expr->Iex.Get.offset;
 
@@ -258,18 +267,18 @@ static Stmt *translate_put_reg_32(int offset, Exp *data, IRSB *irbb)
     return new Move(reg, data);
 }
 
-Stmt *arm_translate_put(IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout)
+Stmt *arm_translate_put(bap_context_t *context, IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout)
 {
     int offset = stmt->Ist.Put.offset;
 
-    Exp *data = translate_expr(stmt->Ist.Put.data, irbb, irout);
+    Exp *data = translate_expr(context, stmt->Ist.Put.data, irbb, irout);
 
     assert(typeOfIRExpr(irbb->tyenv, stmt->Ist.Put.data) == Ity_I32);
 
     return translate_put_reg_32(offset, data, irbb);
 }
 
-Exp *arm_translate_ccall(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
+Exp *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 {
     assert(expr);
     assert(irbb);
@@ -432,7 +441,7 @@ Exp *arm_translate_ccall(IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
     return result;
 }
 
-static vector<Stmt *> mod_eflags_copy(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_copy(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
 
@@ -445,7 +454,7 @@ static vector<Stmt *> mod_eflags_copy(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-static vector<Stmt *> mod_eflags_add(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_add(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
     Temp *res = mk_temp(REG_32, &irout);
@@ -489,7 +498,7 @@ static vector<Stmt *> mod_eflags_add(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-static vector<Stmt *> mod_eflags_sub(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_sub(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
     Temp *res = mk_temp(REG_32, &irout);
@@ -537,7 +546,7 @@ static vector<Stmt *> mod_eflags_sub(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-static vector<Stmt *> mod_eflags_adc(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
+static vector<Stmt *> mod_eflags_adc(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
 {
     vector<Stmt *> irout;
     Temp *res = mk_temp(REG_32, &irout);
@@ -561,7 +570,7 @@ static vector<Stmt *> mod_eflags_adc(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3
     return irout;
 }
 
-static vector<Stmt *> mod_eflags_sbb(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
+static vector<Stmt *> mod_eflags_sbb(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
 {
     vector<Stmt *> irout;
     Temp *res = mk_temp(REG_32, &irout);
@@ -582,7 +591,7 @@ static vector<Stmt *> mod_eflags_sbb(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3
     return irout;
 }
 
-static vector<Stmt *> mod_eflags_logic(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_logic(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
 
@@ -601,7 +610,7 @@ static vector<Stmt *> mod_eflags_logic(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-static vector<Stmt *> mod_eflags_umul(reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_umul(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2)
 {
     vector<Stmt *> irout;
 
@@ -620,7 +629,7 @@ static vector<Stmt *> mod_eflags_umul(reg_t type, Exp *arg1, Exp *arg2)
     return irout;
 }
 
-static vector<Stmt *> mod_eflags_umull(reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
+static vector<Stmt *> mod_eflags_umull(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
 {
     vector<Stmt *> irout;
 
@@ -639,16 +648,15 @@ static vector<Stmt *> mod_eflags_umull(reg_t type, Exp *arg1, Exp *arg2, Exp *ar
     return irout;
 }
 
-void arm_modify_flags(bap_block_t *block)
+void arm_modify_flags(bap_context_t *context, bap_block_t *block)
 {
     assert(block);
 
     vector<Stmt *> *ir = block->bap_ir;
+    int opi = -1, dep1 = -1, dep2 = -1, ndep = -1, mux0x = -1;
 
     // Look for occurrence of CC_OP assignment
     // These will have the indices of the CC_OP stmts
-    int opi, dep1, dep2, ndep, mux0x;
-    opi = dep1 = dep2 = ndep = mux0x = -1;
     get_thunk_index(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
 
     if (opi == -1)        
@@ -741,7 +749,7 @@ void arm_modify_flags(bap_block_t *block)
         {
             string op = block->str_mnem;
 
-            modify_eflags_helper(op, REG_32, ir, num_params, cb);
+            modify_eflags_helper(context, op, REG_32, ir, num_params, cb);
         }
         else
         {

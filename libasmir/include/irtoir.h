@@ -2,6 +2,7 @@
 #define IRTOIR_H
 
 typedef struct bap_block_s bap_block_t;
+typedef struct bap_context_s bap_context_t;
 
 //
 // VEX headers (inside Valgrind/VEX/pub)
@@ -23,14 +24,42 @@ typedef struct bap_block_s bap_block_t;
 //
 struct bap_block_s
 {
-  address_t       inst;
-  int             inst_size;
-  string          str_mnem;
-  string          str_op;
-  IRSB            *vex_ir;
-  vector<Stmt *>  *bap_ir;
-};
+    address_t inst;
+    int inst_size;
+    
+    string str_mnem;
+    string str_op;
 
+    IRSB *vex_ir;
+    vector<Stmt *> *bap_ir;
+}; 
+
+
+typedef struct flag_thunks_s
+{
+    // see CC_OP word description for target architecture in VEX documentation
+    int op;
+
+} flag_thunks_t; 
+
+//
+// Structure that keeps global state of translation process.
+//
+struct bap_context_s
+{
+    // current architecture
+    VexArch guest;
+
+    // address and size of current instruction
+    address_t inst;
+    int inst_size;
+
+    // special Exp to record the AST for bit shift instructions
+    Exp *count_opnd;
+
+    // to keep current values of VEX flag thunk descriptors
+    flag_thunks_t flag_thunks;
+};
 
 //======================================================================
 // 
@@ -62,7 +91,7 @@ IRSB *translate_insn(VexArch guest, unsigned char *insn_start, unsigned int insn
 
 //
 // Translate an IRSB into a vector of Stmts in our IR
-vector<Stmt *> *translate_irbb(IRSB *irbb);
+vector<Stmt *> *translate_irbb(bap_context_t *context, IRSB *irbb);
 
 }
 
@@ -75,16 +104,19 @@ vector<Stmt *> *translate_irbb(IRSB *irbb);
 //
 //======================================================================
 
+// Initialize IR translator context
+bap_context_t *init_bap_context(VexArch guest);
+
 // Take an instrs and translate it into a VEX IR block
 // and store it in a bap block
-bap_block_t* generate_vex_ir(VexArch guest, uint8_t *data, address_t inst);
+bap_block_t* generate_vex_ir(bap_context_t *context, uint8_t *data, address_t inst);
 
 // Same as generate_vex_ir, but only for an address range
-vector<bap_block_t *> generate_vex_ir(VexArch guest, uint8_t *data, address_t start, address_t end);
+vector<bap_block_t *> generate_vex_ir(bap_context_t *context, uint8_t *data, address_t start, address_t end);
 
 // Take a bap block that has gone through VEX translation and translate it
 // to Vine IR.
-void generate_bap_ir_block(VexArch guest, bap_block_t *block);
+void generate_bap_ir(bap_context_t *context, bap_block_t *block);
 
 //
 // Take a vector of bap blocks that have gone through VEX translation
@@ -93,8 +125,10 @@ void generate_bap_ir_block(VexArch guest, bap_block_t *block);
 // \param vblocks Vector of bap blocks with valid VEX IR translations
 // \return Vector of bap blocks with the bap_ir field filled in
 //
-vector<bap_block_t *> generate_bap_ir(VexArch guest, vector<bap_block_t *> vblocks);
+vector<bap_block_t *> generate_bap_ir(bap_context_t *context, vector<bap_block_t *> vblocks);
 
+// Get registers list for guest's architecture
+vector<VarDecl *> get_reg_decls(bap_context_t *context);
 
 extern "C" 
 {

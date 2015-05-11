@@ -1613,18 +1613,22 @@ _end:
     return;
 }
 
-CReilTranslator::CReilTranslator(VexArch arch, reil_inst_handler_t handler, void *context)
+CReilTranslator::CReilTranslator(VexArch arch, reil_inst_handler_t handler, void *handler_context)
 {
     // initialize libasmir
     translate_init();
 
-    guest = arch;
-    translator = new CReilFromBilTranslator(arch, handler, context);
+    context = init_bap_context(arch);
+    assert(context);
+
+    translator = new CReilFromBilTranslator(arch, handler, handler_context);
     assert(translator);
 }
 
 CReilTranslator::~CReilTranslator()
 {
+    delete context;
+
     delete translator;
 }
 
@@ -1635,7 +1639,7 @@ int CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
     memset(&raw_info, 0, sizeof(raw_info));
     
     // translate to VEX
-    bap_block_t *block = generate_vex_ir(guest, data, addr);
+    bap_block_t *block = generate_vex_ir(context, data, addr);
     
     reil_assert(block, "process_inst(): unable to create BAP block");
     reil_assert(block->inst_size != 0 && block->inst_size != -1, "process_inst(): invalid length");
@@ -1643,7 +1647,7 @@ int CReilTranslator::process_inst(address_t addr, uint8_t *data, int size)
     ret = block->inst_size;
 
     // tarnslate to BAP
-    generate_bap_ir_block(guest, block);  
+    generate_bap_ir(context, block);  
 
     reil_assert(block->bap_ir, "process_inst(): unable to generate BAP IR");    
 
