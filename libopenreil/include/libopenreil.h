@@ -12,6 +12,9 @@
 // return value that indicates initialization/translation error
 #define REIL_ERROR -1
 
+// enable under construction features
+#define TESTING
+
 
 /*
     In ARCH_ARM mode least significant bit of instruction address
