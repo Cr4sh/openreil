@@ -25,6 +25,8 @@
 #define CC_OP_UNDEF -1
 
 #define CC_OP_SET(_context_, _val_) (_context_)->flag_thunks.op = (_val_)
+#define CC_OP_GET(_context_) (_context_)->flag_thunks.op
+
 #define CC_OP_RESET(_context_) CC_OP_SET(_context_, CC_OP_UNDEF)
 
 Temp *mk_reg(string name, reg_t width);

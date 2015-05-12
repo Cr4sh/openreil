@@ -2817,6 +2817,35 @@ class TestArchX86(unittest.TestCase):
         assert sym.get(SymPtr(fs_base + SymVal('R_ECX', U32))) == SymVal('R_EDX', U32)
 
 
+class TestArchArm(unittest.TestCase):
+
+    arch = ARCH_ARM
+
+    def setUp(self):        
+
+        pass
+
+    def test_asm_arm(self):
+
+        from pyopenreil.utils import asm
+
+        code = (
+            'push    {r7}',
+            'cmp     r0, #0',
+            'moveq   r1, #1', # if r0 == 0
+            'moveq   r2, #1', # if r0 == 0
+            'movne   r1, #0', # if r0 != 0
+            'movne   r2, #0', # if r0 != 0
+            'pop     {r7}',
+            'mov     pc, lr' )
+
+        reader = asm.Reader(self.arch, code)
+        tr = CodeStorageTranslator(reader)        
+
+        print repr(reader.data)
+        print tr.get_func(0)
+
+
 if __name__ == '__main__':
 
     unittest.main(verbosity = 2)

@@ -135,16 +135,6 @@ void translate_init()
     // FIXME: determinate endianess by specified guest arch
     vai.endness = VexEndnessLE;
 
-#ifdef USE_SSE
-
-    // Enable SSE
-    vai.hwcaps |= VEX_HWCAPS_X86_SSE1;
-    vai.hwcaps |= VEX_HWCAPS_X86_SSE2;
-    vai.hwcaps |= VEX_HWCAPS_X86_SSE3;
-    vai.hwcaps |= VEX_HWCAPS_X86_LZCNT;
-
-#endif // USE_SSE
-
     // Setup the translation args
     vta.arch_guest                  = VexArch_INVALID;  // to be assigned later
     vta.archinfo_guest              = vai;
@@ -204,7 +194,9 @@ IRSB *translate_insn(VexArch guest,
                      unsigned int insn_addr,
                      int *insn_size)
 {
+    // init global variables
     vta.arch_guest = guest;
+    vta.archinfo_guest.hwcaps = 0;
 
     if (guest == VexArchARM)
     {
@@ -216,6 +208,20 @@ IRSB *translate_insn(VexArch guest,
             // in thumb mode we also need to increment buffer pointer as VEX wants
             insn_start += 1;
         }
+    }
+    else if (guest == VexArchX86)
+    {
+
+#ifdef USE_SSE
+
+        // Enable SSE
+        vta.archinfo_guest.hwcaps |= VEX_HWCAPS_X86_SSE1;
+        vta.archinfo_guest.hwcaps |= VEX_HWCAPS_X86_SSE2;
+        vta.archinfo_guest.hwcaps |= VEX_HWCAPS_X86_SSE3;
+        vta.archinfo_guest.hwcaps |= VEX_HWCAPS_X86_LZCNT;
+
+#endif // USE_SSE
+
     }
 
     vta.guest_bytes = insn_start; // Ptr to actual bytes of start of instruction

@@ -340,6 +340,15 @@ Exp *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vecto
             }
         }
 
+        if (arg == -1)
+        {
+            /* 
+                Unable to get CC_OP value from current IR block,
+                use value that was set in previous instructions instead.
+            */
+            arg = CC_OP_GET(context);
+        }
+
         switch (arg)
         {
         case ARMCondEQ:

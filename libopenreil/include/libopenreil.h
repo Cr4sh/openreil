@@ -13,6 +13,33 @@
 #define REIL_ERROR -1
 
 
+/*
+    In ARCH_ARM mode least significant bit of instruction address
+    indicates Thumb mode enabled.
+*/
+#define REIL_ARM_THUMB(_addr_) ((_addr_) | 1)
+
+/*
+    Debug message types for reil_log_init()
+*/
+#define REIL_LOG_INFO   0x00000001  // regular message
+#define REIL_LOG_WARN   0x00000002  // error
+#define REIL_LOG_ERR    0x00000004  // warning
+#define REIL_LOG_BIN    0x00000008  // instruction bytes
+#define REIL_LOG_ASM    0x00000010  // instruction assembly code
+#define REIL_LOG_VEX    0x00000020  // instruction VEX code
+#define REIL_LOG_BIL    0x00000040  // instruction BAP IL code
+
+// all log messages
+#define REIL_LOG_ALL 0x7FFFFFFF
+
+// disable log messages
+#define REIL_LOG_NONE 0
+
+// default log messages mask
+#define REIL_LOG_DEFAULT (LOG_INFO | LOG_WARN | LOG_ERR)
+
+
 typedef void * reil_t;
 
 typedef enum _reil_arch_t 
