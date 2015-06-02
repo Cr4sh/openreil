@@ -423,11 +423,8 @@ int del_put_thunk(vector<Stmt *> *ir, string mnemonic, int opi, int dep1, int de
                         len--;
                     }                    
 
-                    if (ret == -1)
-                    {
-                        // remember flag thunks position
-                        ret = len;
-                    }    
+		    // remember flag last thunk position
+                    ret = len;
                 }
             }
         }
