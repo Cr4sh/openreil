@@ -98,7 +98,7 @@ static vector<Stmt *> mod_eflags_add(bap_context_t *context, reg_t type, Exp *ar
 static vector<Stmt *> mod_eflags_sub(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2);
 static vector<Stmt *> mod_eflags_adc(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
 static vector<Stmt *> mod_eflags_sbb(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
-static vector<Stmt *> mod_eflags_logic(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2);
+static vector<Stmt *> mod_eflags_logic(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
 static vector<Stmt *> mod_eflags_umul(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2);
 static vector<Stmt *> mod_eflags_umull(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2, Exp *arg3);
 
@@ -346,7 +346,7 @@ Exp *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vecto
                 Unable to get CC_OP value from current IR block,
                 use value that was set in previous instructions instead.
             */
-            arg = CC_OP_GET(context);
+            arg = context->flag_thunks.op;
         }
 
         switch (arg)
@@ -436,6 +436,33 @@ Exp *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vecto
         
             panic("Unrecognized condition for armg_calculate_condition");
         }
+
+        // we need it for cleanup armg_calculate_condition arguments computations
+        Internal *intr = new Internal(INTERNAL_VEX_FN_ARG_LIST, sizeof(internal_vex_fn_arg_list));
+        assert(intr);
+
+        // get pointer to arguments list structure
+        internal_vex_fn_arg_list *arg_list = (internal_vex_fn_arg_list *)intr->data;
+        assert(arg_list);
+
+        // enumerate VEX function arguments
+        for (int i = 0; i < 4; i++)
+        {
+            IRExpr *arg = expr->Iex.CCall.args[i];
+
+            // check for Temp argument
+            if (arg->tag == Iex_RdTmp) 
+            {
+                IRTemp temp_arg = arg->Iex.RdTmp.tmp;
+
+                arg_list->args[arg_list->count].temp = temp_arg;
+                arg_list->args[arg_list->count].type = translate_tmp_type(context, irbb, arg);
+
+                arg_list->count += 1;
+            }
+        }
+
+        irout->push_back(intr);
     }
     else
     {
@@ -600,9 +627,14 @@ static vector<Stmt *> mod_eflags_sbb(bap_context_t *context, reg_t type, Exp *ar
     return irout;
 }
 
-static vector<Stmt *> mod_eflags_logic(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2)
+static vector<Stmt *> mod_eflags_logic(bap_context_t *context, reg_t type, Exp *arg1, Exp *arg2, Exp *arg3)
 {
     vector<Stmt *> irout;
+
+    // All the static constants we'll ever need
+    Constant c_0(REG_32, 0);
+    Constant c_1(REG_32, 1);
+    Constant c_31(REG_32, 31);
 
     // Calculate flags
     Temp *NF = mk_reg("NF", REG_1);
@@ -610,11 +642,19 @@ static vector<Stmt *> mod_eflags_logic(bap_context_t *context, reg_t type, Exp *
     Temp *CF = mk_reg("CF", REG_1);
     Temp *VF = mk_reg("VF", REG_1);
 
-    // v = dep3
-    // c = dep2
-    // z = dep1 == 0
     // n = dep1 >> 31
-    panic("mod_eflags_logic");
+    Exp *condNF = _ex_eq(_ex_shr(ecl(arg1), ecl(&c_31)), ecl(&c_0));
+    set_flag(&irout, type, NF, condNF);
+
+    // z = dep1 == 0
+    Exp *condZF = ex_eq(arg1, &c_0);
+    set_flag(&irout, type, ZF, condZF);
+
+    // c = dep2
+    set_flag(&irout, type, CF, ecl(arg2));
+
+    // v = dep3
+    set_flag(&irout, type, VF, ecl(arg3));
 
     return irout;
 }
@@ -733,7 +773,7 @@ void arm_modify_flags(bap_context_t *context, bap_block_t *block)
           
         case ARMG_CC_OP_LOGIC: 
             
-            num_params = 2;
+            num_params = 3;
             cb = (Mod_Func_0 *)mod_eflags_logic;
             break;
 

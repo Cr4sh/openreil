@@ -22,12 +22,27 @@
 
 #define MUX_SUB (MUX_LENGTH + MUX_OFFSET - 1)
 
+/* Undefined value for CC_OP */
 #define CC_OP_UNDEF -1
 
-#define CC_OP_SET(_context_, _val_) (_context_)->flag_thunks.op = (_val_)
-#define CC_OP_GET(_context_) (_context_)->flag_thunks.op
 
-#define CC_OP_RESET(_context_) CC_OP_SET(_context_, CC_OP_UNDEF)
+#define MAX_VEX_FN_ARGS 6
+
+/* See INTERNAL_VEX_FN_ARG_LIST in stmt.h */
+typedef struct internal_vex_fn_arg_s
+{
+    IRType type;
+    IRTemp temp;
+
+} internal_vex_fn_arg;
+
+typedef struct internal_vex_fn_arg_list_s
+{
+    int count;
+    internal_vex_fn_arg args[MAX_VEX_FN_ARGS];
+
+} internal_vex_fn_arg_list;
+
 
 Temp *mk_reg(string name, reg_t width);
 reg_t IRType_to_reg_type(IRType type);
@@ -39,6 +54,10 @@ inline int get_type_size(reg_t typ)
 {
     return Exp::reg_to_bits(typ);
 }
+
+string translate_tmp_name(bap_context_t *context, IRType type, IRTemp tmp);
+string translate_tmp_name(bap_context_t *context, IRSB *irbb, IRExpr *expr, IRTemp tmp);
+IRType translate_tmp_type(bap_context_t *context, IRSB *irbb, IRExpr *expr);
 
 Temp *mk_temp(string name, IRType ty);
 Temp *mk_temp(reg_t type, vector<Stmt *> *stmts);

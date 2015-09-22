@@ -13,6 +13,9 @@ string to_string_inst_code(reil_op_t inst_code);
 
 typedef pair<int32_t, string> TEMPREG_BAP;
 
+typedef pair<reil_const_t, reil_inum_t> BAP_LOC;
+typedef pair<string, BAP_LOC> BAP_LABEL;
+
 class CReilTranslatorException
 {
 public:
@@ -84,6 +87,9 @@ private:
 
     reil_inst_handler_t inst_handler;
     void *inst_handler_context;
+
+    vector<reil_inst_t *> translated_insts;
+    vector<BAP_LABEL *> translated_labels;
 };
 
 class CReilTranslator

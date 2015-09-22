@@ -1,6 +1,8 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 using namespace std;
@@ -502,6 +504,60 @@ Assert::Assert(const Assert &other) : Stmt(ASSERT, other.asm_address, other.ir_a
 string Assert::tostring()
 {
     return "assert(" + cond->tostring() + ");";
+}
+
+Internal::Internal(int type, int size, address_t asm_addr, address_t ir_addr) : Stmt(INTERNAL, asm_addr, ir_addr)
+{
+    this->type = type;
+    this->size = size;    
+
+    if (size > 0)
+    {
+        this->data = malloc(size);
+        assert(this->data);
+        memset(this->data, 0, size);
+    }
+    else
+    {
+        this->data = NULL;
+    }
+}
+
+Internal::Internal(const Internal &other) : Stmt(INTERNAL, other.asm_address, other.ir_address)
+{
+    this->type = other.type;
+    this->size = other.size;    
+
+    if (other.data)
+    {
+        this->data = malloc(other.size);
+        assert(this->data);
+        memcpy(this->data, other.data, other.size);
+    }
+    else
+    {
+        this->data = NULL;
+    }
+}
+
+Internal::~Internal()
+{
+    if (this->data)
+    {
+        free(this->data);
+    }
+}
+
+Internal *Internal::clone() const
+{
+    return new Internal(*this);
+}
+
+string Internal::tostring()
+{
+    string s = "";
+
+    return s;
 }
 
 //----------------------------------------------------------------------

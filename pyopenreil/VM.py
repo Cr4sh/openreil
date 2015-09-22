@@ -46,7 +46,7 @@ class CpuReadError(CpuError):
 
     def __str__(self):
 
-        return 'Error while reading instruction %s' % hex(self.addr)
+        return 'Error while reading instruction %s.%.2d' % (hex(self.addr), self.inum)
 
 
 class CpuInstructionError(CpuError):
@@ -426,7 +426,7 @@ class Cpu(object):
 
     def arg(self, arg):
 
-        if arg.type == A_NONE: 
+        if arg.type in [ A_NONE, A_LOC ]: 
 
             return None
 
@@ -445,7 +445,19 @@ class Cpu(object):
     def insn_jcc(self, insn, a, b, c):
 
         # return address of the next instruction to execute if condition was taken
-        return c.get_val() if a.get_val() != 0 else None
+        if a.get_val() != 0:
+            
+            if insn.c.type == A_LOC:
+
+                return insn.c.val
+
+            else:
+
+                return ( c.get_val(), 0 )
+
+        else:
+
+            return None
 
     def insn_stm(self, insn, a, b, c):
 
@@ -501,41 +513,41 @@ class Cpu(object):
 
     def run(self, storage, addr = 0L, stop_at = None):
 
-        next = addr
+        next = ( addr, 0 )
 
         # use specified storage instance
         self.set_storage(storage)                
 
         while True:
-            
-            try:
 
-                # query list of IR instructions from storage                
-                insn_list = storage.get_insn(next)
+            addr, inum = next
+
+            # update IP register
+            self.set_ip(addr)
+
+            # remove temp registers from previous machine instructions
+            if inum == 0: self.reset_temp()
+            
+            try:   
+
+                # query IR instruction from the storage               
+                self.insn = storage.get_insn(next)
 
             except StorageError:
 
-                raise CpuReadError(next)
+                raise CpuReadError(*next)            
 
-            for insn in insn_list:
+            if stop_at is not None and (addr in stop_at or next in stop_at):
 
-                self.insn = insn
-                self.set_ip(insn.addr)
+                raise CpuStop(*next)
 
-                if stop_at is not None and \
-                   (insn.addr in stop_at or insn.ir_addr() in stop_at):
+            # execute single instruction
+            next = self.execute(self.insn)            
 
-                    raise CpuStop(insn.addr, insn.inum)
+            if next is None:
 
-                # execute single instruction
-                next = self.execute(insn)
-
-                # check if JCC was taken
-                if next is not None: break
-                else: next, _ = insn.next()
-
-            # remove temp registers
-            self.reset_temp()
+                # JCC was not taken, execute instruction at next address            
+                next = self.insn.next()            
 
         self.set_storage()
 

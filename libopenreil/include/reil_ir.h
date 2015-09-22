@@ -42,7 +42,8 @@ typedef enum _reil_type_t
     A_NONE,
     A_REG,      // target architecture registry operand
     A_TEMP,     // temporary registry operand
-    A_CONST     // immediate value
+    A_CONST,    // immediate value
+    A_LOC       // jump location
 
 } reil_type_t;
 
@@ -55,8 +56,9 @@ typedef enum _reil_size_t { U1, U8, U16, U32, U64 } reil_size_t;
 typedef struct _reil_arg_t
 {
     reil_type_t type;
-    reil_size_t size;        
-    reil_const_t val;    
+    reil_size_t size;
+    reil_const_t val;
+    reil_inum_t inum;
     char name[REIL_MAX_NAME_LEN];
 
 } reil_arg_t;

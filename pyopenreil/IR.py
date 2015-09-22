@@ -24,7 +24,7 @@ REIL_NAMES_INSN = [ 'NONE', 'UNK',  'JCC',
 
 REIL_NAMES_SIZE = [ '1', '8', '16', '32', '64' ]
 
-REIL_NAMES_ARG = [ 'NONE', 'REG', 'TEMP', 'CONST' ]
+REIL_NAMES_ARG = [ 'NONE', 'REG', 'TEMP', 'CONST', 'LOC' ]
 
 
 def create_globals(items, list_name, prefix):
@@ -46,6 +46,7 @@ create_globals(REIL_NAMES_ARG, 'REIL_ARG', 'A_')
 
 ARG_TYPE = 0
 ARG_SIZE = 1
+ARG_LOC  = 1
 ARG_NAME = 2
 ARG_VAL  = 2
 
@@ -53,7 +54,8 @@ ARG_VAL  = 2
 Arg_type = lambda arg: arg[ARG_TYPE] # argument type (see REIL_ARG)
 Arg_size = lambda arg: arg[ARG_SIZE] # argument size (see REIL_SIZE)
 Arg_name = lambda arg: arg[ARG_NAME] # argument name (for A_REG and A_TEMP)
-Arg_val  = lambda arg: arg[ARG_VAL]  # argument value (for A_CONST)
+Arg_val  = lambda arg: arg[ARG_VAL]  # argument value for A_CONST
+Arg_loc  = lambda arg: arg[ARG_LOC]  # argument value for A_LOC
 
 
 INSN_ADDR = 0

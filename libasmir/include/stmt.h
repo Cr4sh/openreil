@@ -7,7 +7,7 @@
 enum cval_type_t { NONE, BOOL, CHR, INT_16, INT_32, INT_64, INT_128 };
 
 enum stmt_type_t { JMP, CJMP, SPECIAL, MOVE,  COMMENT,  LABEL, EXPSTMT, VARDECL,
-                   CALL, RETURN, FUNCTION, ASSERT };
+                   CALL, RETURN, FUNCTION, ASSERT, INTERNAL };
 
 #ifndef __cplusplus
 typedef struct Stmt Stmt;
@@ -340,6 +340,29 @@ public:
 
     Exp *cond;
 };
+
+class Internal : public Stmt
+{
+public:
+    
+    Internal(const Internal &other);
+    Internal(int type, int size, address_t asm_ad = 0x0, address_t ir_ad = 0x0);
+    virtual ~Internal();    
+    virtual string tostring();
+    virtual Internal *clone() const;
+    
+    virtual void accept(IRVisitor *v)
+    {
+        v->visitInternal(this);
+    };
+
+    int type;
+    int size;
+    void *data;
+};
+
+// Internal statement with arguments list for VEX function call
+#define INTERNAL_VEX_FN_ARG_LIST 1
 
 string int_to_str(int i);
 string int_to_hex(int i);

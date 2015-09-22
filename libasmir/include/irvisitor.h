@@ -24,6 +24,7 @@ class Call;
 class Return;
 class Func;
 class Assert;
+class Internal;
 
 class IRVisitor
 {
@@ -52,6 +53,7 @@ public:
     virtual void visitReturn(Return *) = 0;
     virtual void visitFunc(Func *) = 0;
     virtual void visitAssert(Assert *) = 0;
+    virtual void visitInternal(Internal *) = 0;
     virtual ~IRVisitor() {};
 };
 
@@ -82,6 +84,7 @@ public:
     virtual void visitReturn(Return *);
     virtual void visitFunc(Func *);
     virtual void visitAssert(Assert *);
+    virtual void visitInternal(Internal *);
     virtual ~DefaultIRVisitor() {};
 };
 
@@ -114,6 +117,7 @@ public:
     virtual void visitReturn(Return *);
     virtual void visitFunc(Func *);
     virtual void visitAssert(Assert *);
+    virtual void visitInternal(Internal *);
 
 protected:
     

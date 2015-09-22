@@ -356,7 +356,7 @@ class Cpu(VM.Cpu):
             raise Exception('I_JCC with symbolic condition at ' + 
                             '%s, giving up' % str(insn.ir_addr()))
 
-        elif c.val.is_symbolic():
+        elif c is not None and c.val.is_symbolic():
 
             raise Exception('I_JCC with symbolic location at ' + 
                             '%s, giving up' % str(insn.ir_addr()))
@@ -483,8 +483,8 @@ def keygen(kao_binary_path, kao_installation_ID):
         # convert installation ID into the binary form
         for s in kao_installation_ID.split('-'):
         
-            in_data += struct.pack('L', int(s[:8], 16))
-            in_data += struct.pack('L', int(s[8:], 16))
+            in_data += struct.pack('I', int(s[:8], 16))
+            in_data += struct.pack('I', int(s[8:], 16))
 
         assert len(in_data) == 32
 

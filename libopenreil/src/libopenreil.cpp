@@ -19,6 +19,7 @@ using namespace std;
 #define STR_ARG_EMPTY " "
 #define STR_VAR(_name_, _t_) "(" + (_name_) + ", " + to_string_size((_t_)) + ")"
 #define STR_CONST(_val_, _t_) "(" + to_string_constant((_val_), (_t_)) + ", " + to_string_size((_t_)) + ")"
+#define STR_LOC(_addr_, _inum_) to_string_constant((_addr_), U32) + "." + to_string_constant((_inum_), U8)
 
 // number of zero bytes reserved for VEX at beginning of the code buffer 
 #define VEX_BYTES 18
@@ -73,6 +74,7 @@ string to_string_operand(reil_arg_t *a)
     case A_REG: return STR_VAR(string(a->name), a->size);
     case A_TEMP: return STR_VAR(string(a->name), a->size);
     case A_CONST: return STR_CONST(a->val, a->size);
+    case A_LOC: return STR_LOC(a->val, a->inum);
     }    
 
     assert(0);

@@ -44,6 +44,10 @@ cdef process_arg(libopenreil._reil_arg_t arg):
 
         return ( arg.type, arg.size, arg.val )
 
+    elif arg.type == libopenreil.A_LOC: 
+
+        return ( arg.type, ( arg.val, arg.inum ))
+
 cdef int process_insn(libopenreil.reil_inst_t* inst, object context):
 
     attr = {}    

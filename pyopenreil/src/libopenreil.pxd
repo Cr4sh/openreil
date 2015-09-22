@@ -35,7 +35,8 @@ cdef extern from "libopenreil.h":
         A_NONE,
         A_REG,      # target architecture registry operand
         A_TEMP,     # temporary registry operand
-        A_CONST     # immediate value    
+        A_CONST,    # immediate value    
+        A_LOC       # jump location
 
     ctypedef unsigned long long reil_const_t
     ctypedef unsigned long long reil_addr_t
@@ -48,6 +49,7 @@ cdef extern from "libopenreil.h":
         _reil_type_t type
         _reil_size_t size
         reil_const_t val
+        reil_inum_t inum
         char name[REIL_MAX_NAME_LEN]
 
     cdef struct _reil_raw_t:
@@ -61,9 +63,9 @@ cdef extern from "libopenreil.h":
     cdef struct _reil_inst_t:
 
         _reil_raw_t raw_info
-        reil_inum_t inum     # number of the IR subinstruction
-        _reil_op_t op        # operation code
-        _reil_arg_t a, b, c  # arguments    
+        reil_inum_t inum      # number of the IR subinstruction
+        _reil_op_t op         # operation code
+        _reil_arg_t a, b, c   # arguments    
         unsigned long long flags
     
     ctypedef void* reil_t

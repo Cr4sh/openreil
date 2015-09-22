@@ -96,12 +96,14 @@ class Arg(object):
             serialized, t = t, None        
 
         self.type = A_NONE if t is None else t
-        self.size = None if size is None else size
-        self.name = None if name is None else name
-        self.val = 0L if val is None else long(val)
+        self.size, self.name, self.val = size, name, val
 
         # unserialize argument data
-        if serialized: self.unserialize(serialized)
+        if serialized: 
+
+            if not self.unserialize(serialized):
+
+                raise Error('Invalid serialized data')
 
     def __hash__(self):
 
@@ -124,10 +126,15 @@ class Arg(object):
         elif self.type == A_REG:   return mkstr(self.name)
         elif self.type == A_TEMP:  return mkstr(self.name)
         elif self.type == A_CONST: return mkstr('%x' % self.get_val())
+        elif self.type == A_LOC:   return '%x.%.2x' % self.val
 
     def get_val(self):
 
         mkval = lambda mask: long(self.val & mask)
+
+        if self.type != A_CONST:
+
+            raise Error('get_val() is available only for A_CONST')
 
         if self.size == U1:    return 0 if mkval(0x1) == 0 else 1
         elif self.size == U8:  return mkval(0xff)
@@ -147,8 +154,9 @@ class Arg(object):
     def serialize(self):
 
         if self.type == A_NONE:              return ()
-        elif self.type == A_CONST:           return self.type, self.size, self.val
-        elif self.type in [ A_REG, A_TEMP ]: return self.type, self.size, self.name        
+        elif self.type == A_CONST:           return ( self.type, self.size, self.val )
+        elif self.type in [ A_REG, A_TEMP ]: return ( self.type, self.size, self.name )
+        elif self.type == A_LOC:             return ( self.type, self.val )
 
     def unserialize(self, data):
 
@@ -160,9 +168,22 @@ class Arg(object):
 
                 return False
             
-            if self.type == A_REG: self.name = Arg_name(data)
-            elif self.type == A_TEMP: self.name = Arg_name(data)
+            if self.type == A_REG:     self.name = Arg_name(data)
+            elif self.type == A_TEMP:  self.name = Arg_name(data)
             elif self.type == A_CONST: self.val = Arg_val(data)
+            else: 
+
+                return False
+
+        elif len(data) == 2:
+
+            self.type = Arg_type(data)
+            addr, inum = Arg_loc(data)
+
+            if self.type == A_LOC: 
+
+                self.val = ( addr, inum )
+
             else: 
 
                 return False
@@ -170,8 +191,6 @@ class Arg(object):
         elif len(data) == 0:
 
             self.type = A_NONE
-            self.size = self.name = None 
-            self.val = 0L
 
         else: return False
 
@@ -202,6 +221,11 @@ class Arg(object):
 
             # constant value
             return SymConst(self.get_val(), self.size)
+
+        elif self.type == A_LOC:
+
+            # jump location
+            return SymIRAddr(*self.val)
 
         else: return None
 
@@ -453,7 +477,7 @@ class Insn(object):
             # jump
             elif self.op == I_JCC:
 
-                c = c if self.c.type == A_CONST else out_state[c]
+                c = c if self.c.type in [ A_CONST, A_LOC ] else out_state[c]
 
                 if isinstance(c, SymConst):
 
@@ -517,6 +541,10 @@ class Insn(object):
         if self.op == I_JCC and self.c.type == A_CONST: 
 
             return self.IRAddr(( self.c.get_val(), 0 ))
+
+        elif self.op == I_JCC and self.c.type == A_LOC: 
+
+            return self.IRAddr(self.c.val)
 
         else:
 
@@ -2522,9 +2550,9 @@ class CodeStorageTranslator(CodeStorage):
             jcc_2 = Insn(ret[-1])
 
             if jcc_1.a.type == A_TEMP and \
-               jcc_1.c.type == A_CONST and jcc_1.c.get_val() == jcc_1.addr + jcc_1.size and \
                jcc_2.a.type == A_CONST and jcc_2.a.get_val() != 0 and \
-               jcc_2.c.type == A_CONST and jcc_2.c.get_val() != jcc_2.addr + jcc_2.size:
+               jcc_1.c.type == A_LOC and jcc_1.c.val == ( jcc_1.addr + jcc_1.size, 0 ) and \
+               jcc_2.c.type == A_LOC and jcc_2.c.val != ( jcc_2.addr + jcc_2.size, 0 ):
 
                 # allocate new temp register
                 num = int(jcc_1.a.name[2:])
@@ -2621,7 +2649,7 @@ class CodeStorageTranslator(CodeStorage):
             self.storage.put_insn(insn)
             ret.append(Insn(insn))
 
-        return ret
+        return ret if inum is None else ret[inum]
 
     def put_insn(self, insn_or_insn_list):
 
@@ -2806,9 +2834,7 @@ class TestArchX86(unittest.TestCase):
         # get symbolic expressions for given bb
         sym = bb.to_symbolic(temp_regs = False)
 
-        fs_base = SymVal('R_FS_BASE', U32)        
-
-        assert len(sym.state) == 6
+        fs_base = SymVal('R_FS_BASE', U32)
         
         assert sym.get(SymVal('R_EDI', U32)) == SymPtr(fs_base + SymConst(0x30, U32))
         assert sym.get(SymVal('R_ESI', U32)) == SymPtr(fs_base + SymVal('R_ECX', U32))
@@ -2824,6 +2850,27 @@ class TestArchArm(unittest.TestCase):
     def setUp(self):        
 
         pass
+
+    def test_asm_thumb(self):
+
+        from pyopenreil.utils import asm
+
+        code = (
+            'push    {r7}',
+            'cmp     r0, #0',
+            'ittee   eq',
+            'moveq   r1, #1', # if r0 == 0
+            'moveq   r2, #1', # if r0 == 0
+            'movne   r1, #0', # if r0 != 0
+            'movne   r2, #0', # if r0 != 0
+            'pop     {r7}',
+            'mov     pc, lr' )
+
+        reader = asm.Reader(self.arch, code, thumb = True)
+        tr = CodeStorageTranslator(reader)        
+
+        print repr(reader.data)
+        print tr.get_func(tr.arm_thumb(0))
 
     def test_asm_arm(self):
 
