@@ -2851,27 +2851,6 @@ class TestArchArm(unittest.TestCase):
 
         pass
 
-    def test_asm_thumb(self):
-
-        from pyopenreil.utils import asm
-
-        code = (
-            'push    {r7}',
-            'cmp     r0, #0',
-            'ittee   eq',
-            'moveq   r1, #1', # if r0 == 0
-            'moveq   r2, #1', # if r0 == 0
-            'movne   r1, #0', # if r0 != 0
-            'movne   r2, #0', # if r0 != 0
-            'pop     {r7}',
-            'mov     pc, lr' )
-
-        reader = asm.Reader(self.arch, code, thumb = True)
-        tr = CodeStorageTranslator(reader)        
-
-        print repr(reader.data)
-        print tr.get_func(tr.arm_thumb(0))
-
     def test_asm_arm(self):
 
         from pyopenreil.utils import asm

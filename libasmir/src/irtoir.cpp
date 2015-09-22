@@ -471,15 +471,8 @@ int del_put_thunk(vector<Stmt *> *ir, string mnemonic, int opi, int dep1, int de
                 len--;
             }            
 
-<<<<<<< HEAD
             // remember statement position
             ret = len;
-=======
-		    // remember flag last thunk position
-                    ret = len;
-                }
-            }
->>>>>>> 2e499c4eb96cad3f6b56f6a9b0afaad594872e85
         }
     }
 
