@@ -1614,7 +1614,7 @@ void CReilFromBilTranslator::process_bil(reil_raw_t *raw_info, bap_block_t *bloc
                 // translate special statement to the REIL instruction options
                 inst_flags |= convert_special(special);
             }
-        }   
+        }
 
         // convert statement to REIL code
         process_bil_stmt(s, inst_flags);

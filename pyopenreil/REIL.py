@@ -2004,6 +2004,10 @@ class DFGraphBuilder(object):
         self.arch = storage.arch
         self.storage = storage    
 
+    def get_insn(self, ir_addr):
+
+        return self.storage.get_insn(ir_addr) 
+
     def _process_state(self, bb, state):
 
         updated = False
@@ -2029,9 +2033,9 @@ class DFGraphBuilder(object):
 
         return updated
 
-    def _process_bb(self, bb, state, dfg):        
+    def _process_bb(self, bb, state, dfg, from_insn = False):
 
-        for insn in bb:
+        for insn in bb:            
 
             node = dfg.add_node(insn)
 
@@ -2069,7 +2073,7 @@ class DFGraphBuilder(object):
                 state[arg] = insn
 
         # check for end of the function
-        if bb.get_successors() == ( None, None ):
+        if from_insn or bb.get_successors() == ( None, None ):
 
             for arg_name, insn in state.items():
 
@@ -2077,6 +2081,21 @@ class DFGraphBuilder(object):
                 dfg.add_edge(dfg.add_node(insn), dfg.exit_node.key(), arg_name)
 
         return self._process_state(bb, state)
+
+    def from_insn(self, insn, state = None):
+
+        state = {} if state is None else state
+
+        dfg = DFGraph()
+        bb = BasicBlock(insn)
+
+        self._process_bb(bb, state, dfg, from_insn = True) 
+
+        return dfg
+
+    def from_addr(self, addr, state = None):
+
+        return self.from_insn(self.get_insn(addr), state = state)
 
     def traverse(self, ir_addr, state = None):                
 
@@ -2497,6 +2516,8 @@ class CodeStorageTranslator(CodeStorage):
     # Thumb enable helper
     arm_thumb = lambda self, addr: addr | 1
 
+    translator_postprocess = []
+
     class CFGraphBuilderFunc(CFGraphBuilder):
 
         def process_node(self, bb, state, context):
@@ -2513,7 +2534,7 @@ class CodeStorageTranslator(CodeStorage):
 
     def __init__(self, reader = None, storage = None):        
 
-        arch = None
+        arch = None        
 
         # determinate target architecture
         if reader is not None: arch = reader.arch
@@ -2527,27 +2548,23 @@ class CodeStorageTranslator(CodeStorage):
 
         self.translator = translator.Translator(arch, log_path = log_path, \
                                                       log_mask = log_mask)
-        
+
+        self.translator_postprocess = [ self.postprocess_cjmp, 
+                                        self.postprocess_xchg,
+                                        self.postprocess_unknown ]        
         self.arch = get_arch(arch)        
         self.storage = CodeStorageMem(arch) if storage is None else storage
         self.reader = reader
 
-    def translate_insn(self, data, addr):           
+    def postprocess_cjmp(self, addr, insn_list):
+        ''' Represent Cjmp + Jmp (libasmir artifact) as Not + Cjmp. '''
 
-        src, dst = [], []        
+        if len(insn_list) > 2 and \
+           Insn_op(insn_list[-1]) == I_JCC and \
+           Insn_op(insn_list[-2]) == I_JCC:
 
-        # generate IR instructions
-        ret = self.translator.to_reil(data, addr = addr)        
-
-        #
-        # Represent Cjmp + Jmp (libasmir artifact) as Not + Cjmp.
-        #
-        if len(ret) > 2 and \
-           Insn_op(ret[-1]) == I_JCC and \
-           Insn_op(ret[-2]) == I_JCC:
-
-            jcc_1 = Insn(ret[-2])
-            jcc_2 = Insn(ret[-1])
+            jcc_1 = Insn(insn_list[-2])
+            jcc_2 = Insn(insn_list[-1])
 
             if jcc_1.a.type == A_TEMP and \
                jcc_2.a.type == A_CONST and jcc_2.a.get_val() != 0 and \
@@ -2558,23 +2575,115 @@ class CodeStorageTranslator(CodeStorage):
                 num = int(jcc_1.a.name[2:])
                 tmp = Arg(A_TEMP, jcc_1.a.size, 'V_%.2d' % (num + 1))
 
-                ret = ret[:len(ret) - 2]
+                insn_list = insn_list[: len(insn_list) - 2]
 
-                ret.append(Insn(op = I_NOT, ir_addr = jcc_1.ir_addr(), size = jcc_1.size, 
-                                a = jcc_1.a, c = tmp).serialize())
+                insn_list.append(Insn(op = I_NOT, ir_addr = jcc_1.ir_addr(), size = jcc_1.size, 
+                                      a = jcc_1.a, c = tmp).serialize())
 
-                ret.append(Insn(op = I_JCC, ir_addr = jcc_2.ir_addr(),  size = jcc_2.size,
-                                a = tmp, c = jcc_2.c, attr = jcc_2.attr).serialize())
+                insn_list.append(Insn(op = I_JCC, ir_addr = jcc_2.ir_addr(),  size = jcc_2.size,
+                                      a = tmp, c = jcc_2.c, attr = jcc_2.attr).serialize())
 
-        #
-        # Convert untranslated instruction representation into the 
-        # single I_NONE IR instruction and save operands information
-        # into it's attributes.
-        #
+        return insn_list
+
+    def postprocess_xchg(self, addr, insn_list):
+        ''' VEX uses loop with compare-and-swap statement to represent 
+            atomic xchg operation of x86:
+
+            IRSB {
+               t2 = GET:I32(24)
+               t0 = LDle:I32(t2)
+               t1 = GET:I32(16)
+               t3 = CASle(t2::t0->t1)
+               t5 = CasCmpNE32(t3,t0)
+               if (t5) { PUT(68) = 0x1337:I32; exit-Boring }
+               PUT(16) = t0
+               PUT(68) = 0x133A:I32; exit-Boring
+            }
+
+            Here we need to convert translated code to more simple form. '''
+
+        attr = Insn_attr(insn_list[0])
+
+        # check for IR code of xchg instruction
+        if attr.has_key(IATTR_ASM) and attr[IATTR_ASM][0] == 'xchg':
+
+            # unserialize instructions list
+            insn_list = map(lambda insn: Insn(insn), insn_list)
+
+            dfg = DFGraphBuilder(self).from_insn(insn_list)  
+            removed = []
+
+            def cleanup():
+
+                ret = 0
+
+                for key, node in dfg.nodes.items():
+
+                    remove = True
+
+                    if isinstance(node, DFGraphEntryNode) or \
+                       isinstance(node, DFGraphExitNode) or \
+                       node.item.op == I_STM or node in removed:
+
+                        continue
+
+                    # determinate if node can be removed from DFG
+                    for edge in node.out_edges:
+
+                        if edge.node_to in removed:
+
+                            continue
+
+                        if edge.name.find('R_') == 0 or \
+                           not isinstance(edge.node_to, DFGraphExitNode):
+
+                            remove = False
+                            break
+
+                    if remove:
+
+                        removed.append(node)
+                        ret += 1
+
+                return ret
+
+            # run cleanup untill new removed nodes available
+            while cleanup() > 0: pass            
+
+            # get IR addresses of removed instructions
+            removed = map(lambda node: node.item.ir_addr(), removed)            
+
+            ret, inum = [], 0
+
+            # rebuild final instructions list
+            for insn in insn_list:
+
+                if not insn.ir_addr() in removed:
+
+                    insn.inum = inum
+                    inum += 1
+
+                    ret.append(insn)
+
+            # copy first and last instruction attributes
+            ret[0].attr, ret[-1].attr = insn_list[0].attr, insn_list[-1].attr
+
+            # serialize instructions list back
+            insn_list = map(lambda insn: insn.serialize(), ret)
+
+        return insn_list
+
+    def postprocess_unknown(self, addr, insn_list):
+        ''' Convert untranslated instruction representation into the 
+            single I_NONE IR instruction and save operands information
+            as it's attributes. '''
+
         unk_insn = Insn(I_UNK, ir_addr = ( addr, 0 ))
-        unk_insn.set_flag(IOPT_ASM_END)        
+        unk_insn.set_flag(IOPT_ASM_END)  
 
-        for insn in ret:
+        src, dst = [], []      
+
+        for insn in insn_list:
 
             if Insn_inum(insn) == 0:
 
@@ -2594,12 +2703,24 @@ class CodeStorageTranslator(CodeStorage):
 
             else:
 
-                return ret
+                return insn_list
 
         if len(src) > 0: unk_insn.set_attr(IATTR_SRC, src)
         if len(dst) > 0: unk_insn.set_attr(IATTR_DST, dst)
 
-        return [ unk_insn.serialize() ]
+        return [ unk_insn.serialize() ]    
+
+    def translate_insn(self, data, addr):        
+
+        # generate IR instructions
+        ret = self.translator.to_reil(data, addr = addr)
+        
+        for func in self.translator_postprocess:
+
+            # perform post-translation transformation
+            ret = func(addr, ret)
+        
+        return ret
 
     def clear(self): 
 
@@ -2826,7 +2947,6 @@ class TestArchX86(unittest.TestCase):
                  'ret' )
 
         tr = CodeStorageTranslator(asm.Reader(self.arch, code))
-
         bb = tr.get_bb(0)
 
         print bb
@@ -2841,6 +2961,24 @@ class TestArchX86(unittest.TestCase):
 
         assert sym.get(SymPtr(fs_base + SymConst(0x30, U32))) == SymVal('R_EDX', U32)
         assert sym.get(SymPtr(fs_base + SymVal('R_ECX', U32))) == SymVal('R_EDX', U32)
+
+    def test_xchg(self):
+
+        from pyopenreil.utils import asm
+
+        code = ( 'xchg dword ptr [esp], edx', 
+                 'ret' )
+
+        tr = CodeStorageTranslator(asm.Reader(self.arch, code))
+        bb = tr.get_bb(0)
+
+        print bb
+
+        # get symbolic expressions for given bb
+        sym = bb.to_symbolic(temp_regs = False)
+
+        assert sym.get(SymVal('R_EDX', U32)) == SymPtr(SymVal('R_ESP', U32))
+        assert SymPtr(SymVal('R_ESP', U32)) == sym.get(SymVal('R_EDX', U32))
 
 
 class TestArchArm(unittest.TestCase):

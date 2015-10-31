@@ -23,7 +23,7 @@ bool use_simple_segments = 1;
 bool translate_calls_and_returns = 0;
 
 //
-// For labeling untranslated VEX IR instructions
+// For labeling VEX IR instructions that was not translated
 //
 string uTag = "Unknown: ";
 string sTag = "Skipped: ";
@@ -1391,6 +1391,11 @@ Exp *translate_simple_binop(bap_context_t *context, IRExpr *expr, IRSB *irbb, ve
     case Iop_CmpEQ16:
     case Iop_CmpEQ32:
     case Iop_CmpEQ64:
+
+    case Iop_CasCmpEQ8:
+    case Iop_CasCmpEQ16:
+    case Iop_CasCmpEQ32:
+    case Iop_CasCmpEQ64:
     
         return new BinOp(EQ, arg1, arg2);
     
@@ -1398,6 +1403,11 @@ Exp *translate_simple_binop(bap_context_t *context, IRExpr *expr, IRSB *irbb, ve
     case Iop_CmpNE16:
     case Iop_CmpNE32:
     case Iop_CmpNE64:
+
+    case Iop_CasCmpNE8:
+    case Iop_CasCmpNE16:
+    case Iop_CasCmpNE32:
+    case Iop_CasCmpNE64:
     
         return new BinOp(NEQ, arg1, arg2);
 
@@ -1894,6 +1904,53 @@ Stmt *translate_store(bap_context_t *context, IRStmt *stmt, IRSB *irbb, vector<S
     return new Move(mem, data);
 }
 
+Stmt *translate_cas(bap_context_t *context, IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout)
+{
+    assert(stmt);
+    assert(irbb);
+    assert(irout);    
+
+    IRType type;
+    string name;
+    Exp *dest;
+    Exp *expd;
+    Exp *data;
+    Label *t;
+    Label *f;    
+
+    if (stmt->Ist.CAS.details->dataHi || stmt->Ist.CAS.details->expdHi)
+    {
+        panic("Unexpected CAS statement");
+    }
+
+    type = translate_tmp_type(context, irbb, stmt->Ist.CAS.details->dataLo);
+    name = translate_tmp_name(context, type, stmt->Ist.CAS.details->oldLo);    
+
+    dest = translate_expr(context, stmt->Ist.CAS.details->addr, irbb, irout);    
+
+    irout->push_back(new Move(mk_temp(name, type), 
+                              new Mem(dest, IRType_to_reg_type(type))));
+
+    expd = translate_expr(context, stmt->Ist.CAS.details->expdLo, irbb, irout);    
+
+    t = mk_label();
+    f = mk_label();
+
+    irout->push_back(new CJmp(new BinOp(NEQ, mk_temp(name, type), expd), 
+                              new Name(f->label), 
+                              new Name(t->label)));    
+
+    irout->push_back(t);
+
+    dest = translate_expr(context, stmt->Ist.CAS.details->addr, irbb, irout);    
+    data = translate_expr(context, stmt->Ist.CAS.details->dataLo, irbb, irout);
+
+    irout->push_back(new Move(new Mem(dest, IRType_to_reg_type(type)), 
+                              data));    
+
+    return f;
+}
+
 Stmt *translate_imark(bap_context_t *context, IRStmt *stmt, IRSB *irbb)
 {
     assert(stmt);
@@ -1976,8 +2033,8 @@ Stmt *translate_stmt(bap_context_t *context, IRStmt *stmt, IRSB *irbb, vector<St
         break;
     
     case Ist_CAS:
-    
-        result = new Special(uTag + "CAS");
+
+        result = translate_cas(context, stmt, irbb, irout);
         break;
     
     case Ist_LLSC:
@@ -2119,7 +2176,7 @@ vector<Stmt *> *translate_special(bap_context_t *context, address_t inst)
 }
 
 //----------------------------------------------------------------------
-// Generate Stmts for unknown/untranslated machine instruction
+// Generate Stmts for unknown or not translated machine instruction
 //----------------------------------------------------------------------
 vector<Stmt *> *translate_unknown(bap_context_t *context, string tag)
 {
@@ -2184,7 +2241,7 @@ vector<Stmt *> *translate_irbb(bap_context_t *context, IRSB *irbb)
         }
         catch (const char *e)
         {
-            st = new Special("Untranslated IR statement. Cause: " + string(e));
+            st = new Special("IR statement not translated, cause: " + string(e));
         }
 
         irout->push_back(st);
@@ -2199,7 +2256,7 @@ vector<Stmt *> *translate_irbb(bap_context_t *context, IRSB *irbb)
     }
     catch (const char *e)
     {
-        st = new Special("Untranslated Jump out of BB. Cause: " + string(e));
+        st = new Special("Jump out of BB not translated, cause: " + string(e));
     }
 
     if (st != NULL)
