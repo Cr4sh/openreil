@@ -2587,7 +2587,7 @@ class CodeStorageTranslator(CodeStorage):
 
     def postprocess_xchg(self, addr, insn_list):
         ''' VEX uses loop with compare-and-swap statement to represent 
-            atomic xchg operation of x86:
+            atomic xchg operation of x86 which is total overkill:
 
             IRSB {
                t2 = GET:I32(24)
@@ -2600,78 +2600,84 @@ class CodeStorageTranslator(CodeStorage):
                PUT(68) = 0x133A:I32; exit-Boring
             }
 
-            Here we need to convert translated code to more simple form. '''
+            Here we need to convert translated REIL code to more simple form. '''        
+
+        if self.arch != x86:
+
+            return insn_list
 
         attr = Insn_attr(insn_list[0])
 
         # check for IR code of xchg instruction
-        if attr.has_key(IATTR_ASM) and attr[IATTR_ASM][0] == 'xchg':
+        if not (attr.has_key(IATTR_ASM) and attr[IATTR_ASM][0] == 'xchg'):
 
-            # unserialize instructions list
-            insn_list = map(lambda insn: Insn(insn), insn_list)
+            return insn_list
 
-            dfg = DFGraphBuilder(self).from_insn(insn_list)  
-            removed = []
+        # unserialize instructions list
+        insn_list = map(lambda insn: Insn(insn), insn_list)
 
-            def cleanup():
+        # build dataflow graph for single machine instruction
+        dfg = DFGraphBuilder(self).from_insn(insn_list)  
 
-                ret = 0
+        removed = []
 
-                for key, node in dfg.nodes.items():
+        def _cleanup():
 
-                    remove = True
+            ret = 0
 
-                    if isinstance(node, DFGraphEntryNode) or \
-                       isinstance(node, DFGraphExitNode) or \
-                       node.item.op == I_STM or node in removed:
+            for key, node in dfg.nodes.items():
+
+                remove = True
+
+                if isinstance(node, DFGraphEntryNode) or \
+                   isinstance(node, DFGraphExitNode) or \
+                   node.item.op == I_STM or node in removed:
+
+                    continue
+
+                # determinate if node can be removed from DFG
+                for edge in node.out_edges:
+
+                    if edge.node_to in removed:
 
                         continue
 
-                    # determinate if node can be removed from DFG
-                    for edge in node.out_edges:
+                    if edge.name.find('R_') == 0 or \
+                       not isinstance(edge.node_to, DFGraphExitNode):
 
-                        if edge.node_to in removed:
+                        remove = False
+                        break
 
-                            continue
+                if remove:
 
-                        if edge.name.find('R_') == 0 or \
-                           not isinstance(edge.node_to, DFGraphExitNode):
+                    removed.append(node)
+                    ret += 1
 
-                            remove = False
-                            break
+            return ret
 
-                    if remove:
+        # run cleanup untill new removed nodes available
+        while _cleanup() > 0: pass            
 
-                        removed.append(node)
-                        ret += 1
+        # get IR addresses of removed instructions
+        removed = map(lambda node: node.item.ir_addr(), removed)            
 
-                return ret
+        ret, inum = [], 0
 
-            # run cleanup untill new removed nodes available
-            while cleanup() > 0: pass            
+        # rebuild final instructions list
+        for insn in insn_list:
 
-            # get IR addresses of removed instructions
-            removed = map(lambda node: node.item.ir_addr(), removed)            
+            if not insn.ir_addr() in removed:
 
-            ret, inum = [], 0
+                insn.inum = inum
+                inum += 1
 
-            # rebuild final instructions list
-            for insn in insn_list:
+                ret.append(insn)
 
-                if not insn.ir_addr() in removed:
+        # copy first and last instruction attributes
+        ret[0].attr, ret[-1].attr = insn_list[0].attr, insn_list[-1].attr
 
-                    insn.inum = inum
-                    inum += 1
-
-                    ret.append(insn)
-
-            # copy first and last instruction attributes
-            ret[0].attr, ret[-1].attr = insn_list[0].attr, insn_list[-1].attr
-
-            # serialize instructions list back
-            insn_list = map(lambda insn: insn.serialize(), ret)
-
-        return insn_list
+        # serialize instructions list back
+        return map(lambda insn: insn.serialize(), ret)
 
     def postprocess_unknown(self, addr, insn_list):
         ''' Convert untranslated instruction representation into the 
