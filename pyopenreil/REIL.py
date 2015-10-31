@@ -13,6 +13,20 @@ from arch import x86, arm
 ARCH_X86 = 0
 ARCH_ARM = 1
 
+# log_init() mask constants
+LOG_INFO = 0x00000001 # regular message
+LOG_WARN = 0x00000002 # error
+LOG_ERR = 0x00000004  # warning
+LOG_BIN = 0x00000008  # instruction bytes
+LOG_ASM = 0x00000010  # instruction assembly code
+LOG_VEX = 0x00000020  # instruction VEX code
+LOG_BIL = 0x00000040  # instruction BAP IL code
+
+# enable all debug messages
+LOG_ALL = 0x7fffffff
+
+# disable all debug messages
+LOG_NONE = 0
 
 LOG_MASK = None
 LOG_PATH = None

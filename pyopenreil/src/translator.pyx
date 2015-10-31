@@ -8,6 +8,7 @@ IATTR_ASM = 0
 IATTR_BIN = 1
 IATTR_FLAGS = 2
 
+# log_init() mask constants
 LOG_INFO = 0x00000001 # regular message
 LOG_WARN = 0x00000002 # error
 LOG_ERR = 0x00000004 # warning
@@ -16,10 +17,10 @@ LOG_ASM = 0x00000010 # instruction assembly code
 LOG_VEX = 0x00000020 # instruction VEX code
 LOG_BIL = 0x00000040 # instruction BAP IL code
 
-# all log messages mask
+# enable all debug messages
 LOG_ALL = 0x7FFFFFFF
 
-# disable log messages mask
+# disable all debug messages
 LOG_NONE = 0
 
 # default log messages mask

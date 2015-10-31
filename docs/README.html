@@ -83,17 +83,18 @@
 <li><a href="#_5_9">IR code emulation</a></li>
 </ul>
 </li>
+<li><a href="#_6">Debugging OpenREIL</a></li>
 <li>
-<a href="#_6">Using with third party tools</a>
+<a href="#_7">Using with third party tools</a>
 
 <ul>
-<li><a href="#_6_1">IDA Pro</a></li>
-<li><a href="#_6_2">GDB</a></li>
-<li><a href="#_6_3">WinDbg (kd, cdb)</a></li>
+<li><a href="#_7_1">IDA Pro</a></li>
+<li><a href="#_7_2">GDB</a></li>
+<li><a href="#_7_3">WinDbg (kd, cdb)</a></li>
 </ul>
 </li>
-<li><a href="#_7">Links and examples</a></li>
-<li><a href="#_8">TODO</a></li>
+<li><a href="#_8">Links and examples</a></li>
+<li><a href="#_9">TODO</a></li>
 </ul>
 
 <h2>
@@ -115,7 +116,7 @@
 
 <p>OpenREIL is based on my custom fork of libasmir − IR translation library from old versions of <a href="http://bap.ece.cmu.edu/">BAP framework</a>. I removed some 3-rd party dependencies of libasmir (libbfd, libopcodes) and features that irrelevant to translation itself (binary files parsing, traces processing, etc.), than I did some minor refactoring/bugfixes, switched to <a href="http://www.capstone-engine.org/">Capstone</a> for instruction length disassembling and implemented BAP IR → REIL translation logic on the top of libasmir. </p>
 
-<p>Because libasmir uses VEX (production-quality library, part of <a href="http://valgrind.org/">Valgrind</a>), full code translation sequence inside of OpenREIL is looks as binary → VEX IR → BAP IR → REIL. It's kinda ugly from engineering point of view, but it allows us to have a pretty robust and reliable support of all general instructions of x86. Current version of OpenREIL still has no support of other architectures, but I'm working on x86_64 and ARMv5.</p>
+<p>Because libasmir uses VEX (production-quality library, part of <a href="http://valgrind.org/">Valgrind</a>), full code translation sequence inside of OpenREIL is looks as binary → VEX IR → BAP IR → REIL. It's kinda ugly from engineering point of view, but it allows us to have a pretty robust and reliable support of all general instructions of x86. Current version of OpenREIL still has no support of other architectures, but I'm working on x86_64 and ARMv7.</p>
 
 <p>Please note, that currently OpenREIL is a far away from stable release, so, I don't recommend you to use it for any serious purposes.</p>
 
@@ -411,7 +412,7 @@ $ sudo easy_install pefile pybfd
 
 <p>Many operating systems uses <code>FS</code> segment register to access certain system structures. OpenREIL represents this segment register as <code>R_FS_BASE:32</code>. Here is an example of function that gets <code>_PEB</code> address of the current Windows process:</p>
 
-<div class="highlight highlight-cpp"><pre>ULONG_PTR <span class="pl-en">get_peb</span>(<span class="pl-k">void</span>)
+<div class="highlight highlight-source-c++"><pre>ULONG_PTR <span class="pl-en">get_peb</span>(<span class="pl-k">void</span>)
 {
 #<span class="pl-k">ifdef</span> _X86_
 
@@ -565,7 +566,7 @@ $ sudo easy_install pefile pybfd
 
 <p>Here is an example of the test program that translates machine code to IR instructions and prints them to stdout:</p>
 
-<div class="highlight highlight-cpp"><pre>#<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>stdio.h<span class="pl-pds">&gt;</span></span>
+<div class="highlight highlight-source-c++"><pre>#<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>stdio.h<span class="pl-pds">&gt;</span></span>
 #<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>libopenreil.h<span class="pl-pds">&gt;</span></span>
 
 #<span class="pl-k">define</span> <span class="pl-en">MAX_ARG_STR</span> <span class="pl-c1">50</span>
@@ -676,7 +677,7 @@ $ sudo easy_install pefile pybfd
 
 <p>OpenREIL has low level translation API that returns IR instructions as Python tuple. Here is an example of decoding <code>push eax</code> x86 instruction using this API:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil <span class="pl-k">import</span> translator
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil <span class="pl-k">import</span> translator
 <span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> ARCH_X86
 
 <span class="pl-c"># create REIL translator instance</span>
@@ -741,7 +742,7 @@ insn_lst <span class="pl-k">=</span> tr.to_reil(<span class="pl-s"><span class="
 
 <p>Usage example:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
 
 <span class="pl-c"># create in-memory storage for IR instructions</span>
 storage <span class="pl-k">=</span> CodeStorageMem(ARCH_X86)
@@ -763,16 +764,16 @@ insn_list <span class="pl-k">=</span> tr.get_insn(<span class="pl-c1">0</span>)
 
 <p>After machine instruction was translated you can fetch it’s IR instructions from the storage:</p>
 
-<div class="highlight highlight-python"><pre>insn_list <span class="pl-k">=</span> storage.get_insn(<span class="pl-c1">0</span>)</pre></div>
+<div class="highlight highlight-source-python"><pre>insn_list <span class="pl-k">=</span> storage.get_insn(<span class="pl-c1">0</span>)</pre></div>
 
 <p>It’s also possible to get a single IR instruction:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-c"># get 2-nd IR instruction of machine instruction at address 0</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-c"># get 2-nd IR instruction of machine instruction at address 0</span>
 insn <span class="pl-k">=</span> storage.get_insn(( <span class="pl-c1">0</span>, <span class="pl-c1">1</span> ))</pre></div>
 
 <p>Copying contents of one storage into another:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-c"># src -&gt; dst</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-c"># src -&gt; dst</span>
 storage_2 <span class="pl-k">=</span> CodeStorageMem(ARCH_X86)
 storage.to_storage(storage_2)
 
@@ -782,11 +783,11 @@ storage_3.from_storage(storage_2)</pre></div>
 
 <p>In memory storage contents also can be saved into the JSON file:</p>
 
-<div class="highlight highlight-python"><pre>storage.to_file(<span class="pl-s"><span class="pl-pds">'</span>test.json<span class="pl-pds">'</span></span>)</pre></div>
+<div class="highlight highlight-source-python"><pre>storage.to_file(<span class="pl-s"><span class="pl-pds">'</span>test.json<span class="pl-pds">'</span></span>)</pre></div>
 
 <p>Loading storage contents from JSON file:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-c"># using new instance</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-c"># using new instance</span>
 storage <span class="pl-k">=</span> CodeStorageMem(ARCH_X86, <span class="pl-smi">from_file</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">'</span>test.json<span class="pl-pds">'</span></span>)
 
 <span class="pl-c"># using existing instance</span>
@@ -794,7 +795,7 @@ storage.from_file(<span class="pl-s"><span class="pl-pds">'</span>test.json<span
 
 <p>Instead of raw instruction reader you also can use x86 assembly instruction reader that based on GAS. OpenREIL uses this reader in unit tests, it also might be useful for other purposes:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> asm
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> asm
 
 <span class="pl-c"># create reader instance</span>
 reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s"><span class="pl-pds">'</span>push eax<span class="pl-pds">'</span></span> ), <span class="pl-smi">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)</pre></div>
@@ -807,7 +808,7 @@ reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s"><sp
 
 <p>To solve scalability problem I implemented other storage class that uses MongoDB collections to store translated code, example of it's usage:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> mongodb
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> mongodb
 
 <span class="pl-c"># create storage instance</span>
 storage <span class="pl-k">=</span> mongodb.CodeStorageMongo(ARCH_X86,
@@ -845,7 +846,7 @@ storage.clear()</pre></div>
 
 <p><code>CodeStorageTranslator</code> class of <code>pyopenreil.REIL</code> is also can do code translation at basic blocks or functions level. Example of basic block translation:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-c"># initialise raw instruction reader</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-c"># initialise raw instruction reader</span>
 reader <span class="pl-k">=</span> ReaderRaw(ARCH_X86, <span class="pl-s"><span class="pl-pds">'</span><span class="pl-cce">\x33\xC0\xC3</span><span class="pl-pds">'</span></span>, <span class="pl-smi">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
 
 <span class="pl-c"># Create translator instance.</span>
@@ -864,7 +865,7 @@ bb <span class="pl-k">=</span> tr.get_bb(<span class="pl-c1">0</span>)
 
 <p>Example of function translation:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-c"># translate whole function</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-c"># translate whole function</span>
 func <span class="pl-k">=</span> tr.get_func(<span class="pl-c1">0</span>)
 
 <span class="pl-c"># print function information</span>
@@ -893,7 +894,7 @@ nun <span class="pl-k">=</span> <span class="pl-c1">0</span>
 
 <p>Let's write a program that translates assembly function into IR and prints a set of symbolic expressions for it's first basic block:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> asm
 
 <span class="pl-c"># create assembly instruction reader</span>
@@ -939,7 +940,7 @@ R_OF = 0x0
 
 <p>You can get individual expressions from symbolic representation:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.symbolic <span class="pl-k">import</span> <span class="pl-k">*</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil.symbolic <span class="pl-k">import</span> <span class="pl-k">*</span>
 
 <span class="pl-c"># get expression for ZF register value</span>
 exp_zf <span class="pl-k">=</span> sym.query(SymVal(<span class="pl-s"><span class="pl-pds">'</span>R_ZF<span class="pl-pds">'</span></span>))
@@ -949,7 +950,7 @@ exp_zf <span class="pl-k">=</span> sym.query(SymVal(<span class="pl-s"><span cla
 
 <p>Getting expression that represents instruction pointer value at the end of the basic block:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-c"># get expression for EIP register value</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-c"># get expression for EIP register value</span>
 exp_eip <span class="pl-k">=</span> sym.query(SymIP())
 
 <span class="pl-c"># prints ((((R_ECX == 0x0) | 0x0) &amp; 0x1)) ? 0xa : 0x9</span>
@@ -957,14 +958,14 @@ exp_eip <span class="pl-k">=</span> sym.query(SymIP())
 
 <p>You also can compare expressions, OpenREIL will care about commutativity and other important things. To match any valid expression <code>symbolic.SymAny</code> object is used:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-c"># compare expressions</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-c"># compare expressions</span>
 <span class="pl-k">assert</span> exp_zf <span class="pl-k">==</span> SymExp(I_EQ, SymVal(<span class="pl-s"><span class="pl-pds">'</span>R_ECX<span class="pl-pds">'</span></span>), SymConst(<span class="pl-c1">0</span>, U32))
 <span class="pl-k">assert</span> exp_zf <span class="pl-k">==</span> SymExp(I_EQ, SymVal(<span class="pl-s"><span class="pl-pds">'</span>R_ECX<span class="pl-pds">'</span></span>), SymAny())
 <span class="pl-k">assert</span> exp_zf <span class="pl-k">==</span> SymAny()</pre></div>
 
 <p>For extracting information about input and output arguments of <code>symbolic.SymState</code> it has <code>arg_in()</code> and <code>arg_out()</code> methods:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">print</span> <span class="pl-s"><span class="pl-pds">'</span>IN:<span class="pl-pds">'</span></span>, <span class="pl-s"><span class="pl-pds">'</span>, <span class="pl-pds">'</span></span>.join(<span class="pl-c1">map</span>(<span class="pl-k">lambda</span> <span class="pl-smi">a</span>: <span class="pl-c1">str</span>(a), sym.arg_in()))
+<div class="highlight highlight-source-python"><pre><span class="pl-k">print</span> <span class="pl-s"><span class="pl-pds">'</span>IN:<span class="pl-pds">'</span></span>, <span class="pl-s"><span class="pl-pds">'</span>, <span class="pl-pds">'</span></span>.join(<span class="pl-c1">map</span>(<span class="pl-k">lambda</span> <span class="pl-smi">a</span>: <span class="pl-c1">str</span>(a), sym.arg_in()))
 <span class="pl-k">print</span> <span class="pl-s"><span class="pl-pds">'</span>OUT:<span class="pl-pds">'</span></span>, <span class="pl-s"><span class="pl-pds">'</span>, <span class="pl-pds">'</span></span>.join(<span class="pl-c1">map</span>(<span class="pl-k">lambda</span> <span class="pl-smi">a</span>: <span class="pl-c1">str</span>(a), sym.arg_out()))</pre></div>
 
 <p>Console output:</p>
@@ -979,7 +980,7 @@ OUT: R_ESP, *(R_ESP - 0x4), R_EBP, R_EAX, R_CF, R_PF, R_AF, R_ZF, R_SF, R_OF, @I
 
 <p>OpenREIL can build <a href="http://en.wikipedia.org/wiki/Control_flow_graph">control flow graph</a> (CFG) of IR code. Let's write some test program in C to demonstrate it:</p>
 
-<div class="highlight highlight-cpp"><pre>#<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>stdio.h<span class="pl-pds">&gt;</span></span>
+<div class="highlight highlight-source-c++"><pre>#<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>stdio.h<span class="pl-pds">&gt;</span></span>
 #<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>stdlib.h<span class="pl-pds">&gt;</span></span>
 
 <span class="pl-c">// computes a member of fibbonnaci sequence at given position</span>
@@ -1036,7 +1037,7 @@ $ objdump -t tests/fib | grep '.text'
 
 <p>Let's build control flow graph of <code>fib()</code> function (that located at address <code>0x08048414</code>) of <code>tests/fib</code> executable:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> bin_BFD
 
 <span class="pl-c"># create executable image reader </span>
@@ -1053,7 +1054,7 @@ cfg <span class="pl-k">=</span> CFGraphBuilder(tr).traverse(addr)</pre></div>
 
 <p>You can save generated graph as file of <a href="http://www.graphviz.org/content/dot-language">Graphviz DOT format</a>:</p>
 
-<div class="highlight highlight-python"><pre>cfg.to_dot_file(<span class="pl-s"><span class="pl-pds">'</span>cfg.dot<span class="pl-pds">'</span></span>)</pre></div>
+<div class="highlight highlight-source-python"><pre>cfg.to_dot_file(<span class="pl-s"><span class="pl-pds">'</span>cfg.dot<span class="pl-pds">'</span></span>)</pre></div>
 
 <p>Then you can render this file into the PNG image using Graphviz dot utility:</p>
 
@@ -1106,7 +1107,7 @@ cfg <span class="pl-k">=</span> CFGraphBuilder(tr).traverse(addr)</pre></div>
 
 <p>As example, let's take a simple function that returns sum of two arguments:</p>
 
-<div class="highlight highlight-cpp"><pre><span class="pl-k">long</span> __fastcall <span class="pl-en">sum</span>(<span class="pl-k">long</span> a, <span class="pl-k">long</span> b)
+<div class="highlight highlight-source-c++"><pre><span class="pl-k">long</span> __fastcall <span class="pl-en">sum</span>(<span class="pl-k">long</span> a, <span class="pl-k">long</span> b)
 {
     <span class="pl-c">// a comes in ECX, b in EDX</span>
     <span class="pl-k">return</span> a + b;
@@ -1184,7 +1185,7 @@ ret
 
 <p>Now let's construct DFG of this function:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> asm
 
 <span class="pl-c"># create assembly instruction reader</span>
@@ -1204,7 +1205,7 @@ dfg <span class="pl-k">=</span> DFGraphBuilder(tr).traverse(<span class="pl-c1">
 
 <p>Let's apply these optimizations to <code>fib()</code> function code:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-c"># run some of available optimizations</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-c"># run some of available optimizations</span>
 dfg.eliminate_dead_code()
 dfg.constant_folding()
 
@@ -1245,7 +1246,7 @@ dfg.store(tr.storage)
 
 <p>Let's export and view DFG of achieved code:</p>
 
-<div class="highlight highlight-python"><pre>dfg.to_dot_file(<span class="pl-s"><span class="pl-pds">'</span>dfg.dot<span class="pl-pds">'</span></span>)</pre></div>
+<div class="highlight highlight-source-python"><pre>dfg.to_dot_file(<span class="pl-s"><span class="pl-pds">'</span>dfg.dot<span class="pl-pds">'</span></span>)</pre></div>
 
 <p><a href="https://camo.githubusercontent.com/c5cc7c3e1392ca54ba2557bce9c6677754807ae3/68747470733a2f2f646c2e64726f70626f7875736572636f6e74656e742e636f6d2f752f32323930333039332f6f70656e7265696c2f6466675f312e706e67" target="_blank"><img src="https://camo.githubusercontent.com/c5cc7c3e1392ca54ba2557bce9c6677754807ae3/68747470733a2f2f646c2e64726f70626f7875736572636f6e74656e742e636f6d2f752f32323930333039332f6f70656e7265696c2f6466675f312e706e67" alt="OpenREIL Python API diagram" width="242" height="536" data-canonical-src="https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_1.png" style="max-width:100%;"></a></p>
 
@@ -1253,7 +1254,7 @@ dfg.store(tr.storage)
 
 <p><code>REIL.DFGraph</code> is also allows to optimize temp registers usage with common subexpressions elimination:</p>
 
-<div class="highlight highlight-python"><pre>dfg.eliminate_subexpressions()
+<div class="highlight highlight-source-python"><pre>dfg.eliminate_subexpressions()
 dfg.store(tr.storage)
 
 <span class="pl-k">print</span> tr.storage</pre></div>
@@ -1299,7 +1300,7 @@ dfg.store(tr.storage)
 
 <p>Let's try to translate to IR some code that uses <code>cpuid</code> instruction to get information about x86 processor info and features:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> asm
 
 <span class="pl-c"># create assembly instruction reader</span>
@@ -1367,7 +1368,7 @@ dfg.optimize_all(tr.storage)
 
 <p>Let's run some simple code under emulation to demonstrate it's API usage:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
 <span class="pl-k">from</span> pyopenreil.VM <span class="pl-k">import</span> <span class="pl-k">*</span>
 
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> asm
@@ -1426,7 +1427,7 @@ cpu.dump()</pre></div>
 
 <p>Here is example of calling test code from above using <code>pyopenreil.VM.Abi</code>:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-c"># Abi constructor accepts translator and virtual CPU instances</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-c"># Abi constructor accepts translator and virtual CPU instances</span>
 abi <span class="pl-k">=</span> Abi(cpu, tr)
 
 <span class="pl-c"># call our test code using fastcall call convention</span>
@@ -1437,7 +1438,7 @@ ret <span class="pl-k">=</span> abi.fastcall(func_addr, <span class="pl-c1">1</s
 
 <p>Let's try more complex IR code emulation example. Here is the source code of test program that performs RC4 encryption/decryption of some data:</p>
 
-<div class="highlight highlight-cpp"><pre>#<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>stdio.h<span class="pl-pds">&gt;</span></span>
+<div class="highlight highlight-source-c++"><pre>#<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>stdio.h<span class="pl-pds">&gt;</span></span>
 #<span class="pl-k">include</span> <span class="pl-s"><span class="pl-pds">&lt;</span>string.h<span class="pl-pds">&gt;</span></span>
 
 #<span class="pl-k">define</span> <span class="pl-en">MIN</span>(<span class="pl-v">a, b</span>) (((a) &lt; (b)) ? (a) : (b))
@@ -1557,7 +1558,7 @@ $ objdump -t tests/rc4 | grep '.text'
 
 <p>Now let's write a test program that encrypts some data using these functions under emulation and compares encryption results with built-in Python implementation of RC4:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
 <span class="pl-k">from</span> pyopenreil.VM <span class="pl-k">import</span> <span class="pl-k">*</span>
 
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> bin_BFD
@@ -1613,18 +1614,153 @@ val_2 <span class="pl-k">=</span> rc4.encrypt(test_val)
 <p>It's took around 5 seconds to execute this code, it shows that Python implementation of IR code emulator is a quite slow. I'm not sure if OpenREIL emulation features will be useful for any research purposes (it seems that no), but as was said above, it helps me a lot with translator testing.</p>
 
 <h2>
-<a id="user-content-using-with-third-party-tools-" class="anchor" href="#using-with-third-party-tools-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Using with third party tools <a id="user-content-_6"></a>
+<a id="user-content-debugging-openreil-" class="anchor" href="#debugging-openreil-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Debugging OpenREIL <a id="user-content-_6"></a>
+</h2>
+
+<p>OpenREIL Python and C API providies some settings to control debug information output, error messages, etc.</p>
+
+<p><code>libopenreil</code> has <code>reil_log_init()</code> and <code>reil_log_close()</code> functions that declared in <a href="../master/libopenreil/include/libopenreil.h">libopenreil.h</a> header file:</p>
+
+<div class="highlight highlight-source-c++"><pre><span class="pl-c">/*</span>
+<span class="pl-c">    Debug information type constants for mask argument of reil_log_init()</span>
+<span class="pl-c">*/</span>
+#<span class="pl-k">define</span> <span class="pl-en">REIL_LOG_INFO</span>   0x00000001  <span class="pl-c">// regular message</span>
+#<span class="pl-k">define</span> <span class="pl-en">REIL_LOG_WARN</span>   0x00000002  <span class="pl-c">// error</span>
+#<span class="pl-k">define</span> <span class="pl-en">REIL_LOG_ERR</span>    0x00000004  <span class="pl-c">// warning</span>
+#<span class="pl-k">define</span> <span class="pl-en">REIL_LOG_BIN</span>    0x00000008  <span class="pl-c">// instruction bytes</span>
+#<span class="pl-k">define</span> <span class="pl-en">REIL_LOG_ASM</span>    0x00000010  <span class="pl-c">// instruction assembly code</span>
+#<span class="pl-k">define</span> <span class="pl-en">REIL_LOG_VEX</span>    0x00000020  <span class="pl-c">// instruction VEX code</span>
+#<span class="pl-k">define</span> <span class="pl-en">REIL_LOG_BIL</span>    0x00000040  <span class="pl-c">// instruction BAP IL code</span>
+
+<span class="pl-c">// all log messages</span>
+#<span class="pl-k">define</span> <span class="pl-en">REIL_LOG_ALL</span> 0x7FFFFFFF
+
+<span class="pl-c">// disable log messages</span>
+#<span class="pl-k">define</span> <span class="pl-en">REIL_LOG_NONE</span> <span class="pl-c1">0</span>
+
+<span class="pl-c">// by default we prints warnings, errors and info to stderr</span>
+#<span class="pl-k">define</span> <span class="pl-en">REIL_LOG_DEFAULT</span> (LOG_INFO | LOG_WARN | LOG_ERR)
+
+...
+
+<span class="pl-c">/*</span>
+<span class="pl-c">    Initialize debug log. </span>
+<span class="pl-c">    * Individual bits of mask argument tells what kind of information</span>
+<span class="pl-c">    we need to include into the log (see REIL_LOG_* constants).</span>
+<span class="pl-c">    * Log file path can be specified in path argument, NULL value </span>
+<span class="pl-c">    indicates that we need to print debug information only to stderr.</span>
+<span class="pl-c">*/</span>
+<span class="pl-k">int</span> <span class="pl-en">reil_log_init</span>(<span class="pl-c1">uint32_t</span> mask, <span class="pl-k">const</span> <span class="pl-k">char</span> *path);
+
+<span class="pl-c">/*</span>
+<span class="pl-c">    Closes currently opened log file.</span>
+<span class="pl-c">*/</span>
+<span class="pl-k">void</span> <span class="pl-en">reil_log_close</span>(<span class="pl-k">void</span>);</pre></div>
+
+<p><code>pyopenreil</code> has similar functions <code>REIL.log_init()</code> and <code>REIL.log_close()</code>, here you can see <code>simple.py</code> Python program that uses debug output file <code>debug.log</code>:</p>
+
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
+<span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> asm
+
+<span class="pl-c"># set up debug logging</span>
+log_init(LOG_ALL, <span class="pl-s"><span class="pl-pds">'</span>debug.log<span class="pl-pds">'</span></span>)
+
+<span class="pl-c"># create assembly instruction reader</span>
+reader <span class="pl-k">=</span> asm.Reader(ARCH_X86, ( <span class="pl-s"><span class="pl-pds">'</span>xchg dword ptr [esp], edx<span class="pl-pds">'</span></span>), <span class="pl-smi">addr</span> <span class="pl-k">=</span> <span class="pl-c1">0</span>)
+
+<span class="pl-c"># create translator instance</span>
+tr <span class="pl-k">=</span> CodeStorageTranslator(reader)
+
+<span class="pl-c"># translate first machine instruction</span>
+<span class="pl-k">print</span> tr.get_insn(<span class="pl-c1">0</span>)
+
+<span class="pl-c"># close currently opened debug log</span>
+log_close()</pre></div>
+
+<p>After running this code debug output file will contain the following data:</p>
+
+<pre><code>------------------------ After instrumentation ------------------------
+
+IRSB {
+   t0:I32   t1:I32   t2:I32   t3:I32   t4:I32   t5:I1   t6:I32
+   ------ IMark(0x1337, 3, 0) ------
+   t2 = GET:I32(24)
+   t0 = LDle:I32(t2)
+   t1 = GET:I32(16)
+   t3 = CASle(t2::t0-&gt;t1)
+   t5 = CasCmpNE32(t3,t0)
+   if (t5) { PUT(68) = 0x1337:I32; exit-Boring }
+   PUT(16) = t0
+   PUT(68) = 0x133A:I32; exit-Boring
+}
+
+VexExpansionRatio 3 65   216 :10
+
+BIN { 00001337: 87 14 24 }
+ASM { 00001337: xchg dword ptr [esp], edx ; len = 3 }
+BAP {
+   label pc_0x1337:
+   var T_32t0:reg32_t;
+   var T_32t1:reg32_t;
+   var T_32t2:reg32_t;
+   var T_32t3:reg32_t;
+   var T_32t4:reg32_t;
+   var T_1t5:reg1_t;
+   var T_32t6:reg32_t;
+   T_32t2:reg32_t = R_ESP:reg32_t;
+   T_32t0:reg32_t = mem[T_32t2:reg32_t];
+   T_32t1:reg32_t = R_EDX:reg32_t;
+   T_32t3:reg32_t = mem[T_32t2:reg32_t];
+   cjmp((T_32t3:reg32_t&lt;&gt;T_32t0:reg32_t),name(L_1),name(L_0));
+   label L_0:
+   mem[T_32t2:reg32_t] = T_32t1:reg32_t;
+   label L_1:
+   T_1t5:reg1_t = (T_32t3:reg32_t&lt;&gt;T_32t0:reg32_t);
+   cjmp(T_1t5:reg1_t,name(pc_0x1337),name(L_2));
+   label L_2:
+   R_EDX:reg32_t = T_32t0:reg32_t;
+   // BAP label pc_0x1337 at 00001337.00
+   // BAP label L_0 at 00001337.07
+   // BAP label L_1 at 00001337.08
+   // BAP label L_2 at 00001337.0b
+}
+</code></pre>
+
+<p>As you can see, it has information about each machine instruction and it's binary, assembly, VEX IR and BIL code that might be very useful for translation errors investigation.</p>
+
+<p>Also, <code>pyopenreil</code> allows you to pass debug logging mask and file path to any OpenREIL program using environment variables <code>REIL_LOG_MASK</code> and <code>REIL_LOG_PATH</code>. Example:</p>
+
+<pre><code>$ REIL_LOG_MASK=0x7fffffff REIL_LOG_PATH=debug.log python simple.py
+</code></pre>
+
+<p>Source code of <code>pyopenreil</code> has a lot of built-in tests that uses <code>unittest</code> <a href="https://docs.python.org/2/library/unittest.html">unit testing framework</a>, you can run all tests using <code>test</code> make target:</p>
+
+<pre><code>$ make test
+</code></pre>
+
+<p>Or run all unit tests manually using <code>tests/run_unittest.py</code> program:</p>
+
+<pre><code>$ REIL_LOG_MASK=0x7fffffff python tests/run_unittest.py
+</code></pre>
+
+<p>Or run individual unit test:</p>
+
+<pre><code>$ REIL_LOG_MASK=0x7fffffff python tests/run_unittest.py TestArchX86.test_xchg
+</code></pre>
+
+<h2>
+<a id="user-content-using-with-third-party-tools-" class="anchor" href="#using-with-third-party-tools-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Using with third party tools <a id="user-content-_7"></a>
 </h2>
 
 <p>Most of examples in this document was focused on using OpenREIL to develop stand-alone code analysis tools, but it's also possible to use it with any existing reverse engineering tool that supports Python scripting. OpenREIL has build-in support of IDA Pro, GDB and WinDbg as machine code sources.</p>
 
 <h3>
-<a id="user-content-ida-pro-" class="anchor" href="#ida-pro-" aria-hidden="true"><span class="octicon octicon-link"></span></a>IDA Pro <a id="user-content-_6_1"></a>
+<a id="user-content-ida-pro-" class="anchor" href="#ida-pro-" aria-hidden="true"><span class="octicon octicon-link"></span></a>IDA Pro <a id="user-content-_7_1"></a>
 </h3>
 
 <p>Sample IDA Pro script that comes with OpenREIL, <code>ida_translate_func.py</code>, can translate machine functions to IR code and save it into the JSON files:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">import</span> sys, os
+<div class="highlight highlight-source-python"><pre><span class="pl-k">import</span> sys, os
 <span class="pl-k">import</span> idc
 <span class="pl-k">from</span> pyopenreil.REIL <span class="pl-k">import</span> <span class="pl-k">*</span>
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> IDA
@@ -1662,7 +1798,7 @@ storage.to_file(path)</pre></div>
 <p>In other script you can use <code>from_file()</code> method of <code>REIL.CodeStorageMem</code> class to load translated instructions from JSON file and do some code analysis.</p>
 
 <h3>
-<a id="user-content-gdb-" class="anchor" href="#gdb-" aria-hidden="true"><span class="octicon octicon-link"></span></a>GDB <a id="user-content-_6_2"></a>
+<a id="user-content-gdb-" class="anchor" href="#gdb-" aria-hidden="true"><span class="octicon octicon-link"></span></a>GDB <a id="user-content-_7_2"></a>
 </h3>
 
 <p>OpenREIL translation plugin for GDB is located at <code>pyopenreil/scripts/gdb_reiltrans.py</code>, it implements <code>reiltrans</code> command that allows to generate IR for given instruction, basic block or function and print it to console or save to file.</p>
@@ -1691,7 +1827,7 @@ Symbol "fib" is at 0x8048414 in a file compiled without debugging.
 
 <p>To fetch machine instructions from GDB in your own script − just use <code>Reader</code> class from <code>pyopenreil.utils.GDB</code> module:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">import</span> gdb
+<div class="highlight highlight-source-python"><pre><span class="pl-k">import</span> gdb
 <span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> GDB
 
 <span class="pl-c"># Inferriors in GDB API are representing programs</span>
@@ -1702,7 +1838,7 @@ inferrior <span class="pl-k">=</span> gdb.selected_inferior()
 reader <span class="pl-k">=</span> GDB.Reader(ARCH_X86, inferrior)</pre></div>
 
 <h3>
-<a id="user-content-windbg-kd-cdb-" class="anchor" href="#windbg-kd-cdb-" aria-hidden="true"><span class="octicon octicon-link"></span></a>WinDbg (kd, cdb) <a id="user-content-_6_3"></a>
+<a id="user-content-windbg-kd-cdb-" class="anchor" href="#windbg-kd-cdb-" aria-hidden="true"><span class="octicon octicon-link"></span></a>WinDbg (kd, cdb) <a id="user-content-_7_3"></a>
 </h3>
 
 <p>WinDbg (and also kd, cdb and others) from Microsoft with <a href="https://pykd.codeplex.com/">pykd</a> Python bindings is also allows to use OpenREIL in similar way. </p>
@@ -1715,13 +1851,13 @@ reader <span class="pl-k">=</span> GDB.Reader(ARCH_X86, inferrior)</pre></div>
 
 <p>Machine code reader for WinDbg is located in <code>pyopenreil.utils.kd</code> module:</p>
 
-<div class="highlight highlight-python"><pre><span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> kd
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> pyopenreil.utils <span class="pl-k">import</span> kd
 
 <span class="pl-c"># create instruction reader</span>
 reader <span class="pl-k">=</span> kd.Reader(ARCH_X86)</pre></div>
 
 <h2>
-<a id="user-content-links-and-examples-" class="anchor" href="#links-and-examples-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Links and examples <a id="user-content-_7"></a>
+<a id="user-content-links-and-examples-" class="anchor" href="#links-and-examples-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Links and examples <a id="user-content-_8"></a>
 </h2>
 
 <p>I made a test program that uses OpenREIL and <a href="http://z3.codeplex.com/">Microsoft Z3</a> to implement a simple <a href="http://en.wikipedia.org/wiki/Symbolic_execution">symbolic execution</a> engine for solving <a href="https://tuts4you.com/download.php?view.3293">Kao's Toy Project crackme</a>.</p>
@@ -1731,14 +1867,15 @@ reader <span class="pl-k">=</span> kd.Reader(ARCH_X86)</pre></div>
 <code>tests/test_kao.py</code> - program source code (<a href="../master/tests/test_kao.py">link</a>).</li>
 <li>«Automated algebraic cryptanalysis with OpenREIL and Z3» - my article that explains how the program works (<a href="http://blog.cr4.sh/2015/03/automated-algebraic-cryptanalysis-with.html">link</a>).</li>
 <li>«Kao’s “Toy Project” and Algebraic Cryptanalysis» - <a href="mailto:dcodr@lavabit.com">Dcoder's</a> article with detailed description of Kao's Toy Project crackme and it's solution (<a href="https://dl.dropboxusercontent.com/u/22903093/blog/openreil-kao-crackme/solution.pdf">PDF</a>).</li>
+<li>«CONFidence CTF 2015: Reversing 400 "Deobfuscate Me" writeup» - article by <a href="http://hxp.io/about/">H4x0rPsch0rr team</a> about using OpenREIL to solve CTF task (<a href="http://hxp.io/blog/16/CONFidence%20CTF%202015:%20Reversing%20400%20%22Deobfuscate%20Me%22%20writeup/">link</a>).</li>
 </ul>
 
 <h2>
-<a id="user-content-todo-" class="anchor" href="#todo-" aria-hidden="true"><span class="octicon octicon-link"></span></a>TODO <a id="user-content-_8"></a>
+<a id="user-content-todo-" class="anchor" href="#todo-" aria-hidden="true"><span class="octicon octicon-link"></span></a>TODO <a id="user-content-_9"></a>
 </h2>
 
 <ul>
-<li>ARMv5 support (VEX and libasmir already has it).</li>
+<li>ARMv7 support (VEX and libasmir already has it).</li>
 <li>x86_64 support (VEX already has it).</li>
 <li>Floating point instructions support for x86 and x86_64.</li>
 <li>SSE instructions support for x86 and x86_64.</li>

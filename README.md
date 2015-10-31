@@ -22,12 +22,13 @@ OpenREIL is open source library that implements translator and tools for REIL (R
   - [Data flow graphs](#_5_7)
   - [Handling of unknown instructions](#_5_8)
   - [IR code emulation](#_5_9)
-+ [Using with third party tools](#_6)
-  - [IDA Pro](#_6_1)
-  - [GDB](#_6_2)
-  - [WinDbg (kd, cdb)](#_6_3)
-+ [Links and examples](#_7)
-+ [TODO](#_8)
++ [Debugging OpenREIL](#_6)
++ [Using with third party tools](#_7)
+  - [IDA Pro](#_7_1)
+  - [GDB](#_7_2)
+  - [WinDbg (kd, cdb)](#_7_3)
++ [Links and examples](#_8)
++ [TODO](#_9)
 
 
 ## About <a id="_1"></a>
@@ -48,7 +49,7 @@ OpenREIL is not a 100% compatible with Zynamics REIL, it has the same ideology a
 
 OpenREIL is based on my custom fork of libasmir &minus; IR translation library from old versions of [BAP framework](http://bap.ece.cmu.edu/). I removed some 3-rd party dependencies of libasmir (libbfd, libopcodes) and features that irrelevant to translation itself (binary files parsing, traces processing, etc.), than I did some minor refactoring/bugfixes, switched to [Capstone](http://www.capstone-engine.org/) for instruction length disassembling and implemented BAP IR &#8594; REIL translation logic on the top of libasmir. 
 
-Because libasmir uses VEX (production-quality library, part of [Valgrind](http://valgrind.org/)), full code translation sequence inside of OpenREIL is looks as binary &#8594; VEX IR &#8594; BAP IR &#8594; REIL. It's kinda ugly from engineering point of view, but it allows us to have a pretty robust and reliable support of all general instructions of x86. Current version of OpenREIL still has no support of other architectures, but I'm working on x86_64 and ARMv5.
+Because libasmir uses VEX (production-quality library, part of [Valgrind](http://valgrind.org/)), full code translation sequence inside of OpenREIL is looks as binary &#8594; VEX IR &#8594; BAP IR &#8594; REIL. It's kinda ugly from engineering point of view, but it allows us to have a pretty robust and reliable support of all general instructions of x86. Current version of OpenREIL still has no support of other architectures, but I'm working on x86_64 and ARMv7.
 
 Please note, that currently OpenREIL is a far away from stable release, so, I don't recommend you to use it for any serious purposes.
 
@@ -1477,11 +1478,153 @@ assert val_1 == val_2
 It's took around 5 seconds to execute this code, it shows that Python implementation of IR code emulator is a quite slow. I'm not sure if OpenREIL emulation features will be useful for any research purposes (it seems that no), but as was said above, it helps me a lot with translator testing.
 
 
-## Using with third party tools <a id="_6"></a>
+## Debugging OpenREIL <a id="_6"></a>
+
+OpenREIL Python and C API providies some settings to control debug information output, error messages, etc.
+
+`libopenreil` has `reil_log_init()` and `reil_log_close()` functions that declared in [libopenreil.h](../master/libopenreil/include/libopenreil.h) header file:
+
+```cpp
+/*
+    Debug information type constants for mask argument of reil_log_init()
+*/
+#define REIL_LOG_INFO   0x00000001  // regular message
+#define REIL_LOG_WARN   0x00000002  // error
+#define REIL_LOG_ERR    0x00000004  // warning
+#define REIL_LOG_BIN    0x00000008  // instruction bytes
+#define REIL_LOG_ASM    0x00000010  // instruction assembly code
+#define REIL_LOG_VEX    0x00000020  // instruction VEX code
+#define REIL_LOG_BIL    0x00000040  // instruction BAP IL code
+
+// all log messages
+#define REIL_LOG_ALL 0x7FFFFFFF
+
+// disable log messages
+#define REIL_LOG_NONE 0
+
+// by default we prints warnings, errors and info to stderr
+#define REIL_LOG_DEFAULT (LOG_INFO | LOG_WARN | LOG_ERR)
+
+...
+
+/*
+    Initialize debug log. 
+    * Individual bits of mask argument tells what kind of information
+    we need to include into the log (see REIL_LOG_* constants).
+    * Log file path can be specified in path argument, NULL value 
+    indicates that we need to print debug information only to stderr.
+*/
+int reil_log_init(uint32_t mask, const char *path);
+
+/*
+    Closes currently opened log file.
+*/
+void reil_log_close(void);
+```
+
+`pyopenreil` has similar functions `REIL.log_init()` and `REIL.log_close()`, here you can see `simple.py` Python program that uses debug output file `debug.log`:
+
+```python
+from pyopenreil.REIL import *
+from pyopenreil.utils import asm
+
+# set up debug logging
+log_init(LOG_ALL, 'debug.log')
+
+# create assembly instruction reader
+reader = asm.Reader(ARCH_X86, ( 'xchg dword ptr [esp], edx'), addr = 0)
+
+# create translator instance
+tr = CodeStorageTranslator(reader)
+
+# translate first machine instruction
+print tr.get_insn(0)
+
+# close currently opened debug log
+log_close()
+```
+
+After running this code debug output file will contain the following data:
+
+```
+------------------------ After instrumentation ------------------------
+
+IRSB {
+   t0:I32   t1:I32   t2:I32   t3:I32   t4:I32   t5:I1   t6:I32
+   ------ IMark(0x1337, 3, 0) ------
+   t2 = GET:I32(24)
+   t0 = LDle:I32(t2)
+   t1 = GET:I32(16)
+   t3 = CASle(t2::t0->t1)
+   t5 = CasCmpNE32(t3,t0)
+   if (t5) { PUT(68) = 0x1337:I32; exit-Boring }
+   PUT(16) = t0
+   PUT(68) = 0x133A:I32; exit-Boring
+}
+
+VexExpansionRatio 3 65   216 :10
+
+BIN { 00001337: 87 14 24 }
+ASM { 00001337: xchg dword ptr [esp], edx ; len = 3 }
+BAP {
+   label pc_0x1337:
+   var T_32t0:reg32_t;
+   var T_32t1:reg32_t;
+   var T_32t2:reg32_t;
+   var T_32t3:reg32_t;
+   var T_32t4:reg32_t;
+   var T_1t5:reg1_t;
+   var T_32t6:reg32_t;
+   T_32t2:reg32_t = R_ESP:reg32_t;
+   T_32t0:reg32_t = mem[T_32t2:reg32_t];
+   T_32t1:reg32_t = R_EDX:reg32_t;
+   T_32t3:reg32_t = mem[T_32t2:reg32_t];
+   cjmp((T_32t3:reg32_t<>T_32t0:reg32_t),name(L_1),name(L_0));
+   label L_0:
+   mem[T_32t2:reg32_t] = T_32t1:reg32_t;
+   label L_1:
+   T_1t5:reg1_t = (T_32t3:reg32_t<>T_32t0:reg32_t);
+   cjmp(T_1t5:reg1_t,name(pc_0x1337),name(L_2));
+   label L_2:
+   R_EDX:reg32_t = T_32t0:reg32_t;
+   // BAP label pc_0x1337 at 00001337.00
+   // BAP label L_0 at 00001337.07
+   // BAP label L_1 at 00001337.08
+   // BAP label L_2 at 00001337.0b
+}
+```
+
+As you can see, it has information about each machine instruction and it's binary, assembly, VEX IR and BIL code that might be very useful for translation errors investigation.
+
+Also, `pyopenreil` allows you to pass debug logging mask and file path to any OpenREIL program using environment variables `REIL_LOG_MASK` and `REIL_LOG_PATH`. Example:
+
+```
+$ REIL_LOG_MASK=0x7fffffff REIL_LOG_PATH=debug.log python simple.py
+```
+
+Source code of `pyopenreil` has a lot of built-in tests that uses `unittest` [unit testing framework](https://docs.python.org/2/library/unittest.html), you can run all tests using `test` make target:
+
+```
+$ make test
+```
+
+Or run all unit tests manually using `tests/run_unittest.py` program:
+
+```
+$ REIL_LOG_MASK=0x7fffffff python tests/run_unittest.py
+```
+
+Or run individual unit test:
+
+```
+$ REIL_LOG_MASK=0x7fffffff python tests/run_unittest.py TestArchX86.test_xchg
+```
+
+## Using with third party tools <a id="_7"></a>
 
 Most of examples in this document was focused on using OpenREIL to develop stand-alone code analysis tools, but it's also possible to use it with any existing reverse engineering tool that supports Python scripting. OpenREIL has build-in support of IDA Pro, GDB and WinDbg as machine code sources.
 
-### IDA Pro <a id="_6_1"></a>
+### IDA Pro <a id="_7_1"></a>
 
 Sample IDA Pro script that comes with OpenREIL, `ida_translate_func.py`, can translate machine functions to IR code and save it into the JSON files:
 
@@ -1525,7 +1668,7 @@ To use this script run «File» &#8594; «Script File» (Alt-F7) IDA command and
 In other script you can use `from_file()` method of `REIL.CodeStorageMem` class to load translated instructions from JSON file and do some code analysis.
 
 
-### GDB <a id="_6_2"></a>
+### GDB <a id="_7_2"></a>
 
 OpenREIL translation plugin for GDB is located at `pyopenreil/scripts/gdb_reiltrans.py`, it implements `reiltrans` command that allows to generate IR for given instruction, basic block or function and print it to console or save to file.
 
@@ -1567,7 +1710,7 @@ reader = GDB.Reader(ARCH_X86, inferrior)
 ```
 
 
-### WinDbg (kd, cdb) <a id="_6_3"></a>
+### WinDbg (kd, cdb) <a id="_7_3"></a>
 
 WinDbg (and also kd, cdb and others) from Microsoft with [pykd](https://pykd.codeplex.com/) Python bindings is also allows to use OpenREIL in similar way. 
 
@@ -1587,18 +1730,19 @@ reader = kd.Reader(ARCH_X86)
 ```
 
 
-## Links and examples <a id="_7"></a>
+## Links and examples <a id="_8"></a>
 
 I made a test program that uses OpenREIL and [Microsoft Z3](http://z3.codeplex.com/) to implement a simple [symbolic execution](http://en.wikipedia.org/wiki/Symbolic_execution) engine for solving [Kao's Toy Project crackme](https://tuts4you.com/download.php?view.3293).
 
 * `tests/test_kao.py` - program source code ([link](../master/tests/test_kao.py)).
 * «Automated algebraic cryptanalysis with OpenREIL and Z3» - my article that explains how the program works ([link](http://blog.cr4.sh/2015/03/automated-algebraic-cryptanalysis-with.html)).
 * «Kao’s “Toy Project” and Algebraic Cryptanalysis» - [Dcoder's](mailto:dcodr@lavabit.com) article with detailed description of Kao's Toy Project crackme and it's solution ([PDF](https://dl.dropboxusercontent.com/u/22903093/blog/openreil-kao-crackme/solution.pdf)).
+* «CONFidence CTF 2015: Reversing 400 "Deobfuscate Me" writeup» - article by [H4x0rPsch0rr team](http://hxp.io/about/) about using OpenREIL to solve CTF task ([link](http://hxp.io/blog/16/CONFidence%20CTF%202015:%20Reversing%20400%20%22Deobfuscate%20Me%22%20writeup/)).
 
 
-## TODO <a id="_8"></a>
+## TODO <a id="_9"></a>
 
-* ARMv5 support (VEX and libasmir already has it).
+* ARMv7 support (VEX and libasmir already has it).
 * x86_64 support (VEX already has it).
 * Floating point instructions support for x86 and x86_64.
 * SSE instructions support for x86 and x86_64.
