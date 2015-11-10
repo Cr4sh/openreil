@@ -278,6 +278,36 @@ Stmt *arm_translate_put(bap_context_t *context, IRStmt *stmt, IRSB *irbb, vector
     return translate_put_reg_32(offset, data, irbb);
 }
 
+void arm_translate_ccall_args(bap_context_t *context, IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
+{
+    // we need it for cleanup of CCall arguments
+    Internal *intr = new Internal(INTERNAL_VEX_FN_ARG_LIST, sizeof(internal_vex_fn_arg_list));
+    assert(intr);
+
+    // get pointer to arguments list structure
+    internal_vex_fn_arg_list *arg_list = (internal_vex_fn_arg_list *)intr->data;
+    assert(arg_list);
+
+    // enumerate VEX function arguments
+    for (int i = 0; i < 4; i++)
+    {
+        IRExpr *arg = expr->Iex.CCall.args[i];
+
+        // check for Temp argument
+        if (arg->tag == Iex_RdTmp) 
+        {
+            IRTemp temp_arg = arg->Iex.RdTmp.tmp;
+
+            arg_list->args[arg_list->count].temp = temp_arg;
+            arg_list->args[arg_list->count].type = translate_tmp_type(context, irbb, arg);
+
+            arg_list->count += 1;
+        }
+    }
+
+    irout->push_back(intr);
+}
+
 Exp *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout)
 {
     assert(expr);
@@ -383,7 +413,6 @@ Exp *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vecto
 
         case ARMCondVS:
 
-            return new Constant(REG_32, 0);
             result = ecl(VF);
             break;
 
@@ -437,32 +466,36 @@ Exp *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vecto
             panic("Unrecognized condition for armg_calculate_condition");
         }
 
-        // we need it for cleanup armg_calculate_condition arguments computations
-        Internal *intr = new Internal(INTERNAL_VEX_FN_ARG_LIST, sizeof(internal_vex_fn_arg_list));
-        assert(intr);
+        // create Internal with CCall arguments information
+        arm_translate_ccall_args(context, expr, irbb, irout);
+    }
+    else if (func == "armg_calculate_flag_n")
+    {
+        // create Internal with CCall arguments information
+        arm_translate_ccall_args(context, expr, irbb, irout);
 
-        // get pointer to arguments list structure
-        internal_vex_fn_arg_list *arg_list = (internal_vex_fn_arg_list *)intr->data;
-        assert(arg_list);
+        result = ex_u_cast(NF, REG_32);
+    }
+    else if (func == "armg_calculate_flag_z")
+    {
+        // create Internal with CCall arguments information
+        arm_translate_ccall_args(context, expr, irbb, irout);
 
-        // enumerate VEX function arguments
-        for (int i = 0; i < 4; i++)
-        {
-            IRExpr *arg = expr->Iex.CCall.args[i];
+        result = ex_u_cast(ZF, REG_32);
+    }
+    else if (func == "armg_calculate_flag_c")
+    {
+        // create Internal with CCall arguments information
+        arm_translate_ccall_args(context, expr, irbb, irout);
 
-            // check for Temp argument
-            if (arg->tag == Iex_RdTmp) 
-            {
-                IRTemp temp_arg = arg->Iex.RdTmp.tmp;
+        result = ex_u_cast(CF, REG_32);
+    }
+    else if (func == "armg_calculate_flag_v")
+    {
+        // create Internal with CCall arguments information
+        arm_translate_ccall_args(context, expr, irbb, irout);
 
-                arg_list->args[arg_list->count].temp = temp_arg;
-                arg_list->args[arg_list->count].type = translate_tmp_type(context, irbb, arg);
-
-                arg_list->count += 1;
-            }
-        }
-
-        irout->push_back(intr);
+        result = ex_u_cast(VF, REG_32);
     }
     else
     {
@@ -807,3 +840,7 @@ void arm_modify_flags(bap_context_t *context, bap_block_t *block)
     }
 }
 
+void arm_modify_itstate(bap_context_t *context, bap_block_t *block)
+{
+    // ...
+}

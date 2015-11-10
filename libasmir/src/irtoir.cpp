@@ -34,8 +34,11 @@ string sTag = "Skipped: ";
 //======================================================================
 Exp *emit_mux0x(vector<Stmt *> *irout, reg_t type, Exp *cond, Exp *exp0, Exp *expX);
 void insert_specials(bap_context_t *context, bap_block_t *block);
-void track_flag_thunks(bap_context_t *context, bap_block_t *block);
+
+void track_itstate(bap_context_t *context, bap_block_t *block);
+void track_flags(bap_context_t *context, bap_block_t *block);
 void modify_flags(bap_context_t *context, bap_block_t *block);
+
 void do_cleanups_before_processing(bap_context_t *context);
 
 
@@ -993,8 +996,10 @@ Exp *translate_const(bap_context_t *context, IRExpr *expr)
         value = co->Ico.U64;
         break;
 
+    //
     // Not sure what the diff here is, VEX comments say F64 is IEEE754 floating
-    // and F64i is 64 bit unsigned int interpreted literally at IEEE754 double
+    // and F64i is 64 bit unsigned int interpreted literally at IEEE754 double.
+    //
     case Ico_F64: //  width = I64;   value.floatval = co->Ico.F64;   kind = REG_FLOAT; break;
     case Ico_F64i: // width = I64;   value.floatval = co->Ico.F64i;  kind = REG_FLOAT; break;
     
@@ -1689,7 +1694,7 @@ Exp *emit_mux0x(vector<Stmt *> *irout, reg_t type,
                                                 new UnOp(NOT,
                                                         widened_cond)))));
 
-#else // def MUX_AS_CJMP
+#else // MUX_AS_CJMP
 
     Label *labelX = mk_label();
     Label *done = mk_label();
@@ -2390,7 +2395,7 @@ void insert_specials(bap_context_t *context, bap_block_t *block)
     }
 }
 
-void track_flag_thunks(bap_context_t *context, bap_block_t *block)
+void track_flags(bap_context_t *context, bap_block_t *block)
 {
     vector<Stmt *> *ir = block->bap_ir;
     int opi = -1, dep1 = -1, dep2 = -1, ndep = -1, mux0x = -1;
@@ -2419,6 +2424,11 @@ void track_flag_thunks(bap_context_t *context, bap_block_t *block)
             context->flag_thunks.op = op_const->val;
         }
     }
+}
+
+void track_itstate(bap_context_t *context, bap_block_t *block)
+{
+    // ...
 }
 
 bap_context_t *init_bap_context(VexArch guest)
@@ -2460,10 +2470,19 @@ void generate_bap_ir(bap_context_t *context, bap_block_t *block)
         insert_specials(context, block);
 
         // Track current value of CC_OP guest register
-        track_flag_thunks(context, block);
+        track_flags(context, block);
+
+        // Track current value of ITSTATE guest register
+        track_itstate(context, block);
 
         // Go through the block and add on eflags modifications
         modify_flags(context, block);
+
+        if (context->guest == VexArchARM)
+        {
+            // Replace ITSTATE assignments with proper IR code
+            arm_modify_itstate(context, block);
+        }
 
         // Delete EFLAGS get thunks
         if (!use_eflags_thunks)

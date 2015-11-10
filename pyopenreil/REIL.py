@@ -2563,14 +2563,14 @@ class CodeStorageTranslator(CodeStorage):
         self.translator = translator.Translator(arch, log_path = log_path, \
                                                       log_mask = log_mask)
 
-        self.translator_postprocess = [ self.postprocess_cjmp, 
-                                        self.postprocess_xchg,
-                                        self.postprocess_unknown ]        
+        self.translator_postprocess = [ self._postprocess_cjmp, 
+                                        self._postprocess_xchg,
+                                        self._postprocess_unknown ]        
         self.arch = get_arch(arch)        
         self.storage = CodeStorageMem(arch) if storage is None else storage
         self.reader = reader
 
-    def postprocess_cjmp(self, addr, insn_list):
+    def _postprocess_cjmp(self, addr, insn_list):
         ''' Represent Cjmp + Jmp (libasmir artifact) as Not + Cjmp. '''
 
         if len(insn_list) > 2 and \
@@ -2599,7 +2599,7 @@ class CodeStorageTranslator(CodeStorage):
 
         return insn_list
 
-    def postprocess_xchg(self, addr, insn_list):
+    def _postprocess_xchg(self, addr, insn_list):
         ''' VEX uses loop with compare-and-swap statement to represent 
             atomic xchg operation of x86 which is total overkill:
 
@@ -2693,7 +2693,7 @@ class CodeStorageTranslator(CodeStorage):
         # serialize instructions list back
         return map(lambda insn: insn.serialize(), ret)
 
-    def postprocess_unknown(self, addr, insn_list):
+    def _postprocess_unknown(self, addr, insn_list):
         ''' Convert untranslated instruction representation into the 
             single I_NONE IR instruction and save operands information
             as it's attributes. '''
@@ -3008,6 +3008,27 @@ class TestArchArm(unittest.TestCase):
     def setUp(self):        
 
         pass
+
+    def test_asm_thumb(self):
+
+        from pyopenreil.utils import asm
+
+        code = (
+            'push    {r7}',
+            'cmp     r0, #0',
+            'ittee   eq',
+            'moveq   r1, #1', # if r0 == 0
+            'moveq   r2, #1', # if r0 == 0
+            'movne   r1, #0', # if r0 != 0
+            'movne   r2, #0', # if r0 != 0
+            'pop     {r7}',
+            'mov     pc, lr' )
+
+        reader = asm.Reader(self.arch, code, thumb = True)
+        tr = CodeStorageTranslator(reader)        
+
+        print repr(reader.data)
+        print tr.get_func(tr.arm_thumb(0))
 
     def test_asm_arm(self):
 

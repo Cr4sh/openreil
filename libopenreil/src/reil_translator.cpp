@@ -1058,6 +1058,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     }        
     else
     {
+        printf("!!! %d %s\n", exp->exp_type, exp->tostring().c_str());
         reil_assert(0, "unexpected expression");
     }
 
