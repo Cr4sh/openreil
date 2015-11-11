@@ -59,7 +59,7 @@ private:
     bool get_bil_label(string name, reil_addr_t *addr);
     Stmt *get_bil_stmt(int pos);
 
-    void check_cjmp_false_target(Exp *target);
+    bool is_next_insn_label(Exp *target);
     
     void process_binop_arshift(reil_inst_t *reil_inst);
     void process_binop_neq(reil_inst_t *reil_inst);

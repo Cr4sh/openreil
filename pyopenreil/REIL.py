@@ -2753,15 +2753,9 @@ class CodeStorageTranslator(CodeStorage):
     def get_insn(self, ir_addr):        
 
         ir_addr = ir_addr if isinstance(ir_addr, tuple) else (ir_addr, None)
-        addr, inum, arm_thumb = ir_addr[0], ir_addr[1], 0
+        addr, inum = ir_addr
 
-        if self.arch == arm:
-
-            # clear least significant bit of instruction address in case of ARM
-            arm_addr, arm_thumb = self._arm_addr_decode(ir_addr[0])
-            ir_addr = ( arm_addr, inum )
-
-        try:             
+        try:
 
             # query already translated IR instructions for this address
             return self.storage.get_insn(ir_addr)
@@ -2770,12 +2764,25 @@ class CodeStorageTranslator(CodeStorage):
 
             pass
 
-        mem_addr = ir_addr[0]
-        if self.reader is None: raise ReadError(mem_addr)
+        if self.arch == arm:
+
+            #
+            # We need to clear least significant bit of instruction address 
+            # in case of ARM Thumb mode.
+            #
+            real_addr, _ = self._arm_addr_decode(ir_addr[0])
+
+            ir_addr = ( real_addr, inum )   
+
+        else:     
+
+            real_addr = addr
+
+        if self.reader is None: raise ReadError(real_addr)
 
         # read instruction bytes from memory
-        data = self.reader.read_insn(mem_addr)
-        if data is None: raise ReadError(mem_addr)
+        data = self.reader.read_insn(real_addr)
+        if data is None: raise ReadError(real_addr)
 
         #
         # Translate to REIL.
@@ -2783,7 +2790,7 @@ class CodeStorageTranslator(CodeStorage):
         # a memory address with thumb enabled/disabled bit included.
         #
         ret = InsnList()
-
+        
         for insn in self.translate_insn(data, addr):
 
             # save translated instructions
@@ -3038,7 +3045,7 @@ class TestArchArm(unittest.TestCase):
             'push    {r7}',
             'cmp     r0, #0',
             'moveq   r1, #1', # if r0 == 0
-            'moveq   r2, #1', # if r0 == 0
+            'moveq   r2, #1', # if r0 == 0            
             'movne   r1, #0', # if r0 != 0
             'movne   r2, #0', # if r0 != 0
             'pop     {r7}',

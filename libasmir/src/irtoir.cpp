@@ -93,7 +93,7 @@ void modify_eflags_helper(bap_context_t *context, string op, reg_t type, vector<
     // These will have the indices of the CC_OP stmts
     int opi, dep1, dep2, ndep, mux0x;
     opi = dep1 = dep2 = ndep = mux0x = -1;
-    get_thunk_index(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
+    get_put_thunk(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
 
     if (opi >= 0)
     {
@@ -491,7 +491,7 @@ int del_put_thunk(vector<Stmt *> *ir, string mnemonic, int opi, int dep1, int de
     return ret;
 }
 
-void get_thunk_index(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *ndep, int *mux0x)
+void get_put_thunk(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *ndep, int *mux0x)
 {
     assert(ir);
 
@@ -503,12 +503,19 @@ void get_thunk_index(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *nde
     {
         Stmt *stmt = ir->at(i);
 
-        if (stmt->stmt_type != MOVE || ((Move *)stmt)->lhs->exp_type != TEMP)
+        if (stmt->stmt_type != MOVE)
         {
             continue;
         }
 
-        Temp *temp = (Temp *)((Move *)stmt)->lhs;
+        Move *move = (Move *)stmt;
+
+        if (move->lhs->exp_type != TEMP)
+        {
+            continue;
+        }
+
+        Temp *temp = (Temp *)move->lhs;
 
         if (temp->name.find("CC_OP") != string::npos)
         {
@@ -530,6 +537,70 @@ void get_thunk_index(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *nde
         else if (temp->name.find("CC_NDEP") != string::npos)
         {
             *ndep = i;
+        }
+    }
+}
+
+void del_get_itstate(bap_block_t *block)
+{
+    assert(block);
+
+    if (!i386_op_is_very_broken(block->str_mnem)) 
+    {       
+        vector<string> names;
+
+        names.push_back("R_ITSTATE");
+
+        // delete ITSTATE operations
+        del_stmt(block->bap_ir, DEL_STMT_RHS, true, names);    
+    }    
+}
+
+void del_put_itstate(bap_block_t *block)
+{
+    assert(block);
+
+    if (!i386_op_is_very_broken(block->str_mnem)) 
+    {       
+        vector<string> names;
+
+        names.push_back("R_ITSTATE");
+
+        // delete ITSTATE operations
+        del_stmt(block->bap_ir, DEL_STMT_LHS, true, names);    
+    }    
+}
+
+void get_put_itstate(vector<Stmt *> *ir, int *itstate)
+{
+    assert(ir);
+
+    unsigned int i;
+
+    *itstate = -1;
+
+    // Look for occurrence of ITSTATE assignment
+    for (i = 0; i < ir->size(); i++)
+    {
+        Stmt *stmt = ir->at(i);
+
+        if (stmt->stmt_type != MOVE)
+        {
+            continue;
+        }
+
+        Move *move = (Move *)stmt;
+
+        if (move->lhs->exp_type != TEMP)
+        {
+            continue;
+        }
+
+        Temp *temp = (Temp *)move->lhs;        
+
+        if (temp->name.find("R_ITSTATE") != string::npos)
+        {
+            *itstate = i;
         }
     }
 }
@@ -2402,7 +2473,7 @@ void track_flags(bap_context_t *context, bap_block_t *block)
 
     // Look for occurrence of CC_OP assignment
     // These will have the indices of the CC_OP stmts    
-    get_thunk_index(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
+    get_put_thunk(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
 
     if (opi == -1)        
     {
@@ -2410,25 +2481,71 @@ void track_flags(bap_context_t *context, bap_block_t *block)
         return;
     }
 
-    Stmt *op_stmt = ir->at(opi);
+    Stmt *stmt = ir->at(opi);
 
-    if (op_stmt->stmt_type == MOVE)
+    if (stmt->stmt_type == MOVE)
     {
-        Move *op_mov = (Move *)op_stmt;
+        Move *move = (Move *)stmt;
 
-        if (op_mov->rhs->exp_type == CONSTANT)
+        if (move->rhs->exp_type == CONSTANT)
         {
-            Constant *op_const = (Constant *)op_mov->rhs;
+            Constant *constant = (Constant *)move->rhs;
             
             // save CC_OP value
-            context->flag_thunks.op = op_const->val;
+            context->flag_thunks.op = constant->val;
         }
     }
 }
 
 void track_itstate(bap_context_t *context, bap_block_t *block)
 {
-    // ...
+    vector<Stmt *> *ir = block->bap_ir;
+    int n = -1;
+
+    // Look for occurrence of ITSTATE assignment
+    get_put_itstate(ir, &n);
+
+    if (n == -1)        
+    {
+        // doesn't set ITSTATE
+        return;
+    }
+
+    Stmt *stmt = ir->at(n);
+
+    if (stmt->stmt_type == MOVE)
+    {
+        Move *move = (Move *)stmt;
+
+        if (move->rhs->exp_type == CONSTANT)
+        {
+            Constant *constant = (Constant *)move->rhs;
+            uint32_t itstate = (uint32_t)constant->val;
+
+            if (context->itstate != 0)
+            {
+                if (itstate != 0)
+                {
+                    panic("track_itstate(): Unexpected R_ITSTATE assignment");
+                }
+
+                // update instruction with actual ITSTATE value
+                constant->val = (uint64_t)context->itstate;
+
+                // go to the next ITSTATE lane
+                context->itstate = context->itstate >> 8;
+            }    
+            else                 
+            {
+                context->itstate = itstate;
+
+                if (itstate != 0)
+                {
+                    constant->val = 0;                    
+                }
+            }            
+        }
+    }
 }
 
 bap_context_t *init_bap_context(VexArch guest)

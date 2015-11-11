@@ -1058,7 +1058,6 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     }        
     else
     {
-        printf("!!! %d %s\n", exp->exp_type, exp->tostring().c_str());
         reil_assert(0, "unexpected expression");
     }
 
@@ -1182,7 +1181,7 @@ Exp *CReilFromBilTranslator::process_bil_inst(reil_op_t inst, uint64_t inst_flag
     return c;
 }
 
-void CReilFromBilTranslator::check_cjmp_false_target(Exp *target)
+bool CReilFromBilTranslator::is_next_insn_label(Exp *target)
 {
     if (target->exp_type != NAME)
     {
@@ -1201,8 +1200,10 @@ void CReilFromBilTranslator::check_cjmp_false_target(Exp *target)
     // match next label name with the cjmp target name
     if (label->label != name->name)
     {
-        reil_assert(0, "check_cjmp_false_target(): unexpected label");   
+        return false;
     }
+
+    return true;
 }
 
 void CReilFromBilTranslator::process_bil_stmt(Stmt *s, uint64_t inst_flags)
@@ -1267,7 +1268,7 @@ void CReilFromBilTranslator::process_bil_stmt(Stmt *s, uint64_t inst_flags)
         {            
             // conditional jump statement
             CJmp *cjmp = (CJmp *)s;
-            Exp *target = cjmp->t_target;            
+            Exp *target = cjmp->t_target, *target_tmp = NULL;
             Exp *cond = cjmp->cond, *cond_tmp = NULL;            
 
             if (cond->exp_type != TEMP)
@@ -1276,10 +1277,30 @@ void CReilFromBilTranslator::process_bil_stmt(Stmt *s, uint64_t inst_flags)
                 cond = cond_tmp = process_bil_inst(I_STR, 0, tmp, cond);
             }
 
-            // verify that false target points to the next BAP instruction
-            check_cjmp_false_target(cjmp->f_target);
+            if (is_next_insn_label(cjmp->t_target))
+            {
+                if (is_next_insn_label(cjmp->f_target))
+                {
+                    reil_assert(0, "Unexpected CJMP target");
+                }
+
+                // swap conditional jump true and false targets
+                Exp *tmp = temp_operand(REG_1, inst_count);
+                cond = target_tmp = process_bil_inst(I_STR, 0, tmp, new UnOp(NOT, cond));
+
+                target = cjmp->f_target;
+            }
+            else
+            {
+                target = cjmp->t_target;
+            }
 
             process_bil_inst(I_JCC, inst_flags | IOPT_BB_END, target, cond);
+
+            if (target_tmp)
+            {
+                free_bil_exp(target_tmp);
+            }
 
             if (cond_tmp)
             {

@@ -59,6 +59,9 @@ struct bap_context_s
 
     // to keep current values of VEX flag thunk descriptors
     flag_thunks_t flag_thunks;
+
+    // to keep current value of ITSTATE register
+    uint32_t itstate;
 };
 
 //======================================================================

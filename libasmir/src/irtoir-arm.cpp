@@ -739,7 +739,7 @@ void arm_modify_flags(bap_context_t *context, bap_block_t *block)
 
     // Look for occurrence of CC_OP assignment
     // These will have the indices of the CC_OP stmts
-    get_thunk_index(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
+    get_put_thunk(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
 
     if (opi == -1)        
     {
@@ -747,100 +747,170 @@ void arm_modify_flags(bap_context_t *context, bap_block_t *block)
         return;
     }
 
-    Stmt *op_stmt = ir->at(opi);
-    bool got_op = false;
+    Stmt *stmt = ir->at(opi);
     int op = 0;
 
-    if (op_stmt->stmt_type == MOVE)
+    if (stmt->stmt_type == MOVE)
     {
-        Move *op_mov = (Move *)op_stmt;
+        Move *move = (Move *)stmt;
 
-        if (!(op_mov->rhs->exp_type == CONSTANT))
+        if (move->rhs->exp_type == CONSTANT)
         {
-            got_op = false;
+            Constant *constant = (Constant *)move->rhs;
+
+            op = (int)constant->val;
         }
         else
         {
-            Constant *op_const = (Constant *)op_mov->rhs;
-            op = op_const->val;
-            got_op = true;
+            return;       
         }
     }
-
-    if (got_op)
+    else
     {
-        Mod_Func_0 *cb = NULL;
-        int num_params = 0;
+        return;       
+    }
 
-        switch (op) 
-        {
-        case ARMG_CC_OP_COPY: 
+    Mod_Func_0 *cb = NULL;
+    int num_params = 0;
 
-            num_params = 2;
-            cb = (Mod_Func_0 *)mod_eflags_copy;
-            break;
+    switch (op) 
+    {
+    case ARMG_CC_OP_COPY: 
+
+        num_params = 2;
+        cb = (Mod_Func_0 *)mod_eflags_copy;
+        break;
+    
+    case ARMG_CC_OP_ADD: 
         
-        case ARMG_CC_OP_ADD: 
-            
-            num_params = 2;
-            cb = (Mod_Func_0 *)mod_eflags_add;
-            break;
-          
-        case ARMG_CC_OP_SUB: 
-            
-            num_params = 2;
-            cb = (Mod_Func_0 *)mod_eflags_sub;
-            break;
+        num_params = 2;
+        cb = (Mod_Func_0 *)mod_eflags_add;
+        break;
+      
+    case ARMG_CC_OP_SUB: 
+        
+        num_params = 2;
+        cb = (Mod_Func_0 *)mod_eflags_sub;
+        break;
 
-        case ARMG_CC_OP_ADC: 
-            
-            num_params = 3;
-            cb = (Mod_Func_0 *)mod_eflags_adc;
-            break;
+    case ARMG_CC_OP_ADC: 
+        
+        num_params = 3;
+        cb = (Mod_Func_0 *)mod_eflags_adc;
+        break;
 
-        case ARMG_CC_OP_SBB: 
-            
-            num_params = 3;
-            cb = (Mod_Func_0 *)mod_eflags_sbb;
-            break;
-          
-        case ARMG_CC_OP_LOGIC: 
-            
-            num_params = 3;
-            cb = (Mod_Func_0 *)mod_eflags_logic;
-            break;
+    case ARMG_CC_OP_SBB: 
+        
+        num_params = 3;
+        cb = (Mod_Func_0 *)mod_eflags_sbb;
+        break;
+      
+    case ARMG_CC_OP_LOGIC: 
+        
+        num_params = 3;
+        cb = (Mod_Func_0 *)mod_eflags_logic;
+        break;
 
-        case ARMG_CC_OP_MUL: 
-            
-            num_params = 2;
-            cb = (Mod_Func_0 *)mod_eflags_umul;
-            break;
+    case ARMG_CC_OP_MUL: 
+        
+        num_params = 2;
+        cb = (Mod_Func_0 *)mod_eflags_umul;
+        break;
 
-        case ARMG_CC_OP_MULL: 
-            
-            num_params = 3;
-            cb = (Mod_Func_0 *)mod_eflags_umull;
-            break;
+    case ARMG_CC_OP_MULL: 
+        
+        num_params = 3;
+        cb = (Mod_Func_0 *)mod_eflags_umull;
+        break;
 
-        default:
-         
-            panic("unhandled cc_op!");
-        }
+    default:
+     
+        panic("unhandled cc_op!");
+    }
 
-        if (cb)
-        {
-            string op = block->str_mnem;
+    if (cb)
+    {
+        string op = block->str_mnem;
 
-            modify_eflags_helper(context, op, REG_32, ir, num_params, cb);
-        }
-        else
-        {
-            panic("eflags handler is not set!");   
-        }
+        modify_eflags_helper(context, op, REG_32, ir, num_params, cb);
+    }
+    else
+    {
+        panic("eflags handler is not set!");   
     }
 }
 
 void arm_modify_itstate(bap_context_t *context, bap_block_t *block)
 {
-    // ...
+    assert(block);
+
+    vector<Stmt *> *ir = block->bap_ir;
+    int n = -1;
+
+    // Look for occurrence of ITSTATE assignment
+    get_put_itstate(ir, &n);
+
+    if (n == -1)        
+    {
+        // doesn't set ITSTATE
+        return;
+    }
+
+    Stmt *stmt = ir->at(n);
+    uint32_t itstate = 0;
+
+    if (stmt->stmt_type == MOVE)
+    {
+        Move *move = (Move *)stmt;
+
+        if (move->rhs->exp_type == CONSTANT)
+        {
+            Constant *constant = (Constant *)move->rhs;
+
+            itstate = (uint32_t)constant->val;
+        }
+    }
+
+    // delete statements that sets ITSTATE
+    del_put_itstate(block);
+
+    if (itstate == 0)
+    {
+        // current instruction is outside of the IT block
+        return;
+    }
+
+    // get condition type from current ITSTATE lane
+    uint8_t lane = (uint8_t)itstate;    
+
+    ARMCondcode cond = (ARMCondcode)(((lane >> 4) & 0xF) ^ 0xE);
+
+    Exp *result = NULL;
+    Temp *ZF = mk_reg("ZF", REG_1);
+
+    switch (cond)
+    {
+    case ARMCondEQ:
+
+        result = ex_not(ZF);
+        break;
+
+    case ARMCondNE:
+
+        result = ecl(ZF);
+        break;
+
+    default:
+
+        panic("arm_modify_itstate(): Unexpected condition");
+    }
+
+    Name *name = mk_dest_name(context->inst + context->inst_size);
+    Label *label = mk_label();
+
+    // insert conditional jump for IT block
+    ir->insert(ir->begin() + 1, label);
+    ir->insert(ir->begin() + 1, new CJmp(result, name, new Name(label->label)));
+
+    delete ZF;
 }

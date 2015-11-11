@@ -63,6 +63,9 @@ Temp *mk_temp(string name, IRType ty);
 Temp *mk_temp(reg_t type, vector<Stmt *> *stmts);
 Temp *mk_temp(IRType ty, vector<Stmt *> *stmts);
 
+Label *mk_dest_label(Addr64 dest);
+Name *mk_dest_name(Addr64 dest);
+
 Exp *translate_expr(bap_context_t *context, IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout);
 
 int match_mux0x(vector<Stmt *> *ir, unsigned int i, Exp **cond, Exp **exp0,	Exp **expx, Exp **res);
@@ -86,9 +89,14 @@ void modify_eflags_helper(bap_context_t *context, string op, reg_t type, vector<
 
 // defined in irtoir.cpp
 void set_flag(vector<Stmt *> *irout, reg_t type, Temp *flag, Exp *cond);
+
 void del_get_thunk(bap_block_t *block);
 int del_put_thunk(vector<Stmt *> *ir, string mnemonic, int opi, int dep1, int dep2, int ndep, int mux0x);
-void get_thunk_index(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *ndep, int *mux0x);
+void get_put_thunk(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *ndep, int *mux0x);
+
+void del_get_itstate(bap_block_t *block);
+void del_put_itstate(bap_block_t *block);
+void get_put_itstate(vector<Stmt *> *ir, int *itstate);
 
 // defined in irtoir-i386.cpp
 vector<VarDecl *> i386_get_reg_decls();
