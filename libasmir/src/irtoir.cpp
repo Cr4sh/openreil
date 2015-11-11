@@ -545,30 +545,24 @@ void del_get_itstate(bap_block_t *block)
 {
     assert(block);
 
-    if (!i386_op_is_very_broken(block->str_mnem)) 
-    {       
-        vector<string> names;
+    vector<string> names;
 
-        names.push_back("R_ITSTATE");
+    names.push_back("R_ITSTATE");
 
-        // delete ITSTATE operations
-        del_stmt(block->bap_ir, DEL_STMT_RHS, true, names);    
-    }    
+    // delete ITSTATE operations
+    del_stmt(block->bap_ir, DEL_STMT_RHS, true, names);    
 }
 
 void del_put_itstate(bap_block_t *block)
 {
     assert(block);
+    
+    vector<string> names;
 
-    if (!i386_op_is_very_broken(block->str_mnem)) 
-    {       
-        vector<string> names;
+    names.push_back("R_ITSTATE");
 
-        names.push_back("R_ITSTATE");
-
-        // delete ITSTATE operations
-        del_stmt(block->bap_ir, DEL_STMT_LHS, true, names);    
-    }    
+    // delete ITSTATE operations
+    del_stmt(block->bap_ir, DEL_STMT_LHS, true, names);    
 }
 
 void get_put_itstate(vector<Stmt *> *ir, int *itstate)
@@ -2599,6 +2593,9 @@ void generate_bap_ir(bap_context_t *context, bap_block_t *block)
         {
             // Replace ITSTATE assignments with proper IR code
             arm_modify_itstate(context, block);
+
+            // Replace ITSTATE assignments with proper IR code
+            arm_modify_itstate_cond(context, block);
         }
 
         // Delete EFLAGS get thunks

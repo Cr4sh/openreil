@@ -688,7 +688,7 @@ void CReilFromBilTranslator::process_binop_gt(reil_inst_t *reil_inst)
     process_binop_neq(&new_inst);
 
     process_reil_inst(&new_inst);
-    reil_inst->inum += 1;
+    reil_inst->inum = new_inst.inum + 1;
 
     Exp *tmp_1 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
 
@@ -725,7 +725,7 @@ void CReilFromBilTranslator::process_binop_ge(reil_inst_t *reil_inst)
     convert_operand(tmp_0, &new_inst.c);
 
     process_reil_inst(&new_inst);
-    reil_inst->inum += 1;
+    reil_inst->inum = new_inst.inum + 1;
 
     Exp *tmp_1 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
 
@@ -737,7 +737,7 @@ void CReilFromBilTranslator::process_binop_ge(reil_inst_t *reil_inst)
     process_binop_gt(&new_inst);
 
     process_reil_inst(&new_inst);
-    reil_inst->inum += 1;
+    reil_inst->inum = new_inst.inum + 1;
 
     // OR tmp_0, tmp_1, c
     reil_inst->op = I_OR;   

@@ -113,5 +113,6 @@ Stmt *arm_translate_put(bap_context_t *context, IRStmt *stmt, IRSB *irbb, vector
 Exp  *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout);
 void arm_modify_flags(bap_context_t *context, bap_block_t *block);
 void arm_modify_itstate(bap_context_t *context, bap_block_t *block);
+void arm_modify_itstate_cond(bap_context_t *context, bap_block_t *block);
 
 #endif

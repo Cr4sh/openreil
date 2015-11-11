@@ -2607,27 +2607,35 @@ void i386_modify_flags(bap_context_t *context, bap_block_t *block)
         return;
     }
 
-    Stmt *stmt = ir->at(opi);
-    Constant *constant = NULL;
+    Stmt *op_stmt = ir->at(opi);
+    bool got_op = false;
+    int op = 0;
 
-    if (stmt->stmt_type == MOVE)
+    if (op_stmt->stmt_type == MOVE)
     {
-        Move *move = (Move *)stmt;
+        Move *op_mov = (Move *)op_stmt;
 
-        if (move->rhs->exp_type == CONSTANT)
+        if (!(op_mov->rhs->exp_type == CONSTANT))
         {
-            Constant *constant = (Constant *)move->rhs;
+            got_op = false;
+        }
+        else
+        {
+            Constant *op_const = (Constant *)op_mov->rhs;
+            op = op_const->val;
+            got_op = true;
         }
     }
 
-    if (constant)
+    if (got_op)
     {
         reg_t type;
-        string op;
+        string op_s;
+
         Mod_Func_0 *cb = NULL;
         int num_params = 0;
 
-        switch (constant->val)
+        switch (op)
         {
         case X86G_CC_OP_ADDB:
         case X86G_CC_OP_ADCB:
@@ -2690,129 +2698,129 @@ void i386_modify_flags(bap_context_t *context, bap_block_t *block)
             assert(0);
         }        
 
-        switch (constant->val)
+        switch (op)
         {
         case X86G_CC_OP_COPY:
-                    
+        
+            op_s = "copy";
             num_params = 2;
-            op = "copy";
             cb = (Mod_Func_0 *)mod_eflags_copy;
             break;
 
         case X86G_CC_OP_ADDB:
         case X86G_CC_OP_ADDW:
         case X86G_CC_OP_ADDL:
-                    
+        
+            op_s = "add";
             num_params = 2;
-            op = "add";
             cb = (Mod_Func_0 *)mod_eflags_add;
             break;
 
         case X86G_CC_OP_ADCB:
         case X86G_CC_OP_ADCW:
         case X86G_CC_OP_ADCL:
-                    
+        
+            op_s = "adc";
             num_params = 3;
-            op = "adc";
             cb = (Mod_Func_0 *)mod_eflags_adc;
             break;
 
         case X86G_CC_OP_SUBB:
         case X86G_CC_OP_SUBW:
         case X86G_CC_OP_SUBL:
-                    
+        
+            op_s = "sub";
             num_params = 2;
-            op = "sub";
             cb = (Mod_Func_0 *)mod_eflags_sub;
             break;
 
         case X86G_CC_OP_SBBB:
         case X86G_CC_OP_SBBW:
         case X86G_CC_OP_SBBL:
-                    
+        
+            op_s = "sbb";
             num_params = 3;
-            op = "sbb";
             cb = (Mod_Func_0 *)mod_eflags_sbb;
             break;
 
         case X86G_CC_OP_LOGICB:
         case X86G_CC_OP_LOGICW:
         case X86G_CC_OP_LOGICL:
-                    
+        
+            op_s = "logic";
             num_params = 2;
-            op = "logic";
             cb = (Mod_Func_0 *)mod_eflags_logic;
             break;
 
         case X86G_CC_OP_INCB:
         case X86G_CC_OP_INCW:
         case X86G_CC_OP_INCL:
-                    
+        
+            op_s = "inc";
             num_params = 3;
-            op = "inc";
             cb = (Mod_Func_0 *)mod_eflags_inc;
             break;
 
         case X86G_CC_OP_DECB:
         case X86G_CC_OP_DECW:
         case X86G_CC_OP_DECL:
-                    
+        
+            op_s = "dec";
             num_params = 3;
-            op = "dec";
             cb = (Mod_Func_0 *)mod_eflags_dec;
             break;
 
         case X86G_CC_OP_SHLB:
         case X86G_CC_OP_SHLW:
         case X86G_CC_OP_SHLL:
-                    
+        
+            op_s = "shl";
             num_params = 2;
-            op = "shl";
             cb = (Mod_Func_0 *)mod_eflags_shl;
             break;
 
         case X86G_CC_OP_SHRB:
         case X86G_CC_OP_SHRW:
         case X86G_CC_OP_SHRL:
-                    
+        
+            op_s = "shr";
             num_params = 2;
-            op = "shr";
             cb = (Mod_Func_0 *)mod_eflags_shr;
             break;
 
         case X86G_CC_OP_ROLB:
         case X86G_CC_OP_ROLW:
         case X86G_CC_OP_ROLL:
-                    
+        
+            op_s = "rol";
             num_params = 3;
-            op = "rol";
             cb = (Mod_Func_0 *)mod_eflags_rol;
             break;
 
         case X86G_CC_OP_RORB:
         case X86G_CC_OP_RORW:
         case X86G_CC_OP_RORL:
-                    
+        
+            op_s = "ror";
             num_params = 3;
-            op = "ror";
             cb = (Mod_Func_0 *)mod_eflags_ror;
             break;
 
         case X86G_CC_OP_UMULB:
         case X86G_CC_OP_UMULW:
         case X86G_CC_OP_UMULL:
-                    
+        
+            op_s = "umul";
             num_params = 2;
-            op = "umul";
             cb = (Mod_Func_0 *)mod_eflags_umul;
             break;
 
         case X86G_CC_OP_SMULB:
         case X86G_CC_OP_SMULW:
         case X86G_CC_OP_SMULL:
-                    
+        
+            op_s = "smul";
             num_params = 2;
-            op = "smul";
             cb = (Mod_Func_0 *)mod_eflags_smul;
             break;
 
@@ -2823,7 +2831,7 @@ void i386_modify_flags(bap_context_t *context, bap_block_t *block)
 
         if (cb)
         {
-            modify_eflags_helper(context, op, type, ir, num_params, cb);
+            modify_eflags_helper(context, op_s, type, ir, num_params, cb);
         }        
         else
         {

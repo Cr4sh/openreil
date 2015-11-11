@@ -886,18 +886,18 @@ void arm_modify_itstate(bap_context_t *context, bap_block_t *block)
     ARMCondcode cond = (ARMCondcode)(((lane >> 4) & 0xF) ^ 0xE);
 
     Exp *result = NULL;
-    Temp *ZF = mk_reg("ZF", REG_1);
+    Temp *ITCOND = mk_reg("ITCOND", REG_1);
 
     switch (cond)
     {
     case ARMCondEQ:
 
-        result = ex_not(ZF);
+        result = ex_not(ITCOND);
         break;
 
     case ARMCondNE:
 
-        result = ecl(ZF);
+        result = ecl(ITCOND);
         break;
 
     default:
@@ -912,5 +912,18 @@ void arm_modify_itstate(bap_context_t *context, bap_block_t *block)
     ir->insert(ir->begin() + 1, label);
     ir->insert(ir->begin() + 1, new CJmp(result, name, new Name(label->label)));
 
-    delete ZF;
+    delete ITCOND;
+}
+
+void arm_modify_itstate_cond(bap_context_t *context, bap_block_t *block)
+{
+    assert(block);
+
+    vector<Stmt *> *ir = block->bap_ir;
+
+    if (block->str_mnem.find("it") == 0)
+    {
+        ir->insert(ir->begin() + 1, new Move(mk_reg("ITCOND", REG_1),
+                                             mk_reg("ZF", REG_1)));
+    }
 }

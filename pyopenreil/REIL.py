@@ -491,7 +491,9 @@ class Insn(object):
             # jump
             elif self.op == I_JCC:
 
-                c = c if self.c.type in [ A_CONST, A_LOC ] else out_state[c]
+                if not self.c.type in [ A_CONST, A_LOC ]:
+
+                    c = out_state.get(c)
 
                 if isinstance(c, SymConst):
 
@@ -1258,8 +1260,10 @@ class Graph(object):
         # cleanup input node
         edge.node_to.in_edges.remove(edge)
 
-        # delete edge
-        self.edges.remove(edge)
+        if edge in self.edges:
+
+            # delete edge
+            self.edges.remove(edge)
 
     def to_dot_file(self, path):
 
@@ -3016,6 +3020,14 @@ class TestArchArm(unittest.TestCase):
 
         pass
 
+    def _code_optimization(self, tr, addr):
+ 
+        # construct dataflow graph for given function
+        dfg = DFGraphBuilder(tr).traverse(addr)
+        
+        # run available optimizations
+        dfg.optimize_all(storage = tr.storage)  
+
     def test_asm_thumb(self):
 
         from pyopenreil.utils import asm
@@ -3032,9 +3044,13 @@ class TestArchArm(unittest.TestCase):
             'mov     pc, lr' )
 
         reader = asm.Reader(self.arch, code, thumb = True)
-        tr = CodeStorageTranslator(reader)        
+        tr = CodeStorageTranslator(reader)   
 
         print repr(reader.data)
+        print tr.get_func(tr.arm_thumb(0))
+
+        self._code_optimization(tr, tr.arm_thumb(0))     
+
         print tr.get_func(tr.arm_thumb(0))
 
     def test_asm_arm(self):
@@ -3052,11 +3068,14 @@ class TestArchArm(unittest.TestCase):
             'mov     pc, lr' )
 
         reader = asm.Reader(self.arch, code)
-        tr = CodeStorageTranslator(reader)        
+        tr = CodeStorageTranslator(reader)   
 
         print repr(reader.data)
         print tr.get_func(0)
 
+        self._code_optimization(tr, 0)        
+
+        print tr.get_func(0)
 
 if __name__ == '__main__':
 
