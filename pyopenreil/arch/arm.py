@@ -48,7 +48,9 @@ class Registers:
            ( 'R_CC_OP', U32 ), 
            ( 'R_CC_DEP1', U32 ),  
            ( 'R_CC_DEP2', U32 ),  
-           ( 'R_CC_NDEP', U32 )
+           ( 'R_CC_NDEP', U32 ),
+
+           ( 'R_ITCOND', U1 )
         )
 
 #

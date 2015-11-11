@@ -135,6 +135,9 @@ vector<VarDecl *> arm_get_reg_decls()
     ret.push_back(new VarDecl("CC_DEP1",    r32));
     ret.push_back(new VarDecl("CC_DEP2",    r32));
 
+    // IT block condition
+    ret.push_back(new VarDecl("R_ITCOND",   r1));
+
     return ret;
 }
 
