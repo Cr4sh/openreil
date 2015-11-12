@@ -123,7 +123,7 @@ void modify_eflags_helper(bap_context_t *context, bap_block_t *block, string op,
             mods = mod_func(context, type, arg1, arg2, arg3);
         }
 
-        if (!use_eflags_thunks && !i386_op_is_very_broken(op))
+        if (!use_eflags_thunks && !i386_op_is_very_broken(context->guest, op))
         {
             // Delete the thunk
             int pos = del_put_thunk(block, opi, dep1, dep2, ndep, mux0x);
@@ -2634,7 +2634,7 @@ void generate_bap_ir(bap_context_t *context, bap_block_t *block)
         }
 
         // Delete EFLAGS get thunks
-        if (!use_eflags_thunks && !i386_op_is_very_broken(block->str_mnem))
+        if (!use_eflags_thunks && !i386_op_is_very_broken(context->guest, block->str_mnem))
         {            
             del_get_thunk(block);
         }

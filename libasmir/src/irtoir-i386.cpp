@@ -2577,17 +2577,31 @@ static vector<Stmt *> mod_eflags_smul(bap_context_t *context, reg_t type, Exp *a
  * Or, put another way, a list of operations for which the eflags code
  * is COMPLETELY BROKEN.
  */
-bool i386_op_is_very_broken(string mnemonic)
+bool i386_op_is_very_broken(VexArch guest, string mnemonic)
 {
-    if (mnemonic.find("shr", 0) == 0 || 
-        mnemonic.find("sar", 0) == 0)
-    {
-        return true;
-    }
-    else
+
+#ifndef I386_BROKEN_FLAG_THUNKS
+
+    // force to delete thunks
+    return false;
+
+#else
+
+    if (guest != VexArchX86)
     {
         return false;
     }
+
+    if (mnemonic.find("shr", 0) != 0 &&
+        mnemonic.find("sar", 0) != 0)
+    {
+        return false;
+    }
+    
+    return true;
+
+#endif
+
 }
 
 void i386_modify_flags(bap_context_t *context, bap_block_t *block)

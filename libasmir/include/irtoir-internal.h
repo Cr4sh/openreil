@@ -104,7 +104,7 @@ Exp  *i386_translate_get(bap_context_t *context, IRExpr *expr, IRSB *irbb, vecto
 Stmt *i386_translate_put(bap_context_t *context, IRStmt *stmt, IRSB *irbb, vector<Stmt *> *irout);
 Exp  *i386_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vector<Stmt *> *irout);
 void i386_modify_flags(bap_context_t *context, bap_block_t *block);
-bool i386_op_is_very_broken(string op);
+bool i386_op_is_very_broken(VexArch guest, string op);
 
 // defined in irtoir-arm.cpp
 vector<VarDecl *> arm_get_reg_decls();
