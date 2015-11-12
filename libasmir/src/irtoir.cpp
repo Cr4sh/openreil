@@ -83,16 +83,17 @@ void set_flag(vector<Stmt *> *irout, reg_t type, Temp *flag, Exp *cond)
     irout->push_back(new Move(flag, cond));
 }
 
-void modify_eflags_helper(bap_context_t *context, string op, reg_t type, vector<Stmt *> *ir, int argnum, Mod_Func_0 *mod_eflags_func)
+void modify_eflags_helper(bap_context_t *context, bap_block_t *block, string op, reg_t type, int argnum, Mod_Func_0 *mod_eflags_func)
 {
-    assert(ir);
+    assert(block);
     assert(argnum == 2 || argnum == 3);
-    assert(mod_eflags_func);
+    assert(mod_eflags_func);    
+    
+    vector<Stmt *> *ir = block->bap_ir;
+    int opi = -1, dep1 = -1, dep2 = -1, ndep = -1, mux0x = -1;
 
     // Look for occurrence of CC_OP assignment
     // These will have the indices of the CC_OP stmts
-    int opi, dep1, dep2, ndep, mux0x;
-    opi = dep1 = dep2 = ndep = mux0x = -1;
     get_put_thunk(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
 
     if (opi >= 0)
@@ -122,12 +123,21 @@ void modify_eflags_helper(bap_context_t *context, string op, reg_t type, vector<
             mods = mod_func(context, type, arg1, arg2, arg3);
         }
 
-        // Delete the thunk
-        int pos = del_put_thunk(ir, op, opi, dep1, dep2, ndep, mux0x);
-        
-        // Insert the eflags mods in this position
-        ir->insert(ir->begin() + pos, mods.begin(), mods.end());
-        ir->insert(ir->begin() + pos, new Comment("eflags thunk: " + op));
+        if (!use_eflags_thunks && !i386_op_is_very_broken(op))
+        {
+            // Delete the thunk
+            int pos = del_put_thunk(block, opi, dep1, dep2, ndep, mux0x);
+            if (pos != -1)
+            {
+                // Insert the eflags mods in this position
+                ir->insert(ir->begin() + pos, mods.begin(), mods.end());
+                ir->insert(ir->begin() + pos, new Comment("eflags thunk: " + op));
+            }
+            else
+            {
+                log_write(LOG_WARN, "del_put_thunk() fails for \"%s\"!", op.c_str());
+            }
+        }
     }
     else
     {
@@ -433,62 +443,87 @@ void del_get_thunk(bap_block_t *block)
 {
     assert(block);
 
-    if (!i386_op_is_very_broken(block->str_mnem)) 
-    {       
-        vector<string> names;
+    vector<string> names;
 
-        names.push_back("CC_OP");
-        names.push_back("CC_DEP1");
-        names.push_back("CC_DEP2");
-        names.push_back("CC_NDEP");
+    names.push_back("CC_OP");
+    names.push_back("CC_DEP1");
+    names.push_back("CC_DEP2");
+    names.push_back("CC_NDEP");
 
-        // delete get thunks
-        del_stmt(block->bap_ir, DEL_STMT_RHS, true, names);    
-    }    
+    // delete get thunks
+    del_stmt(block->bap_ir, DEL_STMT_RHS, true, names);    
 }
 
-int del_put_thunk(vector<Stmt *> *ir, string mnemonic, int opi, int dep1, int dep2, int ndep, int mux0x)
+bool del_put_thunk_mux0x(bap_block_t *block, int n, vector<string> &names)
 {
-    assert(ir);
-    assert(opi >= 0 && dep1 >= 0 && dep2 >= 0 && ndep >= 0);
+    assert(block);
 
-    vector<Stmt *> rv;
-    int ret = -1, len = 0, thunk_index = 0;
+    vector<Stmt *> *ir = block->bap_ir;
 
-    for (vector<Stmt *>::iterator i = ir->begin(); i != ir->end(); i++, thunk_index++)
+    if (match_mux0x(ir, n - MUX_SUB, NULL, NULL, NULL, NULL) >= 0)
     {
-        Stmt *stmt = (*i);
-        rv.push_back(stmt);
 
-        len++;
+#ifndef MUX_AS_CJMP
 
-        if (!i386_op_is_very_broken(mnemonic) &&
-            (thunk_index == opi || 
-             thunk_index == dep1 || thunk_index == dep2 || thunk_index == ndep))
+        // check for temp + temp + move + move + move
+        if (ir->at(n - MUX_SUB + 0)->stmt_type == VARDECL &&
+            ir->at(n - MUX_SUB + 1)->stmt_type == VARDECL)
         {
-            if (!use_eflags_thunks)
-            {
-                // remove and free the statement
-                Stmt::destroy(rv.back());
-                rv.pop_back();
-                len--;
-            }            
+            VarDecl *var1 = (VarDecl *)ir->at(n - MUX_SUB + 0);
+            VarDecl *var2 = (VarDecl *)ir->at(n - MUX_SUB + 1);
 
-            // remember statement position
-            ret = len;
-        }
+            names.push_back(var1->name);
+            names.push_back(var2->name);
+
+            if (ir->at(n - 1)->stmt_type == MOVE)
+            {
+                Move *move = (Move *)ir->at(n - 1);
+
+                if (move->rhs->exp_type == TEMP && move->lhs->exp_type == TEMP)
+                {
+                    Temp *rhs = (Temp *)move->rhs;
+                    Temp *lhs = (Temp *)move->lhs;
+
+                    if (rhs->name == var1->name)
+                    {
+                        names.push_back(lhs->name);
+                    }
+                }
+            }
+        }        
+
+#else
+
+#error MUX_AS_CJMP is not supported
+
+#endif
+
+        return true;
     }
 
-    if (ret == -1)
-    {
-        // no thunks found
-        ret = len;
-    }    
+    return false;
+}
 
-    ir->clear();
-    ir->insert(ir->begin(), rv.begin(), rv.end());
-        
-    return ret;
+int del_put_thunk(bap_block_t *block, int op, int dep1, int dep2, int ndep, int mux0x)
+{
+    assert(block);
+
+    vector<string> names;
+    vector<Stmt *> *ir = block->bap_ir;
+
+    // delete mux0x used for flag thunks
+    del_put_thunk_mux0x(block, op, names);
+    del_put_thunk_mux0x(block, dep1, names);
+    del_put_thunk_mux0x(block, dep2, names);
+    del_put_thunk_mux0x(block, ndep, names);
+
+    names.push_back("CC_OP");
+    names.push_back("CC_DEP1");
+    names.push_back("CC_DEP2");
+    names.push_back("CC_NDEP");
+
+    // delete get thunks
+    return del_stmt(block->bap_ir, DEL_STMT_LHS, true, names);
 }
 
 void get_put_thunk(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *ndep, int *mux0x)
@@ -519,7 +554,7 @@ void get_put_thunk(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *ndep,
 
         if (temp->name.find("CC_OP") != string::npos)
         {
-            *op = i;
+            *op = i;            
 
             if (match_mux0x(ir, (i - MUX_SUB), NULL, NULL, NULL, NULL) >= 0)
             {
@@ -553,7 +588,7 @@ void del_get_itstate(bap_block_t *block)
     del_stmt(block->bap_ir, DEL_STMT_RHS, true, names);    
 }
 
-void del_put_itstate(bap_block_t *block)
+void del_put_itstate(bap_block_t *block, int itstate)
 {
     assert(block);
     
@@ -2599,8 +2634,8 @@ void generate_bap_ir(bap_context_t *context, bap_block_t *block)
         }
 
         // Delete EFLAGS get thunks
-        if (!use_eflags_thunks)
-        {
+        if (!use_eflags_thunks && !i386_op_is_very_broken(block->str_mnem))
+        {            
             del_get_thunk(block);
         }
 
