@@ -419,6 +419,10 @@ class Insn(object):
 
         self.set_attr(IATTR_FLAGS, self.get_attr(IATTR_FLAGS) | val)
 
+    def del_flag(self, val):
+
+        self.set_attr(IATTR_FLAGS, self.get_attr(IATTR_FLAGS) & ~val)
+
     def has_flag(self, val):
 
         return self.get_attr(IATTR_FLAGS) & val != 0    
@@ -940,22 +944,23 @@ class BasicBlock(InsnList):
         return self.last.next(), self.last.jcc_loc()    
 
 
-class TestBasicBlock(unittest.TestCase):
+class TestBasicBlock(unittest.TestCase):    
 
-    arch = ARCH_X86
+    def test_x86(self):       
 
-    def test(self):       
-
+        arch = ARCH_X86
         code = ( 'jne _l', 
                  'nop',
                  '_l: ret' )        
         
         # create translator
         from pyopenreil.utils import asm
-        tr = CodeStorageTranslator(asm.Reader(self.arch, code))
+        tr = CodeStorageTranslator(asm.Reader(arch, code))
 
         # translate basic block
         bb = tr.get_bb(0)
+
+        print bb
 
         # get successors
         lhs, rhs = bb.get_successors()
@@ -963,6 +968,33 @@ class TestBasicBlock(unittest.TestCase):
         # check for valid next instructions of JNE
         assert lhs == Insn.IRAddr(( tr.get_insn(( 0, 0 )).size, 0 ))
         assert rhs == Insn.IRAddr(( tr.get_insn(( 0, 0 )).size + 1, 0 ))
+
+    def test_thumb(self):
+
+        arch = ARCH_ARM
+        code = (
+            'push     {r7}',
+            'cmp      r0, #0',
+            'beq      _l',
+            'movs     r1, #1',
+            '_l: pop  {r7}',
+            'mov      pc, lr' )
+
+        # create translator
+        from pyopenreil.utils import asm
+        tr = CodeStorageTranslator(asm.Reader(arch, code, thumb = True))   
+
+        # translate basic block
+        bb = tr.get_bb(tr.arm_thumb(0))
+
+        print bb
+
+        # get successors
+        lhs, rhs = bb.get_successors()
+
+        # check for valid next instructions of JNE
+        assert lhs == Insn.IRAddr(( 0x05, 3 ))
+        assert rhs == Insn.IRAddr(( 0x0b, 0 ))
 
 
 class Func(InsnList):
@@ -1377,6 +1409,8 @@ class CFGraphBuilder(object):
         self.arch = storage.arch
         self.storage = storage
 
+    is_thumb = lambda self, addr: self.arch == arm and (addr & 1) == 1
+
     def process_node(self, bb, state, context): 
 
         pass
@@ -1395,10 +1429,26 @@ class CFGraphBuilder(object):
             insn_list += self.get_insn(addr)
             insn = insn_list[-1]
 
-            # check for basic block end
-            if insn.has_flag(IOPT_BB_END): break
-
             addr += insn.size
+
+            # check for end of basic block end
+            if insn.has_flag(IOPT_BB_END): 
+                
+                next = insn.next_asm()
+
+                # check for thumb mode instructions
+                if self.is_thumb(insn.addr) and self.is_thumb(next):
+
+                    # check for I_JCC that used to propagate thumb enable bit
+                    if insn.op == I_JCC and insn.has_flag(IOPT_ASM_END) and \
+                       insn.a.type == A_CONST and insn.a.get_val() != 0 and \
+                       insn.c.type == A_LOC and insn.c.val == ( next, 0 ):
+
+                        # don't split this code on basic blocks
+                        insn.del_flag(IOPT_BB_END)
+                        continue
+                
+                break            
 
         return insn_list    
 
@@ -1411,7 +1461,7 @@ class CFGraphBuilder(object):
         last = inum
 
         # translate assembly basic block at given address
-        insn_list = self._get_bb(addr)        
+        insn_list = self._get_bb(addr)
 
         # split it into the IR basic blocks
         for insn in insn_list[inum:]:
@@ -1982,7 +2032,8 @@ class DFGraph(Graph):
             if arg is None: continue
             
             if (arg.type == A_TEMP) or \
-               (arg.type == A_REG and not keep_flags and arg.name in x86.Registers.flags):
+               (arg.type == A_REG and not keep_flags and (arg.name in x86.Registers.flags or \
+                                                          arg.name in arm.Registers.flags)):
 
                 print 'Eliminating %s that live at the end of the function...' % arg.name
                 self.del_edge(edge)        
@@ -3044,7 +3095,7 @@ class TestArchArm(unittest.TestCase):
             'mov     pc, lr' )
 
         reader = asm.Reader(self.arch, code, thumb = True)
-        tr = CodeStorageTranslator(reader)   
+        tr = CodeStorageTranslator(reader)
 
         print repr(reader.data)
         print tr.get_func(tr.arm_thumb(0))
@@ -3056,12 +3107,25 @@ class TestArchArm(unittest.TestCase):
     def test_asm_arm(self):
 
         from pyopenreil.utils import asm
+        
+        code = (
+            'push    {r7}',
+            'cmp     r0, #0',
+            'movseq  r1, #1', # if r0 == 0
+            'pop     {r7}',
+            'mov     pc, lr' )
 
+        reader = asm.Reader(self.arch, code)
+        tr = CodeStorageTranslator(reader)   
+
+        print repr(reader.data)
+        print tr.get_func(0)
+        
         code = (
             'push    {r7}',
             'cmp     r0, #0',
             'movseq   r1, #1', # if r0 == 0
-            'movseq   r2, #1', # if r0 == 0            
+            'movseq   r2, #1', # if r0 == 0
             'movsne   r1, #0', # if r0 != 0
             'movsne   r2, #0', # if r0 != 0
             'pop     {r7}',

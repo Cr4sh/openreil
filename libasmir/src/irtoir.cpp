@@ -79,8 +79,24 @@ void set_call_return_translation(int value)
 void set_flag(vector<Stmt *> *irout, reg_t type, Temp *flag, Exp *cond)
 {
     // set flag directly to condition
-    //    irout->push_back( new Move(flag, emit_mux0x(irout, type, cond, ex_const(0), ex_const(1))) );
     irout->push_back(new Move(flag, cond));
+}
+
+Exp *modify_eflags_helper_mux0x(bap_block_t *block, int n)
+{
+    assert(block);
+
+    Exp *ret = NULL;
+    vector<Stmt *> *ir = block->bap_ir;    
+
+    // check for mux0x
+    if (match_mux0x(ir, n - MUX_SUB, NULL, &ret, NULL, NULL) >= 0)
+    {
+        // return true branch
+        return ret;
+    }
+
+    return ((Move *)(ir->at(n)))->rhs;
 }
 
 void modify_eflags_helper(bap_context_t *context, bap_block_t *block, string op, reg_t type, int argnum, Mod_Func_0 *mod_eflags_func)
@@ -103,8 +119,8 @@ void modify_eflags_helper(bap_context_t *context, bap_block_t *block, string op,
         if (argnum == 2)
         {
             // Get the arguments we need from these Stmt's
-            Exp *arg1 = ((Move *)(ir->at(dep1)))->rhs;
-            Exp *arg2 = ((Move *)(ir->at(dep2)))->rhs;
+            Exp *arg1 = modify_eflags_helper_mux0x(block, dep1);
+            Exp *arg2 = modify_eflags_helper_mux0x(block, dep2);
 
             // Do the translation
             // To figure out the type, we assume the rhs of the
@@ -115,9 +131,9 @@ void modify_eflags_helper(bap_context_t *context, bap_block_t *block, string op,
         }
         else // argnum == 3
         {
-            Exp *arg1 = ((Move *)(ir->at(dep1)))->rhs;
-            Exp *arg2 = ((Move *)(ir->at(dep2)))->rhs;
-            Exp *arg3 = ((Move *)(ir->at(ndep)))->rhs;
+            Exp *arg1 = modify_eflags_helper_mux0x(block, dep1);
+            Exp *arg2 = modify_eflags_helper_mux0x(block, dep2);
+            Exp *arg3 = modify_eflags_helper_mux0x(block, ndep);
 
             Mod_Func_3 *mod_func = (Mod_Func_3 *)mod_eflags_func;
             mods = mod_func(context, type, arg1, arg2, arg3);
@@ -194,11 +210,8 @@ int del_stmt(vector<Stmt *> *ir, int arg, bool del, vector<string> names)
                         len--;
                     }                    
 
-                    if (ret == -1)
-                    {
-                        // remember statement position
-                        ret = len;
-                    }
+                    // remember statement position
+                    ret = len;
                 }
             }
         }

@@ -12,7 +12,7 @@ ptr_len = 4
 class Registers:
 
     # flag registers
-    flags = ( 'R_N', 'R_Z', 'R_C', 'R_V', 'R_I', 'R_F' )
+    flags = ( 'R_NF', 'R_ZF', 'R_CF', 'R_VF' )
 
     # general purpose registers
     general = ( 'R_R0', 'R_R1', 'R_R2',  'R_R3',  'R_R4',  'R_R5',  'R_R6',  'R_R7', 
