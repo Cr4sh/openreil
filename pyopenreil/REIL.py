@@ -3124,10 +3124,10 @@ class TestArchArm(unittest.TestCase):
         code = (
             'push    {r7}',
             'cmp     r0, #0',
-            'movseq   r1, #1', # if r0 == 0
-            'movseq   r2, #1', # if r0 == 0
-            'movsne   r1, #0', # if r0 != 0
-            'movsne   r2, #0', # if r0 != 0
+            'moveq   r1, #1', # if r0 == 0
+            'moveq   r2, #1', # if r0 == 0
+            'movne   r1, #0', # if r0 != 0
+            'movne   r2, #0', # if r0 != 0
             'pop     {r7}',
             'mov     pc, lr' )
 
