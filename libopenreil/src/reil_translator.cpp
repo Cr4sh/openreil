@@ -536,7 +536,7 @@ void CReilFromBilTranslator::process_binop_arshift(reil_inst_t *reil_inst)
     NEW_INST(I_OR, reil_inst->inum);
     convert_operand(tmp_1, &new_inst.a);
     new_inst.b.type = A_CONST;
-    new_inst.b.size = size_dst;
+    new_inst.b.size = new_inst.a.size;
     new_inst.b.val = 0;
     convert_operand(tmp_2, &new_inst.c);
 
@@ -758,10 +758,23 @@ bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
     case CAST_LOW:
         {
             // use low half of the value
-            reil_inst->op = I_AND;
+            Exp *tmp = temp_operand(convert_operand_size(reil_inst->a.size), reil_inst->inum);
+
+            NEW_INST(I_AND, reil_inst->inum);
+            COPY_ARG(&new_inst.a, &reil_inst->a);
+            new_inst.b.type = A_CONST;
+            new_inst.b.size = new_inst.a.size;
+            new_inst.b.val = reil_cast_mask(reil_inst->c.size);
+            convert_operand(tmp, &new_inst.c);
+
+            process_reil_inst(&new_inst);
+            reil_inst->inum += 1;
+
+            reil_inst->op = I_OR;
+            convert_operand(tmp, &reil_inst->a);
             reil_inst->b.type = A_CONST;
             reil_inst->b.size = reil_inst->a.size;
-            reil_inst->b.val = reil_cast_mask(reil_inst->c.size);
+            reil_inst->b.val = 0;
 
             return true;
         }
@@ -781,13 +794,26 @@ bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
             process_reil_inst(&new_inst);
             reil_inst->inum += 1;
 
-            reil_inst->op = I_AND;            
-            convert_operand(tmp, &reil_inst->a);            
+            Exp *tmp_1 = temp_operand(convert_operand_size(reil_inst->a.size), reil_inst->inum);
+
+            NEW_INST(I_AND, reil_inst->inum);
+            convert_operand(tmp, &new_inst.a);       
+            new_inst.b.type = A_CONST;
+            new_inst.b.size = reil_inst->a.size;
+            new_inst.b.val = reil_cast_mask(reil_inst->c.size);
+            convert_operand(tmp_1, &new_inst.c);
+
+            process_reil_inst(&new_inst);
+            reil_inst->inum += 1;
+
+            reil_inst->op = I_OR;            
+            convert_operand(tmp_1, &reil_inst->a);       
             reil_inst->b.type = A_CONST;
             reil_inst->b.size = reil_inst->a.size;
-            reil_inst->b.val = reil_cast_mask(reil_inst->c.size);
+            reil_inst->b.val = 0;
 
             free_bil_exp(tmp);
+            free_bil_exp(tmp_1);
 
             return true;
         }
@@ -881,8 +907,6 @@ bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
             process_reil_inst(&new_inst);
             reil_inst->inum += 1;
 
-            //.........................
-
             Exp *tmp_5 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
 
             // extend value size
@@ -896,8 +920,6 @@ bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
 
             process_reil_inst(&new_inst);
             reil_inst->inum += 1;
-
-            //.........................
 
             // join result with the source value
             // OR tmp_5, tmp_4, dst

@@ -993,7 +993,7 @@ class TestBasicBlock(unittest.TestCase):
         lhs, rhs = bb.get_successors()
 
         # check for valid next instructions of JNE
-        assert lhs == Insn.IRAddr(( 0x05, 3 ))
+        assert lhs == Insn.IRAddr(( 0x05, 4 ))
         assert rhs == Insn.IRAddr(( 0x0b, 0 ))
 
 
@@ -2575,6 +2575,9 @@ class TestCodeStorageMem(unittest.TestCase):
 
 class CodeStorageTranslator(CodeStorage):
 
+    # validate instructions list returned by translator
+    DEBUG = True
+
     #
     # OpenREIL (as well as VEX) uses the least significant bit of 
     # address to determinate encoding mode for ARM instruction:
@@ -2583,7 +2586,7 @@ class CodeStorageTranslator(CodeStorage):
     _arm_addr_decode = lambda self, addr: ( addr & 0xfffffffffffffffe, addr & 1 )
 
     # Thumb enable helper
-    arm_thumb = lambda self, addr: addr | 1
+    arm_thumb = lambda self, addr: addr | 1    
 
     translator_postprocess = []
 
@@ -2624,6 +2627,138 @@ class CodeStorageTranslator(CodeStorage):
         self.arch = get_arch(arch)        
         self.storage = CodeStorageMem(arch) if storage is None else storage
         self.reader = reader
+
+    def is_valid_insn(self, insn):
+        
+        addr = str(insn.ir_addr())
+
+        _is_none = lambda arg: arg.type == A_NONE
+        _is_temp = lambda arg: arg.type == A_TEMP or arg.type == A_REG
+        _is_const = lambda arg: arg.type == A_CONST
+        _is_loc = lambda arg: arg.type == A_LOC
+
+        def _is_valid_arg(arg):
+
+            assert arg.size in [ None, U1, U8, U16, U32, U64 ]
+
+            if arg.type == A_REG or arg.type == A_TEMP:
+
+                assert isinstance(arg.size, (int, long))
+                assert isinstance(arg.name, basestring)
+
+            elif arg.type == A_CONST:
+
+                assert isinstance(arg.size, (int, long))
+                assert isinstance(arg.val, (int, long))
+
+            elif arg.type == A_LOC:
+
+                assert isinstance(arg.val, tuple) and len(arg.val) == 2
+
+                assert isinstance(arg.val[0], (int, long)) and \
+                       isinstance(arg.val[1], (int, long))
+
+            elif arg.type == A_NONE: pass
+
+            else: assert False
+
+        # check for valid arguments
+        _is_valid_arg(insn.a)
+        _is_valid_arg(insn.b)
+        _is_valid_arg(insn.c)
+
+        # check for valid arguments for each opcode
+        if insn.op == I_NONE:
+
+            assert _is_none(insn.a)
+            assert _is_none(insn.b)
+            assert _is_none(insn.c)
+
+        elif insn.op == I_UNK:
+
+            assert _is_none(insn.a) or _is_temp(insn.a)
+            assert _is_none(insn.b)
+            assert _is_none(insn.c) or _is_temp(insn.c)
+
+        elif insn.op in [ I_STR, I_LDM, I_NOT, I_NEG ]:
+
+            assert _is_temp(insn.a) or _is_const(insn.a)
+            assert _is_none(insn.b)
+            assert _is_temp(insn.c)
+
+        elif insn.op == I_STM:
+
+            assert _is_temp(insn.a) or _is_const(insn.a)
+            assert _is_none(insn.b)
+            assert _is_temp(insn.c) or _is_const(insn.c)
+
+        elif insn.op in [ I_EQ,  I_LT, \
+                          I_ADD, I_SUB, I_SHL, I_SHR, \
+                          I_MUL, I_DIV, I_MOD, I_SMUL, I_SDIV, I_SMOD, \
+                          I_AND, I_OR,  I_XOR ]:
+
+            assert _is_temp(insn.a) or _is_const(insn.a)
+            assert _is_temp(insn.b) or _is_const(insn.b)
+            assert _is_temp(insn.c) 
+
+        elif insn.op == I_JCC:
+
+            assert _is_temp(insn.a) or _is_const(insn.a)
+            assert _is_none(insn.b)
+            assert _is_temp(insn.c) or _is_loc(insn.c)
+        
+        # check for valid arguments size
+        if (_is_temp(insn.a) or _is_const(insn.a)) and \
+           (_is_temp(insn.b) or _is_const(insn.b)):            
+
+            assert insn.a.size == insn.b.size
+
+            if insn.op in [ I_EQ, I_LT ]:
+
+                assert insn.c.size == U1
+
+            elif insn.op != I_OR:
+
+                assert insn.a.size == insn.b.size == insn.c.size
+
+        elif (_is_temp(insn.a) or _is_const(insn.a)):
+
+            if insn.op == I_LDM:
+
+                assert insn.a.size == U32
+                assert insn.c.size != U1
+
+            elif insn.op == I_STM:
+
+                assert insn.a.size != U1
+                assert insn.c.size == U32
+
+            elif insn.op != I_JCC:
+
+                assert insn.a.size == insn.c.size
+
+    def is_valid_insn_list(self, insn_list):
+
+        first = Insn(insn_list[0])
+        last = Insn(insn_list[-1])        
+
+        # check for valid flags and attrs of first and last IR instructions
+        assert first.has_attr(IATTR_BIN) and first.has_attr(IATTR_ASM)
+        assert last.has_flag(IOPT_ASM_END)
+
+        inum = 0
+
+        for insn in insn_list:
+
+            insn = insn if isinstance(insn, Insn) else Insn(insn)
+
+            # check for valid instruction information
+            assert insn.inum == inum
+            assert insn.addr == first.addr and insn.size == first.size
+
+            # more instruction checks
+            self.is_valid_insn(insn)
+            inum += 1
 
     def _postprocess_cjmp(self, addr, insn_list):
         ''' Represent Cjmp + Jmp (libasmir artifact) as Not + Cjmp. '''
@@ -2795,6 +2930,9 @@ class CodeStorageTranslator(CodeStorage):
             # perform post-translation transformation
             ret = func(addr, ret)
         
+        # validate instructions format
+        if self.DEBUG: self.is_valid_insn_list(ret)
+
         return ret
 
     def clear(self): 
