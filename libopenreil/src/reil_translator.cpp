@@ -846,7 +846,7 @@ bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
             NEW_INST(I_OR, reil_inst->inum);
             convert_operand(tmp_1, &new_inst.a);
             new_inst.b.type = A_CONST;
-            new_inst.b.size = size_dst;
+            new_inst.b.size = new_inst.a.size;
             new_inst.b.val = 0;
             convert_operand(tmp_2, &new_inst.c);
 
@@ -881,9 +881,28 @@ bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
             process_reil_inst(&new_inst);
             reil_inst->inum += 1;
 
+            //.........................
+
+            Exp *tmp_5 = temp_operand(convert_operand_size(size_dst), reil_inst->inum);
+
+            // extend value size
+            // OR src, 0, tmp_5
+            NEW_INST(I_OR, reil_inst->inum);
+            COPY_ARG(&new_inst.a, &reil_inst->a);
+            new_inst.b.type = A_CONST;
+            new_inst.b.size = new_inst.a.size;
+            new_inst.b.val = 0;
+            convert_operand(tmp_5, &new_inst.c);
+
+            process_reil_inst(&new_inst);
+            reil_inst->inum += 1;
+
+            //.........................
+
             // join result with the source value
-            // OR src, tmp_4, dst
+            // OR tmp_5, tmp_4, dst
             reil_inst->op = I_OR;
+            convert_operand(tmp_5, &reil_inst->a);
             convert_operand(tmp_4, &reil_inst->b);
 
             free_bil_exp(tmp_0);
@@ -891,6 +910,7 @@ bool CReilFromBilTranslator::process_bil_cast(Exp *exp, reil_inst_t *reil_inst)
             free_bil_exp(tmp_2);
             free_bil_exp(tmp_3);
             free_bil_exp(tmp_4);
+            free_bil_exp(tmp_5);
 
             return true;
         }  

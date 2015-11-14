@@ -131,9 +131,9 @@ vector<VarDecl *> arm_get_reg_decls()
     ret.push_back(new VarDecl("R_ZF",       r1));
     ret.push_back(new VarDecl("R_CF",       r1));
     ret.push_back(new VarDecl("R_VF",       r1));
-    ret.push_back(new VarDecl("CC_OP",      r32));
-    ret.push_back(new VarDecl("CC_DEP1",    r32));
-    ret.push_back(new VarDecl("CC_DEP2",    r32));
+    ret.push_back(new VarDecl("R_CC_OP",    r32));
+    ret.push_back(new VarDecl("R_CC_DEP1",  r32));
+    ret.push_back(new VarDecl("R_CC_DEP2",  r32));
 
     // IT block condition
     ret.push_back(new VarDecl("R_ITCOND",   r1));
@@ -386,72 +386,72 @@ Exp *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vecto
         {
         case ARMCondEQ:
 
-            result = ecl(ZF);
+            result = _ex_u_cast(ecl(ZF), REG_32);
             break;
 
         case ARMCondNE:
 
-            result = ex_not(ZF);
+            result = _ex_u_cast(ex_not(ZF), REG_32);
             break;
 
         case ARMCondHS:
 
-            result = ecl(CF);
+            result = _ex_u_cast(ecl(CF), REG_32);
             break;
 
         case ARMCondLO:
 
-            result = ex_not(CF);
+            result = _ex_u_cast(ex_not(CF), REG_32);
             break;
 
         case ARMCondMI:
 
-            result = ecl(NF);
+            result = _ex_u_cast(ecl(NF), REG_32);
             break;
 
         case ARMCondPL:
 
-            result = ex_not(NF);
+            result = _ex_u_cast(ex_not(NF), REG_32);
             break;
 
         case ARMCondVS:
 
-            result = ecl(VF);
+            result = _ex_u_cast(ecl(VF), REG_32);
             break;
 
         case ARMCondVC:
 
-            result = ex_not(VF);
+            result = _ex_u_cast(ex_not(VF), REG_32);
             break;
 
         case ARMCondHI:
 
-            result = _ex_and(ecl(CF), ex_not(ZF));
+            result = _ex_u_cast(_ex_and(ecl(CF), ex_not(ZF)), REG_32);
             break;
 
         case ARMCondLS:
 
-            result = _ex_or(ex_not(CF), ecl(ZF));
+            result = _ex_u_cast(_ex_or(ex_not(CF), ecl(ZF)), REG_32);
             break;
 
         case ARMCondGE:
 
-            result = ex_eq(NF, VF);
+            result = _ex_u_cast(ex_eq(NF, VF), REG_32);
             break;
 
         case ARMCondLT:
 
-            result = ex_neq(NF, VF);
+            result = _ex_u_cast(ex_neq(NF, VF), REG_32);
             break;
 
         case ARMCondGT:
 
-            result = _ex_and(ex_not(ZF), ex_eq(NF, VF));
+            result = _ex_u_cast(_ex_and(ex_not(ZF), ex_eq(NF, VF)), REG_32);
             break;
 
         case ARMCondLE:
 
-            result = _ex_or(ecl(ZF), ex_neq(NF, VF));
+            result = _ex_u_cast(_ex_or(ecl(ZF), ex_neq(NF, VF)), REG_32);
             break;
 
         case ARMCondAL:
@@ -477,28 +477,28 @@ Exp *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vecto
         // create Internal with CCall arguments information
         arm_translate_ccall_args(context, expr, irbb, irout);
 
-        result = ecl(NF);
+        result = _ex_u_cast(ecl(NF), REG_32);
     }
     else if (func == "armg_calculate_flag_z")
     {
         // create Internal with CCall arguments information
         arm_translate_ccall_args(context, expr, irbb, irout);
 
-        result = ecl(ZF);
+        result = _ex_u_cast(ecl(ZF), REG_32);
     }
     else if (func == "armg_calculate_flag_c")
     {
         // create Internal with CCall arguments information
         arm_translate_ccall_args(context, expr, irbb, irout);
 
-        result = ecl(CF);
+        result = _ex_u_cast(ecl(CF), REG_32);
     }
     else if (func == "armg_calculate_flag_v")
     {
         // create Internal with CCall arguments information
         arm_translate_ccall_args(context, expr, irbb, irout);
 
-        result = ecl(VF);
+        result = _ex_u_cast(ecl(VF), REG_32);
     }
     else
     {
@@ -531,45 +531,45 @@ static vector<Stmt *> mod_eflags_copy(bap_context_t *context, reg_t type, Exp *a
     Temp *VF = mk_reg("VF", REG_1);
 
     // v = (dep1 >> ARMG_CC_SHIFT_V) & 1
-    Exp *condVF = _ex_u_cast(
+    Exp *condVF = _ex_eq(
         _ex_and(
             _ex_shr(ecl(arg1), ecl(&c_ARMG_CC_SHIFT_V)), 
             ecl(&c_1)
         ), 
-        REG_1
+        ecl(&c_1)
     );
 
     set_flag(&irout, type, VF, condVF);
 
     // c = (dep1 >> ARMG_CC_SHIFT_C) & 1
-    Exp *condCF = _ex_u_cast(
+    Exp *condCF = _ex_eq(
         _ex_and(
             _ex_shr(ecl(arg1), ecl(&c_ARMG_CC_SHIFT_C)), 
             ecl(&c_1)
         ), 
-        REG_1
+        ecl(&c_1)
     );
 
     set_flag(&irout, type, CF, condCF);
 
     // z = (dep1 >> ARMG_CC_SHIFT_Z) & 1
-    Exp *condZF = _ex_u_cast(
+    Exp *condZF = _ex_eq(
         _ex_and(
             _ex_shr(ecl(arg1), ecl(&c_ARMG_CC_SHIFT_Z)), 
             ecl(&c_1)
         ), 
-        REG_1
+        ecl(&c_1)
     );
 
     set_flag(&irout, type, ZF, condZF);
 
     // n = (dep1 >> ARMG_CC_SHIFT_N) & 1
-    Exp *condNF = _ex_u_cast(
+    Exp *condNF = _ex_eq(
         _ex_and(
             _ex_shr(ecl(arg1), ecl(&c_ARMG_CC_SHIFT_N)), 
             ecl(&c_1)
         ), 
-        REG_1
+        ecl(&c_1)
     );
 
     set_flag(&irout, type, NF, condNF);
@@ -584,6 +584,7 @@ static vector<Stmt *> mod_eflags_add(bap_context_t *context, reg_t type, Exp *ar
 
     // All the static constants we'll ever need
     Constant c_0(REG_32, 0);
+    Constant c_1(REG_32, 1);
     Constant c_31(REG_32, 31);
 
     // The operation itself: res = dep1 + dep2
@@ -596,7 +597,7 @@ static vector<Stmt *> mod_eflags_add(bap_context_t *context, reg_t type, Exp *ar
     Temp *VF = mk_reg("VF", REG_1);
 
     // n = res >> 31
-    Exp *condNF = _ex_shr(ecl(res), ecl(&c_31));
+    Exp *condNF = _ex_eq(_ex_shr(ecl(res), ecl(&c_31)), ecl(&c_1));
     set_flag(&irout, type, NF, condNF);
 
     // z = res == 0
@@ -608,12 +609,15 @@ static vector<Stmt *> mod_eflags_add(bap_context_t *context, reg_t type, Exp *ar
     set_flag(&irout, type, CF, condCF);
 
     // v = ((res ^ dep1) & (res ^ dep2)) >> 31
-    Exp *condVF = _ex_shr(
-        _ex_and(
-            ex_xor(res, arg1), 
-            ex_xor(res, arg2)
+    Exp *condVF = _ex_eq(
+        _ex_shr(
+            _ex_and(
+                ex_xor(res, arg1), 
+                ex_xor(res, arg2)
+            ), 
+            ecl(&c_31)
         ), 
-        ecl(&c_31)
+        ecl(&c_1)
     );
 
     set_flag(&irout, type, VF, condVF);
@@ -730,7 +734,7 @@ static vector<Stmt *> mod_eflags_logic(bap_context_t *context, reg_t type, Exp *
     Temp *VF = mk_reg("VF", REG_1);
 
     // n = dep1 >> 31
-    Exp *condNF = _ex_eq(_ex_shr(ecl(arg1), ecl(&c_31)), ecl(&c_0));
+    Exp *condNF = _ex_eq(_ex_shr(ecl(arg1), ecl(&c_31)), ecl(&c_1));
     set_flag(&irout, type, NF, condNF);
 
     // z = dep1 == 0
@@ -738,10 +742,10 @@ static vector<Stmt *> mod_eflags_logic(bap_context_t *context, reg_t type, Exp *
     set_flag(&irout, type, ZF, condZF);
 
     // c = dep2
-    set_flag(&irout, type, CF, ecl(arg2));
+    set_flag(&irout, type, CF, _ex_eq(ecl(arg2), ecl(&c_1)));
 
     // v = dep3
-    set_flag(&irout, type, VF, ecl(arg3));
+    set_flag(&irout, type, VF, _ex_eq(ecl(arg3), ecl(&c_1)));
 
     return irout;
 }
@@ -899,7 +903,7 @@ void arm_modify_flags(bap_context_t *context, bap_block_t *block)
             panic("unhandled CC_OP");
         }
 
-        modify_eflags_helper(context, block, block->str_mnem, REG_32, num_params, cb);     
+        modify_eflags_helper(context, block, block->str_mnem, REG_1, num_params, cb);     
     }
     else
     {

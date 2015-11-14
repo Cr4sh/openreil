@@ -578,15 +578,15 @@ void get_put_thunk(bap_block_t *block, int *op, int *dep1, int *dep2, int *ndep,
                 *mux0x = (i - MUX_SUB);
             }
         }
-        else if (temp->name.find("CC_DEP1") != string::npos)
+        else if (temp->name.find("R_CC_DEP1") != string::npos)
         {
             *dep1 = i;
         }
-        else if (temp->name.find("CC_DEP2") != string::npos)
+        else if (temp->name.find("R_CC_DEP2") != string::npos)
         {
             *dep2 = i;
         }
-        else if (temp->name.find("CC_NDEP") != string::npos)
+        else if (temp->name.find("R_CC_NDEP") != string::npos)
         {
             *ndep = i;
         }
@@ -846,7 +846,7 @@ Temp *mk_temp(string name, IRType ty)
 Temp *mk_temp(reg_t type, vector<Stmt *> *stmts)
 {
     static int temp_counter = 0;
-    Temp *ret =  new Temp(type, int_to_str(temp_counter++));
+    Temp *ret =  new Temp(type, "T_" + int_to_str(temp_counter++));
     stmts->push_back(new VarDecl(ret));
     return ret;
 }
