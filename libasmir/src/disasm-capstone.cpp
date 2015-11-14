@@ -18,7 +18,7 @@ typedef enum _dsiasm_arg_t
 
 } dsiasm_arg_t;
 
-Temp *i386_disasm_arg_to_temp(uint8_t arg)
+Temp *i386_disasm_arg_to_temp(uint16_t arg)
 {
     switch (arg)
     {
@@ -262,7 +262,21 @@ Temp *i386_disasm_arg_to_temp(uint8_t arg)
     return NULL;
 }
 
-Temp *disasm_arg_to_temp(VexArch guest, uint8_t arg)
+Temp *arm_disasm_arg_to_temp(uint16_t arg)
+{
+    switch (arg)
+    {
+    // ...
+
+    default:
+
+        return NULL;
+    }
+
+    return NULL;
+}
+
+Temp *disasm_arg_to_temp(VexArch guest, uint16_t arg)
 {
     switch (guest)
     {
@@ -272,7 +286,7 @@ Temp *disasm_arg_to_temp(VexArch guest, uint8_t arg)
 
     case VexArchARM:
     
-        return NULL;
+        return arm_disasm_arg_to_temp(arg);       
     
     default:
     

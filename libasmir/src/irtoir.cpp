@@ -110,7 +110,7 @@ void modify_eflags_helper(bap_context_t *context, bap_block_t *block, string op,
 
     // Look for occurrence of CC_OP assignment
     // These will have the indices of the CC_OP stmts
-    get_put_thunk(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
+    get_put_thunk(block, &opi, &dep1, &dep2, &ndep, &mux0x);
 
     if (opi >= 0)
     {
@@ -147,7 +147,7 @@ void modify_eflags_helper(bap_context_t *context, bap_block_t *block, string op,
             {
                 // Insert the eflags mods in this position
                 ir->insert(ir->begin() + pos, mods.begin(), mods.end());
-                ir->insert(ir->begin() + pos, new Comment("eflags thunk: " + op));
+                ir->insert(ir->begin() + pos, new Comment("eflags thunk: " + op));                
             }
             else
             {
@@ -193,7 +193,7 @@ int del_stmt(vector<Stmt *> *ir, int arg, bool del, vector<string> names)
                 {
                     string name = (*n);
 
-                    if (temp->name.find(name) != string::npos)
+                    if (temp->name == name)
                     {
                         found = true;
                         break;
@@ -201,12 +201,13 @@ int del_stmt(vector<Stmt *> *ir, int arg, bool del, vector<string> names)
                 }
 
                 if (found)
-                {
+                {                    
                     if (del)
                     {
                         // remove and free the statement
                         Stmt::destroy(rv.back());
                         rv.pop_back();
+
                         len--;
                     }                    
 
@@ -432,10 +433,12 @@ void del_internal(bap_block_t *block)
 
                 for (int n = 0; n < arg_list->count; n++)
                 {
-                    names.push_back(translate_tmp_name(NULL, 
+                    string name = translate_tmp_name(NULL, 
                         arg_list->args[n].type, 
-                        arg_list->args[n].temp)
+                        arg_list->args[n].temp
                     );
+                    
+                    names.push_back(name);
                 }
             }            
 
@@ -458,10 +461,10 @@ void del_get_thunk(bap_block_t *block)
 
     vector<string> names;
 
-    names.push_back("CC_OP");
-    names.push_back("CC_DEP1");
-    names.push_back("CC_DEP2");
-    names.push_back("CC_NDEP");
+    names.push_back("R_CC_OP");
+    names.push_back("R_CC_DEP1");
+    names.push_back("R_CC_DEP2");
+    names.push_back("R_CC_NDEP");
 
     // delete get thunks
     del_stmt(block->bap_ir, DEL_STMT_RHS, true, names);    
@@ -528,22 +531,23 @@ int del_put_thunk(bap_block_t *block, int op, int dep1, int dep2, int ndep, int 
     del_put_thunk_mux0x(block, op, names);
     del_put_thunk_mux0x(block, dep1, names);
     del_put_thunk_mux0x(block, dep2, names);
-    del_put_thunk_mux0x(block, ndep, names);
+    del_put_thunk_mux0x(block, ndep, names);    
 
-    names.push_back("CC_OP");
-    names.push_back("CC_DEP1");
-    names.push_back("CC_DEP2");
-    names.push_back("CC_NDEP");
+    names.push_back("R_CC_OP");
+    names.push_back("R_CC_DEP1");
+    names.push_back("R_CC_DEP2");
+    names.push_back("R_CC_NDEP");
 
     // delete get thunks
     return del_stmt(block->bap_ir, DEL_STMT_LHS, true, names);
 }
 
-void get_put_thunk(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *ndep, int *mux0x)
+void get_put_thunk(bap_block_t *block, int *op, int *dep1, int *dep2, int *ndep, int *mux0x)
 {
-    assert(ir);
+    assert(block);
 
     unsigned int i;
+    vector<Stmt *> *ir = block->bap_ir;
 
     *op = -1;
 
@@ -565,7 +569,7 @@ void get_put_thunk(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *ndep,
 
         Temp *temp = (Temp *)move->lhs;
 
-        if (temp->name.find("CC_OP") != string::npos)
+        if (temp->name.find("R_CC_OP") != string::npos)
         {
             *op = i;            
 
@@ -613,11 +617,12 @@ void del_put_itstate(bap_block_t *block, int itstate)
     del_stmt(block->bap_ir, DEL_STMT_LHS, true, names);    
 }
 
-void get_put_itstate(vector<Stmt *> *ir, int *itstate)
+void get_put_itstate(bap_block_t *block, int *itstate)
 {
-    assert(ir);
+    assert(block);
 
     unsigned int i;
+    vector<Stmt *> *ir = block->bap_ir;
 
     *itstate = -1;
 
@@ -834,14 +839,14 @@ reg_t regt_of_irexpr(IRSB *irbb, IRExpr *e)
 Temp *mk_temp(string name, IRType ty)
 {
     reg_t typ = IRType_to_reg_type(ty);
-    Temp *ret = new Temp(typ, "T_" + name);
+    Temp *ret = new Temp(typ, name);
     return ret;
 }
 
 Temp *mk_temp(reg_t type, vector<Stmt *> *stmts)
 {
     static int temp_counter = 0;
-    Temp *ret =  new Temp(type, "T_" + int_to_str(temp_counter++));
+    Temp *ret =  new Temp(type, int_to_str(temp_counter++));
     stmts->push_back(new VarDecl(ret));
     return ret;
 }
@@ -1877,7 +1882,7 @@ Exp *translate_load(bap_context_t *context, IRExpr *expr, IRSB *irbb, vector<Stm
 
 string translate_tmp_name(bap_context_t *context, IRType type, IRTemp tmp)
 {
-    return int_to_str(get_type_size(IRType_to_reg_type(type))) + "t" + int_to_str(tmp);
+    return "T_" + int_to_str(get_type_size(IRType_to_reg_type(type))) + "t" + int_to_str(tmp);
 }
 
 string translate_tmp_name(bap_context_t *context, IRSB *irbb, IRExpr *expr, IRTemp tmp)
@@ -2515,7 +2520,7 @@ void track_flags(bap_context_t *context, bap_block_t *block)
 
     // Look for occurrence of CC_OP assignment
     // These will have the indices of the CC_OP stmts    
-    get_put_thunk(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
+    get_put_thunk(block, &opi, &dep1, &dep2, &ndep, &mux0x);
 
     if (opi == -1)        
     {
@@ -2545,7 +2550,7 @@ void track_itstate(bap_context_t *context, bap_block_t *block)
     int n = -1;
 
     // Look for occurrence of ITSTATE assignment
-    get_put_itstate(ir, &n);
+    get_put_itstate(block, &n);
 
     if (n == -1)        
     {

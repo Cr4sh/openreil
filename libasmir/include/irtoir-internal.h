@@ -92,11 +92,11 @@ void set_flag(vector<Stmt *> *irout, reg_t type, Temp *flag, Exp *cond);
 
 void del_get_thunk(bap_block_t *block);
 int del_put_thunk(bap_block_t *block, int op, int dep1, int dep2, int ndep, int mux0x);
-void get_put_thunk(vector<Stmt *> *ir, int *op, int *dep1, int *dep2, int *ndep, int *mux0x);
+void get_put_thunk(bap_block_t *block, int *op, int *dep1, int *dep2, int *ndep, int *mux0x);
 
 void del_get_itstate(bap_block_t *block);
 void del_put_itstate(bap_block_t *block, int itstate);
-void get_put_itstate(vector<Stmt *> *ir, int *itstate);
+void get_put_itstate(bap_block_t *block, int *itstate);
 
 // defined in irtoir-i386.cpp
 vector<VarDecl *> i386_get_reg_decls();

@@ -2613,7 +2613,7 @@ void i386_modify_flags(bap_context_t *context, bap_block_t *block)
 
     // Look for occurrence of CC_OP assignment
     // These will have the indices of the CC_OP stmts    
-    get_put_thunk(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
+    get_put_thunk(block, &opi, &dep1, &dep2, &ndep, &mux0x);
 
     if (opi == -1)        
     {

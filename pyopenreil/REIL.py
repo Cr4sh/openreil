@@ -3114,7 +3114,7 @@ class TestArchArm(unittest.TestCase):
             'movseq  r1, #1', # if r0 == 0
             'pop     {r7}',
             'mov     pc, lr' )
-
+        
         reader = asm.Reader(self.arch, code)
         tr = CodeStorageTranslator(reader)   
 
@@ -3136,7 +3136,7 @@ class TestArchArm(unittest.TestCase):
 
         print repr(reader.data)
         print tr.get_func(0)
-
+        
         self._code_optimization(tr, 0)        
 
         print tr.get_func(0)

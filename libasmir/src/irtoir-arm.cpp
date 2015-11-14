@@ -477,28 +477,28 @@ Exp *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vecto
         // create Internal with CCall arguments information
         arm_translate_ccall_args(context, expr, irbb, irout);
 
-        result = ex_u_cast(NF, REG_32);
+        result = ecl(NF);
     }
     else if (func == "armg_calculate_flag_z")
     {
         // create Internal with CCall arguments information
         arm_translate_ccall_args(context, expr, irbb, irout);
 
-        result = ex_u_cast(ZF, REG_32);
+        result = ecl(ZF);
     }
     else if (func == "armg_calculate_flag_c")
     {
         // create Internal with CCall arguments information
         arm_translate_ccall_args(context, expr, irbb, irout);
 
-        result = ex_u_cast(CF, REG_32);
+        result = ecl(CF);
     }
     else if (func == "armg_calculate_flag_v")
     {
         // create Internal with CCall arguments information
         arm_translate_ccall_args(context, expr, irbb, irout);
 
-        result = ex_u_cast(VF, REG_32);
+        result = ecl(VF);
     }
     else
     {
@@ -517,11 +517,62 @@ static vector<Stmt *> mod_eflags_copy(bap_context_t *context, reg_t type, Exp *a
 {
     vector<Stmt *> irout;
 
+    // All the static constants we'll ever need
+    Constant c_1(REG_32, 1);
+    Constant c_ARMG_CC_SHIFT_N(REG_32, 31);
+    Constant c_ARMG_CC_SHIFT_Z(REG_32, 30);
+    Constant c_ARMG_CC_SHIFT_C(REG_32, 29);
+    Constant c_ARMG_CC_SHIFT_V(REG_32, 28);
+
+    // Calculate flags
+    Temp *NF = mk_reg("NF", REG_1);
+    Temp *ZF = mk_reg("ZF", REG_1);
+    Temp *CF = mk_reg("CF", REG_1);
+    Temp *VF = mk_reg("VF", REG_1);
+
     // v = (dep1 >> ARMG_CC_SHIFT_V) & 1
+    Exp *condVF = _ex_u_cast(
+        _ex_and(
+            _ex_shr(ecl(arg1), ecl(&c_ARMG_CC_SHIFT_V)), 
+            ecl(&c_1)
+        ), 
+        REG_1
+    );
+
+    set_flag(&irout, type, VF, condVF);
+
     // c = (dep1 >> ARMG_CC_SHIFT_C) & 1
+    Exp *condCF = _ex_u_cast(
+        _ex_and(
+            _ex_shr(ecl(arg1), ecl(&c_ARMG_CC_SHIFT_C)), 
+            ecl(&c_1)
+        ), 
+        REG_1
+    );
+
+    set_flag(&irout, type, CF, condCF);
+
     // z = (dep1 >> ARMG_CC_SHIFT_Z) & 1
+    Exp *condZF = _ex_u_cast(
+        _ex_and(
+            _ex_shr(ecl(arg1), ecl(&c_ARMG_CC_SHIFT_Z)), 
+            ecl(&c_1)
+        ), 
+        REG_1
+    );
+
+    set_flag(&irout, type, ZF, condZF);
+
     // n = (dep1 >> ARMG_CC_SHIFT_N) & 1
-    panic("mod_eflags_copy");
+    Exp *condNF = _ex_u_cast(
+        _ex_and(
+            _ex_shr(ecl(arg1), ecl(&c_ARMG_CC_SHIFT_N)), 
+            ecl(&c_1)
+        ), 
+        REG_1
+    );
+
+    set_flag(&irout, type, NF, condNF);
 
     return irout;
 }
@@ -742,7 +793,7 @@ void arm_modify_flags(bap_context_t *context, bap_block_t *block)
 
     // Look for occurrence of CC_OP assignment
     // These will have the indices of the CC_OP stmts
-    get_put_thunk(ir, &opi, &dep1, &dep2, &ndep, &mux0x);
+    get_put_thunk(block, &opi, &dep1, &dep2, &ndep, &mux0x);
 
     if (opi == -1)        
     {
@@ -864,7 +915,7 @@ void arm_modify_itstate(bap_context_t *context, bap_block_t *block)
     int n = -1;
 
     // Look for occurrence of ITSTATE assignment
-    get_put_itstate(ir, &n);
+    get_put_itstate(block, &n);
 
     if (n == -1)        
     {
