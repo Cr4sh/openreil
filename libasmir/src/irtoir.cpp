@@ -1761,8 +1761,7 @@ Exp *translate_triop(bap_context_t *context, IRExpr *expr, IRSB *irbb, vector<St
     return NULL;
 }
 
-Exp *emit_mux0x(vector<Stmt *> *irout, reg_t type,
-                Exp *cond, Exp *exp0, Exp *expX)
+Exp *emit_mux0x(vector<Stmt *> *irout, reg_t type, Exp *cond, Exp *exp0, Exp *expX)
 {
     assert(cond);
     assert(exp0);

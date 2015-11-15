@@ -180,6 +180,7 @@ Instruction argument can have following type:
    * `A_REG` &minus; CPU register (example: `R_EAX:32`, `R_ZF:1`).
    * `A_TEMP` &minus; temporary register (example: `V_01:8`, `V_02:32`).
    * `A_CONST` &minus; constant value (example: `0:1`, `fffffff4:32`).
+   * `A_LOC` &minus; jump location that consists from machine instruction address and IR instruction number (example: `8048360.0, `100000.3`).
    * `A_NONE` &minus; argument is not used by instruction.
 
 Address of each IR instruction consists from two parts: original address of translated machine instruction and IR instruction logical number (inum). First IR instruction of each machine instruction always has inum with value 0. 
