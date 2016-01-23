@@ -265,8 +265,70 @@ Temp *i386_disasm_arg_to_temp(uint16_t arg)
 Temp *arm_disasm_arg_to_temp(uint16_t arg)
 {
     switch (arg)
-    {
-    // ...
+    {        
+    case ARM_REG_R0:
+
+        return mk_reg("R0", REG_32);
+
+    case ARM_REG_R1:
+
+        return mk_reg("R1", REG_32);
+
+    case ARM_REG_R2:
+
+        return mk_reg("R2", REG_32);
+
+    case ARM_REG_R3:
+
+        return mk_reg("R3", REG_32);
+
+    case ARM_REG_R4:
+
+        return mk_reg("R4", REG_32);
+
+    case ARM_REG_R5:
+
+        return mk_reg("R5", REG_32);
+
+    case ARM_REG_R6:
+
+        return mk_reg("R6", REG_32);
+
+    case ARM_REG_R7:
+
+        return mk_reg("R7", REG_32);
+
+    case ARM_REG_R8:
+
+        return mk_reg("R8", REG_32);
+
+    case ARM_REG_R9:
+
+        return mk_reg("R9", REG_32);
+
+    case ARM_REG_R10:
+
+        return mk_reg("R10", REG_32);
+
+    case ARM_REG_R11:
+
+        return mk_reg("R11", REG_32);
+
+    case ARM_REG_R12:
+
+        return mk_reg("R12", REG_32);
+    
+    case ARM_REG_R13:
+
+        return mk_reg("R13", REG_32);
+        
+    case ARM_REG_R14:
+
+        return mk_reg("R14", REG_32);
+
+    case ARM_REG_R15:
+
+        return mk_reg("R15T", REG_32);    
 
     default:
 
