@@ -44,8 +44,9 @@ class Reader(REIL.Reader):
                 addr -= sec.vma
                 return sec.content[addr : addr + size]
 
-        raise Exception('Unable to find image section for address 0x%x' % addr)
-
+        # invalid VA
+        print 'Reader.read(): Address 0x%x is outside of executable image' % addr
+        raise REIL.ReadError(addr)
 
     def read_insn(self, addr): 
 

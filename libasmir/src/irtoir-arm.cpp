@@ -365,7 +365,7 @@ Exp *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vecto
                     if (e->tag == Iex_Const &&
                         e->Iex.Const.con->tag == Ico_U32)
                     {
-                        arg = (e->Iex.Const.con->Ico.U32 >> 4);
+                        arg = e->Iex.Const.con->Ico.U32;
                     }
 
                     break;                    
@@ -381,6 +381,27 @@ Exp *arm_translate_ccall(bap_context_t *context, IRExpr *expr, IRSB *irbb, vecto
             */
             arg = context->flag_thunks.op;
         }
+
+        /*
+            Get cond_n_op argument value in according to the VEX
+            implementation of the armg_calculate_condition():
+
+                UInt armg_calculate_condition ( UInt cond_n_op,
+                                    UInt cc_dep1,
+                                    UInt cc_dep2, UInt cc_dep3 )
+                {
+                   UInt cond  = cond_n_op >> 4;
+                   UInt cc_op = cond_n_op & 0xF;
+
+                   ... 
+
+                   switch (cond) {
+                      case ARMCondEQ:    // Z=1         => z
+                      case ARMCondNE:    // Z=0
+
+                   ...
+        */
+        arg >>= 4;
 
         switch (arg)
         {
@@ -975,7 +996,7 @@ void arm_modify_flags(bap_context_t *context, bap_block_t *block)
     }    
 
     if (got_op)
-    {
+    {        
         switch (op) 
         {
         case ARMG_CC_OP_COPY: 
@@ -1085,18 +1106,97 @@ void arm_modify_itstate(bap_context_t *context, bap_block_t *block)
     ARMCondcode cond = (ARMCondcode)(((lane >> 4) & 0xF) ^ 0xE);
 
     Exp *result = NULL;
-    Temp *ITCOND = mk_reg("ITCOND", REG_1);
+
+    Temp *NF = mk_reg("NF", REG_1);
+    Temp *ZF = mk_reg("ZF", REG_1);
+    Temp *CF = mk_reg("CF", REG_1);
+    Temp *VF = mk_reg("VF", REG_1);
+
+    Temp *ITCOND_1 = mk_reg("ITCOND_1", REG_1);
+    Temp *ITCOND_2 = mk_reg("ITCOND_2", REG_1);
+    Temp *ITCOND_3 = mk_reg("ITCOND_3", REG_1);
+    Temp *ITCOND_4 = mk_reg("ITCOND_4", REG_1);
 
     switch (cond)
     {
     case ARMCondEQ:
 
-        result = ex_not(ITCOND);
+        result = ecl(ITCOND_2);
         break;
 
     case ARMCondNE:
 
-        result = ecl(ITCOND);
+        result = ex_not(ITCOND_2);
+        break;
+
+    case ARMCondHS:
+
+        result = ecl(CF);
+        break;
+
+    case ARMCondLO:
+
+        result = ex_not(CF);
+        break;
+
+    case ARMCondMI:
+
+        result = ecl(NF);
+        break;
+
+    case ARMCondPL:
+
+        result = ex_not(NF);
+        break;
+
+    case ARMCondVS:
+
+        result = ecl(VF);
+        break;
+
+    case ARMCondVC:
+
+        result = ex_not(VF);
+        break;
+
+    case ARMCondHI:
+
+        result = _ex_and(ecl(CF), ex_not(ZF));
+        break;
+
+    case ARMCondLS:
+
+        result = _ex_or(ex_not(CF), ecl(ZF));
+        break;
+
+    case ARMCondGE:
+
+        result = ex_eq(NF, VF);
+        break;
+
+    case ARMCondLT:
+
+        result = ex_neq(ITCOND_1, ITCOND_4);
+        break;
+    
+    case ARMCondGT:
+
+        result = _ex_and(ex_not(ITCOND_2), ex_eq(ITCOND_1, ITCOND_4));
+        break;
+
+    case ARMCondLE:
+
+        result = _ex_or(ecl(ZF), ex_neq(NF, VF));
+        break;
+
+    case ARMCondAL:
+
+        result = new Constant(REG_1, 1);
+        break;
+
+    case ARMCondNV:
+
+        result = new Constant(REG_1, 0);
         break;
 
     default:
@@ -1109,9 +1209,17 @@ void arm_modify_itstate(bap_context_t *context, bap_block_t *block)
 
     // insert conditional jump for IT block
     ir->insert(ir->begin() + 1, label);
-    ir->insert(ir->begin() + 1, new CJmp(result, name, new Name(label->label)));
+    ir->insert(ir->begin() + 1, new CJmp(new UnOp(NOT, result), name, new Name(label->label)));
 
-    delete ITCOND;
+    delete ITCOND_4;
+    delete ITCOND_3;
+    delete ITCOND_2;
+    delete ITCOND_1;
+
+    delete NF;
+    delete ZF;
+    delete CF;
+    delete VF;
 }
 
 void arm_modify_itstate_cond(bap_context_t *context, bap_block_t *block)
@@ -1122,7 +1230,16 @@ void arm_modify_itstate_cond(bap_context_t *context, bap_block_t *block)
 
     if (block->str_mnem.find("it") == 0)
     {
-        ir->insert(ir->begin() + 1, new Move(mk_reg("ITCOND", REG_1),
+        ir->insert(ir->begin() + 1, new Move(mk_reg("ITCOND_1", REG_1),
+                                             mk_reg("NF", REG_1)));
+
+        ir->insert(ir->begin() + 1, new Move(mk_reg("ITCOND_2", REG_1),
                                              mk_reg("ZF", REG_1)));
+
+        ir->insert(ir->begin() + 1, new Move(mk_reg("ITCOND_3", REG_1),
+                                             mk_reg("CF", REG_1)));
+
+        ir->insert(ir->begin() + 1, new Move(mk_reg("ITCOND_4", REG_1),
+                                             mk_reg("VF", REG_1)));
     }
 }

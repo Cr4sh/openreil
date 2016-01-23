@@ -9,6 +9,8 @@ from symbolic import *
 # supported arhitectures
 from arch import x86, arm
 
+arm_thumb = lambda addr: addr | 1    
+
 # architecture constants
 ARCH_X86 = 0
 ARCH_ARM = 1
@@ -985,7 +987,7 @@ class TestBasicBlock(unittest.TestCase):
         tr = CodeStorageTranslator(asm.Reader(arch, code, thumb = True))   
 
         # translate basic block
-        bb = tr.get_bb(tr.arm_thumb(0))
+        bb = tr.get_bb(arm_thumb(0))
 
         print bb
 
@@ -994,7 +996,7 @@ class TestBasicBlock(unittest.TestCase):
 
         # check for valid next instructions of JNE
         assert lhs == Insn.IRAddr(( 0x05, 4 ))
-        assert rhs == Insn.IRAddr(( 0x0b, 0 ))
+        assert rhs == Insn.IRAddr(( 0x09, 0 ))
 
 
 class Func(InsnList):
@@ -2327,7 +2329,9 @@ class ReaderRaw(Reader):
     def read(self, addr, size): 
 
         if addr < self.addr or \
-           addr >= self.addr + len(self.data): return None
+           addr >= self.addr + len(self.data):
+
+            raise ReadError(addr)
 
         addr -= self.addr        
         return self.data[addr : addr + size]
@@ -2586,7 +2590,7 @@ class CodeStorageTranslator(CodeStorage):
     _arm_addr_decode = lambda self, addr: ( addr & 0xfffffffffffffffe, addr & 1 )
 
     # Thumb enable helper
-    arm_thumb = lambda self, addr: addr | 1    
+    arm_thumb = lambda self, addr: arm_thumb(addr)
 
     translator_postprocess = []
 
@@ -2634,12 +2638,16 @@ class CodeStorageTranslator(CodeStorage):
 
     def is_valid_arg(self, arg):
 
+        _is_num = lambda item: isinstance(item, (int, long))
+        _is_str = lambda item: isinstance(item, basestring)
+        _is_tup = lambda item: isinstance(item, tuple) 
+
         assert arg.size in [ None, U1, U8, U16, U32, U64 ]
 
         if arg.type == A_REG or arg.type == A_TEMP:
 
-            assert isinstance(arg.size, (int, long))
-            assert isinstance(arg.name, basestring)
+            assert _is_num(arg.size)
+            assert _is_str(arg.name)
 
             if arg.type == A_REG:
 
@@ -2651,23 +2659,19 @@ class CodeStorageTranslator(CodeStorage):
 
         elif arg.type == A_CONST:
 
-            assert isinstance(arg.size, (int, long))
-            assert isinstance(arg.val, (int, long))
+            assert _is_num(arg.size)
+            assert _is_num(arg.val)
 
         elif arg.type == A_LOC:
 
-            assert isinstance(arg.val, tuple) and len(arg.val) == 2
-
-            assert isinstance(arg.val[0], (int, long)) and \
-                   isinstance(arg.val[1], (int, long))
+            assert _is_tup(arg.val) and len(arg.val) == 2
+            assert _is_num(arg.val[0]) and _is_num(arg.val[1])
 
         elif arg.type == A_NONE: pass
 
         else: assert False
 
     def is_valid_insn(self, insn):
-        
-        addr = str(insn.ir_addr())
 
         _is_none = lambda arg: arg.type == A_NONE
         _is_temp = lambda arg: arg.type == A_TEMP or arg.type == A_REG
@@ -2723,7 +2727,7 @@ class CodeStorageTranslator(CodeStorage):
         
         # check for valid arguments size
         if (_is_temp(insn.a) or _is_const(insn.a)) and \
-           (_is_temp(insn.b) or _is_const(insn.b)):            
+           (_is_temp(insn.b) or _is_const(insn.b)):                        
 
             assert insn.a.size == insn.b.size
 
@@ -2992,7 +2996,6 @@ class CodeStorageTranslator(CodeStorage):
 
         # read instruction bytes from memory
         data = self.reader.read_insn(real_addr)
-        if data is None: raise ReadError(real_addr)
 
         #
         # Translate to REIL.
@@ -3253,11 +3256,11 @@ class TestArchArm(unittest.TestCase):
         tr = CodeStorageTranslator(reader)
 
         print repr(reader.data)
-        print tr.get_func(tr.arm_thumb(0))
+        print tr.get_func(arm_thumb(0))
 
-        self._code_optimization(tr, tr.arm_thumb(0))     
+        self._code_optimization(tr, arm_thumb(0))     
 
-        print tr.get_func(tr.arm_thumb(0))
+        print tr.get_func(arm_thumb(0))
 
     def test_asm_arm(self):
 

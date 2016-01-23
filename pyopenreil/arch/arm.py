@@ -24,6 +24,9 @@ class Registers:
     # stack pointer
     sp = 'R_R13'
 
+    # link register
+    lr = 'R_R14'
+
     # accumulator
     accum = 'R_R0'
 

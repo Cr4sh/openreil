@@ -28,6 +28,13 @@ class MemWriteError(MemError):
         return 'Error while writing memory at address %s' % hex(self.addr)
 
 
+class MemNullPointerError(MemError):
+
+    def __str__(self):
+
+        return 'NULL pointer access detected at address %s' % hex(self.addr)
+
+
 class CpuError(Error):
 
     def __init__(self, addr, inum = 0):
@@ -57,6 +64,9 @@ class CpuInstructionError(CpuError):
 
 
 class Mem(object):
+
+    # enable NULL pointers detection if value is not None
+    LOWEST_USER_ADDR = 0x1000
 
     # start address for memory allocations
     DEF_ALLOC_BASE = 0x11000000
@@ -89,7 +99,16 @@ class Mem(object):
 
         self.data = {}
 
+    def _is_valid_addr(self, addr):
+
+        if self.LOWEST_USER_ADDR is not None and \
+           self.LOWEST_USER_ADDR > addr:
+
+            raise MemNullPointerError(addr)
+
     def _read(self, addr, size):
+
+        self._is_valid_addr(addr)
 
         ret = []
 
@@ -104,6 +123,8 @@ class Mem(object):
         return ret
 
     def _write(self, addr, size, data):
+
+        self._is_valid_addr(addr)
 
         for i in range(size):
 
@@ -121,13 +142,14 @@ class Mem(object):
 
         except MemReadError:
 
-            if self.reader is None: raise
-
-            # invalid address, try to get the data from external memory reader
-            data = self.reader.read(addr, size)
-            if data is None: 
-
-                raise
+            #
+            # Invalid read address, try to get the data 
+            # from external memory reader if possible.
+            #
+            if self.reader is None: raise            
+            
+            try: data = self.reader.read(addr, size)
+            except ReadError: raise MemReadError(addr)
 
             # copy data from external storage
             self.alloc(addr, data = data)
@@ -161,6 +183,8 @@ class Mem(object):
         return ret
 
     def alloc(self, addr = None, size = None, data = None):
+
+        if addr is not None: self._is_valid_addr(addr)
 
         size = len(data) if size is None and not data is None else size
         addr = self.alloc_addr(size) if addr is None else addr
@@ -213,23 +237,50 @@ class Mem(object):
 
 class TestMem(unittest.TestCase):
 
-    def test(self):     
+    def test_access(self):             
 
         mem = Mem(strict = False)
-        val = 0x1111111122224488
 
-        mem.store(0, U64, 0x1111111111111111)
-        mem.store(0, U32, 0x22222222)
-        mem.store(0, U16, 0x4444)
-        mem.store(0, U8, 0x88)
+        val = 0x1111111122224488
+        addr = 0x10000000
+
+        mem.store(addr, U64, 0x1111111111111111)
+        mem.store(addr, U32, 0x22222222)
+        mem.store(addr, U16, 0x4444)
+        mem.store(addr, U8, 0x88)
         
-        assert mem.data == { 0: chr(0x88), 1: chr(0x44), 2: chr(0x22), 3: chr(0x22),
-                             4: chr(0x11), 5: chr(0x11), 6: chr(0x11), 7: chr(0x11) }
+        assert mem.data == { addr + 0: chr(0x88), addr + 1: chr(0x44), addr + 2: chr(0x22), addr + 3: chr(0x22),
+                             addr + 4: chr(0x11), addr + 5: chr(0x11), addr + 6: chr(0x11), addr + 7: chr(0x11) }
         
-        assert mem.load(0, U64) == val and \
-               mem.load(0, U32) == val & 0xffffffff and \
-               mem.load(0, U16) == val & 0xffff and \
-               mem.load(0, U8) == val & 0xff
+        assert mem.load(addr, U64) == val and \
+               mem.load(addr, U32) == val & 0xffffffff and \
+               mem.load(addr, U16) == val & 0xffff and \
+               mem.load(addr, U8) == val & 0xff
+
+    def test_null_ptr(self):       
+
+        mem = Mem(strict = False)
+
+        #
+        # try to access memory lower that NULL pointer detection limit
+        #
+        try: 
+
+            mem.store(mem.LOWEST_USER_ADDR - 1, U8, 0)
+            assert False
+
+        except MemNullPointerError: pass
+
+        try: 
+
+            mem.load(mem.LOWEST_USER_ADDR - 1, U8)
+            assert False
+
+        except MemNullPointerError: pass
+
+        # try to access higher memory address
+        mem.store(mem.LOWEST_USER_ADDR, U8, 0)
+        assert mem.load(mem.LOWEST_USER_ADDR, U8) == 0
 
 
 class Math(object):
@@ -350,10 +401,17 @@ class Cpu(object):
 
     DEF_R_DFLAG = 1L
 
-    def __init__(self, arch, mem = None, math = None):
+    #
+    # Debugging options
+    #
+    DBG_TRACE_INSN = 1        # show infromation about each instruction being executed
+    DBG_TRACE_INSN_ARGS = 2   # show information about instruction arguments
+
+    def __init__(self, arch, mem = None, math = None, debug = 0):
 
         self.mem = Mem() if mem is None else mem
         self.math = Math() if math is None else math
+        self.debug = debug
         self.arch = get_arch(arch)
         self.reset()
 
@@ -477,7 +535,41 @@ class Cpu(object):
         self.reg(insn.c, self.math.eval(insn.op, a, b))
         return None
 
-    def execute(self, insn):        
+    def _log_insn(self, insn):        
+
+        if not self.debug & self.DBG_TRACE_INSN:
+
+            return
+
+        print insn
+
+        self._log_insn_arg(insn.a)
+        self._log_insn_arg(insn.b)
+        self._log_insn_arg(insn.c)
+
+        if not self.debug & self.DBG_TRACE_INSN_ARGS:
+
+            return
+
+        print
+
+    def _log_insn_arg(self, arg):
+
+        if not self.debug & self.DBG_TRACE_INSN_ARGS:
+
+            return
+
+        if arg.type in [ A_REG, A_TEMP ]: 
+
+            reg = self.reg(arg)
+            val = reg.get_val()
+
+            print ' %.10s = 0x%x' % (arg.name, val)
+
+    def execute(self, insn):
+
+        # print instruction information
+        self._log_insn(insn)
 
         # get arguments values
         a, b, c = self.arg(insn.a), self.arg(insn.b), self.arg(insn.c)
@@ -719,7 +811,7 @@ class TestStack(unittest.TestCase):
 
 class Abi(object):
 
-    DUMMY_RET_ADDR = 0xcafebabe;
+    DUMMY_RET_ADDR = 0xcafebabe
 
     def __init__(self, cpu, storage, no_reset = False):
 
@@ -761,6 +853,10 @@ class Abi(object):
 
         return Stack(self.mem, self.arch.ptr_len, size = size)
 
+    def makearg(self, val):
+
+        return self.string(val) if isinstance(val, basestring) else val
+
     def pushargs(self, args):
 
         args = list(args)
@@ -768,11 +864,10 @@ class Abi(object):
 
         # push arguments into the stack
         stack = self.stack()        
-        for a in args: 
+        for a in args:
 
             # copy buffers into the memory
-            a = self.string(a) if isinstance(a, basestring) else a
-            stack.push(a)
+            stack.push(self.makearg(a))
 
         return stack
 
@@ -800,8 +895,19 @@ class Abi(object):
     def call(self, addr, *args):
 
         # prepare stack for call
-        stack = self.pushargs(args)            
-        stack.push(self.DUMMY_RET_ADDR)
+        stack = self.pushargs(args)
+
+        if self.cpu.arch == x86:
+
+            # push return address to the stack
+            stack.push(self.DUMMY_RET_ADDR)
+
+        elif self.cpu.arch == arm:
+
+            # save return address in link register
+            self.reg(arm.Registers.lr, self.DUMMY_RET_ADDR)
+
+        else: assert False
 
         self.reg(self.arch.Registers.sp, stack.top)
 
@@ -834,19 +940,42 @@ class Abi(object):
 
         if len(args) > 0:
 
-            first = args[0]
+            self.reg('ecx', self.makearg(args[0]))
             args = args[1:]
 
-            self.reg('ecx', first)
+        if len(args) > 0:
+        
+            self.reg('edx', self.makearg(args[0]))
+            args = args[1:]
+
+        return self.stdcall(addr, *args)
+
+    def arm_call(self, addr, *args):
 
         if len(args) > 0:
 
-            second = args[0]
+            self.reg('r0', self.makearg(args[0]))
             args = args[1:]
 
-            self.reg('edx', second)
+        if len(args) > 0:
+        
+            self.reg('r1', self.makearg(args[0]))
+            args = args[1:]
 
-        return self.stdcall(addr, *args)
+        if len(args) > 0:
+
+            self.reg('r2', self.makearg(args[0]))
+            args = args[1:]
+
+        if len(args) > 0:
+        
+            self.reg('r3', self.makearg(args[0]))
+            args = args[1:]
+
+        self.call(addr, *args)
+
+        # return accumulator value
+        return self.reg(self.arch.Registers.accum)
 
 
 class TestAbi(unittest.TestCase):

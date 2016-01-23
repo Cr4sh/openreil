@@ -6,25 +6,29 @@ if not reil_dir in sys.path: sys.path = [ reil_dir ] + sys.path
 
 from pyopenreil.REIL import *
 from pyopenreil.VM import *
-from pyopenreil.utils import bin_PE
 
-class TestRC4(unittest.TestCase):
+class TestRC4(unittest.TestCase):    
 
-    ARCH = ARCH_X86
-    BIN_PATH = os.path.join(file_dir, 'rc4.exe')
+    X86_PE_PATH = os.path.join(file_dir, 'rc4_x86.pe')
+    X86_PE_RC4_SET_KEY = 0x004016D5 
+    X86_PE_RC4_CRYPT = 0x004017B5
 
-    # VA's of the test rc4.exe procedures
-    RC4_SET_KEY = 0x004016D5 
-    RC4_CRYPT = 0x004017B5
+    X86_ELF_PATH = os.path.join(file_dir, 'rc4_x86.elf')
+    X86_ELF_RC4_SET_KEY = 0x08048522
+    X86_ELF_RC4_CRYPT = 0x080485EB
 
-    def test(self):        
+    ARM_ELF_PATH = os.path.join(file_dir, 'rc4_arm.elf')
+    ARM_ELF_RC4_SET_KEY = 0x000085B8
+    ARM_ELF_RC4_CRYPT = 0x000086FC
+
+    CPU_DEBUG = 0
+
+    def _run_test(self, callfunc, arch, reader, rc4_set_key, rc4_crypt):  
 
         # test input data for RC4 encryption
         test_key = 'somekey'
         test_val = 'bar'
 
-        # load PE image of test program
-        reader = bin_PE.Reader(self.BIN_PATH)
         tr = CodeStorageTranslator(reader)
 
         def code_optimization(addr):
@@ -40,11 +44,11 @@ class TestRC4(unittest.TestCase):
             # store resulting instructions
             dfg.store(tr.storage)  
 
-        code_optimization(self.RC4_SET_KEY)
-        code_optimization(self.RC4_CRYPT)
+        code_optimization(rc4_set_key)
+        code_optimization(rc4_crypt)
 
         # create CPU and ABI
-        cpu = Cpu(self.ARCH)
+        cpu = Cpu(arch, debug = self.CPU_DEBUG)
         abi = Abi(cpu, tr)
 
         # allocate buffers for arguments of emulated functions
@@ -52,10 +56,10 @@ class TestRC4(unittest.TestCase):
         val = abi.buff(test_val)
 
         # emulate rc4_set_key() function call
-        abi.cdecl(self.RC4_SET_KEY, ctx, test_key, len(test_key))
+        callfunc(abi)(rc4_set_key, ctx, test_key, len(test_key))
 
         # emulate rc4_crypt() function call
-        abi.cdecl(self.RC4_CRYPT, ctx, val, len(test_val))
+        callfunc(abi)(rc4_crypt, ctx, val, len(test_val))
         
         # read results of RC4 encryption
         val = abi.read(val, len(test_val))
@@ -64,10 +68,44 @@ class TestRC4(unittest.TestCase):
         # check for correct result
         assert val == '\x38\x88\xBC'
 
+    def test_x86(self):
+
+        try:
+
+            from pyopenreil.utils import bin_PE
+
+            self._run_test(lambda abi: abi.cdecl, 
+                ARCH_X86, bin_PE.Reader(self.X86_PE_PATH), 
+                self.X86_PE_RC4_SET_KEY, self.X86_PE_RC4_CRYPT)
+        
+        except ImportError, why: print '[!]', str(why)        
+
+        try:
+
+            from pyopenreil.utils import bin_BFD
+
+            self._run_test(lambda abi: abi.cdecl, 
+                ARCH_X86, bin_BFD.Reader(self.X86_ELF_PATH), 
+                self.X86_ELF_RC4_SET_KEY, self.X86_ELF_RC4_CRYPT)
+
+        except ImportError, why: print '[!]', str(why)        
+
+    def test_arm(self):        
+
+        try:
+
+            from pyopenreil.utils import bin_BFD
+            
+            self._run_test(lambda abi: abi.arm_call, 
+                           ARCH_ARM, 
+                           bin_BFD.Reader(self.ARM_ELF_PATH, arch = ARCH_ARM), 
+                           self.ARM_ELF_RC4_SET_KEY, self.ARM_ELF_RC4_CRYPT)
+
+        except ImportError, why: print '[!]', str(why)
 
 if __name__ == '__main__':    
 
-    suite = unittest.TestSuite([ TestRC4('test') ])
+    suite = unittest.TestSuite([ TestRC4('test_arm'), TestRC4('test_x86') ])
     unittest.TextTestRunner(verbosity = 2).run(suite)
 
 #

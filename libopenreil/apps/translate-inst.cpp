@@ -79,6 +79,8 @@ int main(int argc, char *argv[])
             }
         }
 
+        errno = 0;
+
         // get user specified bytes to dissassembly
         inst[inst_len] = strtol(argv[i], NULL, 16);
         inst_len += 1;

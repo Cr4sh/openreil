@@ -34,11 +34,14 @@ void rc4_set_key(RC4_CTX *ctx, unsigned char *key, int key_len)
     
     for (i = 0; i < 256; i++)
     {
-        y = (y + S[i] + key[x]) % 256;
+        y = (y + S[i] + key[x]) & 0xff;
 
         rc4_swap(&S[i], &S[y]);
 
-        x = (x + 1) % key_len;
+        if (++x >= key_len)
+        {
+            x = 0;
+        }
     }
 }
 
@@ -50,12 +53,12 @@ void rc4_crypt(RC4_CTX *ctx, unsigned char *data, int data_len)
 
     for (i = 0; i < data_len; i++)
     {
-        x = (x + 1) % 256;
-        y = (y + S[x]) % 256;
+        x = (x + 1) & 0xff;
+        y = (y + S[x]) & 0xff;
 
         rc4_swap(&S[x], &S[y]);
 
-        data[i] ^= S[(S[x] + S[y]) % 256];
+        data[i] ^= S[(S[x] + S[y]) & 0xff];
     }
 
     ctx->x = x;
@@ -81,7 +84,7 @@ int main(int argc, char *argv[])
 
     memcpy(buff, data, MIN(MAX_DATA_LEN, data_len));
 
-    printf("\nKey: ", key_len);
+    printf("\nKey: ");
 
     for (i = 0; i < key_len; i++)
     {

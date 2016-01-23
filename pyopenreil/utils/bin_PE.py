@@ -33,12 +33,20 @@ class Reader(REIL.Reader):
            addr > self.pe.OPTIONAL_HEADER.ImageBase + self.pe.OPTIONAL_HEADER.SizeOfImage:
 
             # invalid VA
-            return None
+            print 'Reader.read(): Address 0x%x is outside of executable image' % addr
+            raise REIL.ReadError(addr)
 
         # convert VA to RVA
         addr -= self.pe.OPTIONAL_HEADER.ImageBase
 
-        return self.pe.get_data(rva = addr, length = size)
+        try:
+
+            return self.pe.get_data(rva = addr, length = size)
+
+        except e, why:
+
+            print 'Reader.read(): Exception:', str(why)
+            raise REIL.ReadError(addr)
 
     def read_insn(self, addr): 
 

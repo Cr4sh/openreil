@@ -1511,6 +1511,8 @@ bool CReilFromBilTranslator::get_bil_label(string name, reil_addr_t *addr)
 
     if (!strncmp(c_name, "pc_0x", 5))
     {
+        errno = 0;
+
         // get code pointer from label text
         ret = strtoll(c_name + 5, NULL, 16);
         reil_assert(errno != EINVAL, "invalid pc value");

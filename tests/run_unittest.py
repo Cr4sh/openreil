@@ -12,11 +12,7 @@ try:
 
     # check for pefile module (required for loading test PE binaries)
     import pefile
-    from pyopenreil.utils.bin_PE import *
-
-    # load unit tests that depends on pefile    
-    from test_fib import *
-    from test_rc4 import *
+    from pyopenreil.utils.bin_PE import *    
     
     # check for Z3 module (required for test_kao.py)
     import z3
@@ -35,6 +31,10 @@ try:
     from pyopenreil.utils.bin_BFD import *
 
 except ImportError, why: print '[!]', str(why)
+
+# load .c unit tests
+from test_fib import *
+from test_rc4 import *
 
 def check_program(command, code = 0):
 
