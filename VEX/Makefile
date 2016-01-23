@@ -101,7 +101,7 @@ endif
 
 # Put -g -O2 after any flags we inherit from V.  -O2 vs -O
 # makes a significant difference, at least with gcc4.
-CCFLAGS = -Wall -Wmissing-prototypes -Wstrict-prototypes -Wshadow \
+CCFLAGS = $(CFLAGS) -Wall -Wmissing-prototypes -Wstrict-prototypes -Wshadow \
 		-Wpointer-arith -Wbad-function-cast -Wcast-qual \
 		-Wcast-align -Wmissing-declarations \
 		-Wwrite-strings -Wformat -Wformat-security \

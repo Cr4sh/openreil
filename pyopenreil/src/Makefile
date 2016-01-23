@@ -11,10 +11,10 @@ INCDIR = $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.
 PLATINCDIR = $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_python_inc(plat_specific = True))")
 
 ../translator.$(PYEXT): translator.o ../../libopenreil/src/libopenreil.a
-	$(CXX) -pthread -shared -o $@ $^ -lpython$(PYVERSION)
+	$(CXX) $(CXXFLAGS) -pthread -shared -o $@ $^ -lpython$(PYVERSION)
 
 translator.o: translator.cpp translator.pyx libopenreil.pxd
-	$(CXX) -c -fPIC translator.cpp -I$(INCDIR) -I$(PLATINCDIR) -I../../libopenreil/include
+	$(CXX) $(CXXFLAGS) -c -fPIC translator.cpp -I$(INCDIR) -I$(PLATINCDIR) -I../../libopenreil/include
 
 CYTHON = cython
 translator.cpp: translator.pyx
