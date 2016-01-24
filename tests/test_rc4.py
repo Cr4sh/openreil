@@ -23,7 +23,9 @@ class TestRC4(unittest.TestCase):
 
     CPU_DEBUG = 0
 
-    def _run_test(self, callfunc, arch, reader, rc4_set_key, rc4_crypt):  
+    def _run_test(self, callfunc, arch, reader, func_addr):  
+
+        rc4_set_key, rc4_crypt = func_addr
 
         # test input data for RC4 encryption
         test_key = 'somekey'
@@ -37,12 +39,7 @@ class TestRC4(unittest.TestCase):
             dfg = DFGraphBuilder(tr).traverse(addr)
             
             # run some basic optimizations
-            dfg.eliminate_dead_code()
-            dfg.constant_folding()   
-            dfg.eliminate_subexpressions()     
-
-            # store resulting instructions
-            dfg.store(tr.storage)  
+            dfg.optimize_all(storage = tr.storage)
 
         code_optimization(rc4_set_key)
         code_optimization(rc4_crypt)
@@ -76,7 +73,7 @@ class TestRC4(unittest.TestCase):
 
             self._run_test(lambda abi: abi.cdecl, 
                 ARCH_X86, bin_PE.Reader(self.X86_PE_PATH), 
-                self.X86_PE_RC4_SET_KEY, self.X86_PE_RC4_CRYPT)
+                ( self.X86_PE_RC4_SET_KEY, self.X86_PE_RC4_CRYPT ))
         
         except ImportError, why: print '[!]', str(why)        
 
@@ -86,7 +83,7 @@ class TestRC4(unittest.TestCase):
 
             self._run_test(lambda abi: abi.cdecl, 
                 ARCH_X86, bin_BFD.Reader(self.X86_ELF_PATH), 
-                self.X86_ELF_RC4_SET_KEY, self.X86_ELF_RC4_CRYPT)
+                ( self.X86_ELF_RC4_SET_KEY, self.X86_ELF_RC4_CRYPT ))
 
         except ImportError, why: print '[!]', str(why)        
 
@@ -97,9 +94,8 @@ class TestRC4(unittest.TestCase):
             from pyopenreil.utils import bin_BFD
             
             self._run_test(lambda abi: abi.arm_call, 
-                           ARCH_ARM, 
-                           bin_BFD.Reader(self.ARM_ELF_PATH, arch = ARCH_ARM), 
-                           self.ARM_ELF_RC4_SET_KEY, self.ARM_ELF_RC4_CRYPT)
+                           ARCH_ARM, bin_BFD.Reader(self.ARM_ELF_PATH, arch = ARCH_ARM), 
+                           ( self.ARM_ELF_RC4_SET_KEY, self.ARM_ELF_RC4_CRYPT ))
 
         except ImportError, why: print '[!]', str(why)
 

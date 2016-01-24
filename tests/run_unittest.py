@@ -35,6 +35,7 @@ except ImportError, why: print '[!]', str(why)
 # load .c unit tests
 from test_fib import *
 from test_rc4 import *
+from test_md5 import *
 
 def check_program(command, code = 0):
 

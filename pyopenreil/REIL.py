@@ -1239,7 +1239,11 @@ class Graph(object):
 
     def __init__(self):
 
-        self.nodes, self.edges = {}, Set()    
+        self.reset()
+
+    def reset(self): 
+
+        self.nodes, self.edges = {}, Set()   
 
     def node(self, key):
 
@@ -1497,6 +1501,11 @@ class CFGraphBuilder(object):
 
             # query IR for basic block
             bb = self.get_bb(ir_addr)
+            if bb is None: 
+
+                print '!!', ir_addr
+                assert False
+
             cfg.add_node(bb)
 
             _process_node(bb, state, context)
@@ -1636,9 +1645,9 @@ class DFGraph(Graph):
     NODE = DFGraphNode
     EDGE = DFGraphEdge
 
-    def __init__(self):
+    def reset(self):
 
-        super(DFGraph, self).__init__()
+        super(DFGraph, self).reset()
 
         self.entry_node = DFGraphEntryNode()
         self.exit_node = DFGraphExitNode()        
@@ -1658,13 +1667,14 @@ class DFGraph(Graph):
     def store(self, storage):
 
         addr_list = Set()
+
         for node in self.nodes.values() + list(self.deleted_nodes): 
 
             insn = node.item
             if insn is not None:                
 
                 # collect list of available machine instructions including deleted ones
-                addr_list = addr_list.union([ insn.addr ])
+                addr_list = addr_list.union([ insn.addr ])        
 
         for addr in addr_list:
 
@@ -1735,10 +1745,10 @@ class DFGraph(Graph):
 
     def optimize_all(self, storage = None):
 
-        # run all available optimizations        
-        self.eliminate_dead_code(storage = storage)  
+        # run all available optimizations                
         self.constant_folding(storage = storage)        
         self.eliminate_subexpressions(storage = storage)
+        self.eliminate_dead_code(storage = storage)  
         
     def constant_folding(self, storage = None):
 
@@ -1769,7 +1779,7 @@ class DFGraph(Graph):
 
             insn = node.item
 
-            if insn.op in [ I_JCC, I_STM, I_NONE, I_UNK ]: 
+            if insn.op in [ I_JCC, I_STM, I_LDM, I_NONE, I_UNK ]: 
 
                 return False
 
@@ -1847,6 +1857,8 @@ class DFGraph(Graph):
             # perform constants folding untill there will be some nodes to delete    
             if _constant_folding() == 0: break
 
+        print '*** %d nodes deleted' % len(deleted_nodes)
+
         # update global set of deleted DFG nodes
         self.deleted_nodes = self.deleted_nodes.union(deleted_nodes)
 
@@ -1882,19 +1894,18 @@ class DFGraph(Graph):
             for node in pending:    
                 
                 # direction of DFG analysis
-                backward = node.item.c.type == A_REG                           
+                backward = node.item.c.type == A_REG                                           
 
                 print 'DFG node "%s" sets value "%s" of "%s"' % \
                        (node, node.item.a, node.item.c)                
             
-                if backward:                    
+                if backward:                                        
 
                     insn = node.item
-                    
                     if insn.a.type != A_TEMP:
 
                         # don't touch instructions that modifies real CPU registers
-                        continue
+                        continue                    
 
                     for edge in node.in_edges:
 
@@ -1902,23 +1913,14 @@ class DFGraph(Graph):
                         out_edges = filter(lambda edge: edge.node_to != node,
                                            node_prev.out_edges)
 
+                        if len(out_edges) > 0:
+
+                            continue
+
                         insn_prev = node_prev.item
+
                         if insn_prev is None or \
-                           insn_prev.op == I_UNK: continue
-
-                        for edge in out_edges:
-
-                            insn_other = edge.node_to.item
-                            if insn_other is not None:
-
-                                # Propagate new value of insn_prev.c to other 
-                                # instructions that uses it.
-                                if insn_other.a.name == edge.name: insn_other.a = insn.c
-                                if insn_other.b.name == edge.name: insn_other.b = insn.c
-                                if insn_other.c.name == edge.name: insn_other.c = insn.c
-
-                            # update edge name to not break the DFG
-                            edge.name = insn.c.name                        
+                           insn_prev.op == I_UNK: continue                        
 
                         for edge in node.out_edges:
 
@@ -1947,8 +1949,8 @@ class DFGraph(Graph):
 
                         insn = node.item
                         node_next = edge.node_to
-
                         insn_next = node_next.item
+
                         if insn_next is None: continue
 
                         if insn_next.op == I_UNK:
@@ -1976,8 +1978,8 @@ class DFGraph(Graph):
 
                             insn = node.item
                             node_next = edge.node_to
-
                             insn_next = node_next.item
+
                             if insn_next is None: continue
 
                             print 'Updating arg %s of DFG node "%s" to %s' % \
@@ -2005,7 +2007,7 @@ class DFGraph(Graph):
                                 if not found: self.add_edge(edge.node_from, node_next, insn.a.name)                            
 
                         deleted += _eliminate(node)
-
+                    
             return deleted
 
         print '*** Optimizing temp registers usage...'
@@ -2013,6 +2015,8 @@ class DFGraph(Graph):
         while True:
 
             if _optimize_temp_regs() == 0: break
+
+        print '*** %d nodes deleted' % len(deleted_nodes)
 
         # update global set of deleted DFG nodes
         self.deleted_nodes = self.deleted_nodes.union(deleted_nodes)
@@ -2061,6 +2065,8 @@ class DFGraph(Graph):
 
                 # no more nodes to delete
                 break
+
+        print '*** %d nodes deleted' % len(deleted_nodes)
         
         # update global set of deleted DFG nodes
         self.deleted_nodes = self.deleted_nodes.union(deleted_nodes)
@@ -2497,7 +2503,7 @@ class CodeStorageMem(CodeStorage):
     def fix_inums_and_flags(self):
 
         addr, prev, inum = None, None, 0
-        updated, deleted = [], []
+        updated, deleted, ir_addr_map = [], [], {}
 
         for insn in self:
             
@@ -2516,6 +2522,9 @@ class CodeStorageMem(CodeStorage):
 
                 deleted.append(( insn.addr, insn.inum ))
 
+                # remember old inum
+                ir_addr_map[( insn.addr, insn.inum )] = ( insn.addr, inum )
+
                 # update inum value for current instruction
                 insn.inum = inum
                 updated.append(insn.serialize())
@@ -2526,6 +2535,20 @@ class CodeStorageMem(CodeStorage):
         # commit instructions changes
         for ir_addr in deleted: self._del_insn(ir_addr)
         for insn in updated: self._put_insn(insn)
+
+        for insn in self:            
+
+            # check for I_JMP that needs to be updated
+            if insn.op != I_JCC or insn.c.type != A_LOC or \
+               insn.has_flag(IOPT_CALL) or insn.has_flag(IOPT_RET): continue
+
+            if not ir_addr_map.has_key(insn.c.val):
+
+                continue  
+
+            # update jump location value for current instruction
+            insn.c.val = ir_addr_map[insn.c.val]
+            self._put_insn(insn.serialize())
 
 
 class TestCodeStorageMem(unittest.TestCase):
@@ -2597,7 +2620,7 @@ class CodeStorageTranslator(CodeStorage):
     class CFGraphBuilderFunc(CFGraphBuilder):
 
         def process_node(self, bb, state, context):
-            
+
             self.func.add_bb(bb)
 
         def traverse(self, arch, ir_addr):
