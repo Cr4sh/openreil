@@ -8,16 +8,11 @@ from pyopenreil.REIL import *
 from pyopenreil.VM import *
 from pyopenreil.utils import bin_PE, bin_BFD
 
-class TestFib(unittest.TestCase):
+class TestFib(unittest.TestCase):    
 
-    X86_PE_PATH = os.path.join(file_dir, 'fib_x86.pe')
-    X86_PE_ADDR = 0x004016B0
+    CPU_DEBUG = 0
 
-    X86_ELF_PATH = os.path.join(file_dir, 'fib_x86.elf')
-    X86_ELF_ADDR = 0x08048414
-
-    ARM_ELF_PATH = os.path.join(file_dir, 'fib_arm.elf')
-    ARM_ELF_ADDR = arm_thumb(0x000083a1)
+    is_linux = lambda self: 'linux' in sys.platform
 
     def _run_test(self, callfunc, arch, reader, addr):        
     
@@ -38,7 +33,7 @@ class TestFib(unittest.TestCase):
               (insn_before, insn_after)
 
         # create CPU and ABI
-        cpu = Cpu(arch)
+        cpu = Cpu(arch, debug = self.CPU_DEBUG)
         abi = Abi(cpu, tr)
 
         testval = 11
@@ -51,43 +46,67 @@ class TestFib(unittest.TestCase):
 
         assert ret == 144
 
-    def test_x86(self):
+
+class TestFib_X86(TestFib):    
+
+    ELF_PATH = os.path.join(file_dir, 'fib_x86.elf')
+    ELF_ADDR = 0x08048414
+
+    PE_PATH = os.path.join(file_dir, 'fib_x86.pe')
+    PE_ADDR = 0x004016B0
+
+    def test_elf(self):
+
+        # BFD available for different operating systems
+        # but current test needs Linux.
+        if not self.is_linux(): return
+
+        try:
+
+            from pyopenreil.utils import bin_BFD
+
+            self._run_test(lambda abi: abi.cdecl, 
+                ARCH_X86, bin_BFD.Reader(self.ELF_PATH), self.ELF_ADDR)
+
+        except ImportError, why: print '[!]', str(why)
+
+    def test_pe(self):
 
         try:
 
             from pyopenreil.utils import bin_PE
 
             self._run_test(lambda abi: abi.cdecl, 
-                ARCH_X86, bin_PE.Reader(self.X86_PE_PATH), self.X86_PE_ADDR)
+                ARCH_X86, bin_PE.Reader(self.PE_PATH), self.PE_ADDR)
         
-        except ImportError, why: print '[!]', str(why)
+        except ImportError, why: print '[!]', str(why)    
 
-        try:
 
-            from pyopenreil.utils import bin_BFD
+class TestFib_ARM(TestFib):
 
-            self._run_test(lambda abi: abi.cdecl, 
-                ARCH_X86, bin_BFD.Reader(self.X86_ELF_PATH), self.X86_ELF_ADDR)
+    ELF_PATH = os.path.join(file_dir, 'fib_arm.elf')
+    ELF_ADDR = arm_thumb(0x000083a1)
 
-        except ImportError, why: print '[!]', str(why)
+    def test_elf(self):
 
-    def test_arm(self):
+        # BFD available for different operating systems
+        # but current test needs Linux.
+        if not self.is_linux(): return
 
         try:
 
             from pyopenreil.utils import bin_BFD
 
             self._run_test(lambda abi: abi.arm_call, 
-                           ARCH_ARM, 
-                           bin_BFD.Reader(self.ARM_ELF_PATH, arch = ARCH_ARM), 
-                           self.ARM_ELF_ADDR)
+                           ARCH_ARM, bin_BFD.Reader(self.ELF_PATH, arch = ARCH_ARM), 
+                           self.ELF_ADDR)
 
         except ImportError, why: print '[!]', str(why)
 
+
 if __name__ == '__main__':    
 
-    suite = unittest.TestSuite([ TestFib('test_x86'), TestFib('test_arm') ])
-    unittest.TextTestRunner(verbosity = 2).run(suite)
+    unittest.main(verbosity = 2)
 
 #
 # EoF

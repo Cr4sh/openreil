@@ -463,10 +463,9 @@ def keygen(kao_binary_path, kao_installation_ID):
     from pyopenreil.utils import bin_PE        
     tr = CodeStorageTranslator(bin_PE.Reader(kao_binary_path))
 
-    # Construct DFG, run all available code optimizations
-    # and update storage with new function code.
-    dfg = DFGraphBuilder(tr).traverse(check_serial)
-    dfg.optimize_all(tr.storage)        
+    # Run all available code optimizations and 
+    # update storage with new the function code.
+    tr.optimize(check_serial)     
 
     print tr.get_func(check_serial)
 

@@ -1501,10 +1501,7 @@ class CFGraphBuilder(object):
 
             # query IR for basic block
             bb = self.get_bb(ir_addr)
-            if bb is None: 
-
-                print '!!', ir_addr
-                assert False
+            assert bb is not None
 
             cfg.add_node(bb)
 
@@ -2800,6 +2797,23 @@ class CodeStorageTranslator(CodeStorage):
             # more instruction checks
             self.is_valid_insn(insn)
             inum += 1
+
+    def optimize(self, addr_list):
+
+        if not isinstance(addr_list, tuple) and \
+           not isinstance(addr_list, list):
+
+            addr_list = ( addr_list, )
+
+        if self.storage is not None:
+
+            for addr in addr_list:
+
+                # construct dataflow graph for given function
+                dfg = DFGraphBuilder(self).traverse(addr)
+                
+                # run optimizations
+                dfg.optimize_all(storage = self.storage)
 
     def _postprocess_cjmp(self, addr, insn_list):
         ''' Represent Cjmp + Jmp (libasmir artifact) as Not + Cjmp. '''
