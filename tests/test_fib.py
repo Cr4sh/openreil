@@ -1,18 +1,16 @@
 import sys, os, unittest
 
-file_dir = os.path.abspath(os.path.dirname(__file__))
-reil_dir = os.path.abspath(os.path.join(file_dir, '..'))
-if not reil_dir in sys.path: sys.path = [ reil_dir ] + sys.path
-
 from pyopenreil.REIL import *
 from pyopenreil.VM import *
 from pyopenreil.utils import bin_PE, bin_BFD
 
 class TestFib(unittest.TestCase):    
-
+    
     CPU_DEBUG = 0
+    FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 
     is_linux = lambda self: 'linux' in sys.platform
+    file_path = lambda self, path: os.path.join(self.FILE_DIR, path)
 
     def _run_test(self, callfunc, arch, reader, addr):        
     
@@ -49,10 +47,10 @@ class TestFib(unittest.TestCase):
 
 class TestFib_X86(TestFib):    
 
-    ELF_PATH = os.path.join(file_dir, 'fib_x86.elf')
+    ELF_NAME = 'fib_x86.elf'
     ELF_ADDR = 0x08048414
 
-    PE_PATH = os.path.join(file_dir, 'fib_x86.pe')
+    PE_NAME = 'fib_x86.pe'
     PE_ADDR = 0x004016B0
 
     def test_elf(self):
@@ -66,7 +64,7 @@ class TestFib_X86(TestFib):
             from pyopenreil.utils import bin_BFD
 
             self._run_test(lambda abi: abi.cdecl, 
-                ARCH_X86, bin_BFD.Reader(self.ELF_PATH), self.ELF_ADDR)
+                ARCH_X86, bin_BFD.Reader(self.file_path(self.ELF_NAME)), self.ELF_ADDR)
 
         except ImportError, why: print '[!]', str(why)
 
@@ -77,14 +75,14 @@ class TestFib_X86(TestFib):
             from pyopenreil.utils import bin_PE
 
             self._run_test(lambda abi: abi.cdecl, 
-                ARCH_X86, bin_PE.Reader(self.PE_PATH), self.PE_ADDR)
+                ARCH_X86, bin_PE.Reader(self.file_path(self.PE_NAME)), self.PE_ADDR)
         
         except ImportError, why: print '[!]', str(why)    
 
 
 class TestFib_ARM(TestFib):
 
-    ELF_PATH = os.path.join(file_dir, 'fib_arm.elf')
+    ELF_NAME = 'fib_arm.elf'
     ELF_ADDR = arm_thumb(0x000083a1)
 
     def test_elf(self):
@@ -98,15 +96,10 @@ class TestFib_ARM(TestFib):
             from pyopenreil.utils import bin_BFD
 
             self._run_test(lambda abi: abi.arm_call, 
-                           ARCH_ARM, bin_BFD.Reader(self.ELF_PATH, arch = ARCH_ARM), 
+                           ARCH_ARM, bin_BFD.Reader(self.file_path(self.ELF_NAME), arch = ARCH_ARM), 
                            self.ELF_ADDR)
 
         except ImportError, why: print '[!]', str(why)
-
-
-if __name__ == '__main__':    
-
-    unittest.main(verbosity = 2)
 
 #
 # EoF

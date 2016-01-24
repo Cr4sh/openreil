@@ -1,19 +1,17 @@
 import sys, os, unittest
 import md5
 
-file_dir = os.path.abspath(os.path.dirname(__file__))
-reil_dir = os.path.abspath(os.path.join(file_dir, '..'))
-if not reil_dir in sys.path: sys.path = [ reil_dir ] + sys.path
-
 from pyopenreil.REIL import *
 from pyopenreil.VM import *
 from pyopenreil.utils import bin_PE, bin_BFD
 
 class TestMD5(unittest.TestCase):    
-
+    
     CPU_DEBUG = 0
+    FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 
     is_linux = lambda self: 'linux' in sys.platform
+    file_path = lambda self, path: os.path.join(self.FILE_DIR, path)
 
     def _run_test(self, callfunc, arch, reader, addr_list):
 
@@ -58,10 +56,10 @@ class TestMD5(unittest.TestCase):
 
 class TestMD5_X86(TestMD5):
 
-    ELF_PATH = os.path.join(file_dir, 'md5_x86.elf')
+    ELF_NAME = 'md5_x86.elf'
     ELF_ADDR = ( 0x08049254, 0x08049296, 0x080493C2 )
 
-    PE_PATH = os.path.join(file_dir, 'md5_x86.pe')
+    PE_NAME = 'md5_x86.pe'
     PE_ADDR = ( 0x00402417, 0x00402459, 0x00402585 )
 
     def test_elf(self):
@@ -75,7 +73,7 @@ class TestMD5_X86(TestMD5):
             from pyopenreil.utils import bin_BFD
 
             self._run_test(lambda abi: abi.cdecl, 
-                ARCH_X86, bin_BFD.Reader(self.ELF_PATH), self.ELF_ADDR)
+                ARCH_X86, bin_BFD.Reader(self.file_path(self.ELF_NAME)), self.ELF_ADDR)
 
         except ImportError, why: print '[!]', str(why)
 
@@ -86,14 +84,14 @@ class TestMD5_X86(TestMD5):
             from pyopenreil.utils import bin_PE
 
             self._run_test(lambda abi: abi.cdecl, 
-                ARCH_X86, bin_PE.Reader(self.PE_PATH), self.PE_ADDR)
+                ARCH_X86, bin_PE.Reader(self.file_path(self.PE_NAME)), self.PE_ADDR)
         
         except ImportError, why: print '[!]', str(why)
 
 
 class TestMD5_ARM(TestMD5):
 
-    ELF_PATH = os.path.join(file_dir, 'md5_arm.elf')
+    ELF_NAME = 'md5_arm.elf'
     ELF_ADDR = ( 0x00009AE0, 0x00009B58, 0x00009D1C )
 
     def test_elf(self):
@@ -107,14 +105,10 @@ class TestMD5_ARM(TestMD5):
             from pyopenreil.utils import bin_BFD
 
             self._run_test(lambda abi: abi.arm_call, 
-                ARCH_ARM, bin_BFD.Reader(self.ELF_PATH, arch = ARCH_ARM), self.ELF_ADDR)
+                ARCH_ARM, bin_BFD.Reader(self.file_path(self.ELF_NAME), arch = ARCH_ARM), 
+                self.ELF_ADDR)
 
         except ImportError, why: print '[!]', str(why)
-
-
-if __name__ == '__main__':    
-
-    unittest.main(verbosity = 2)
 
 #
 # EoF
