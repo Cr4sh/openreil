@@ -51,6 +51,8 @@ OpenREIL is based on my custom fork of libasmir &minus; IR translation library f
 
 Because libasmir uses VEX (production-quality library, part of [Valgrind](http://valgrind.org/)), full code translation sequence inside of OpenREIL is looks as binary &#8594; VEX IR &#8594; BAP IR &#8594; REIL. It's kinda ugly from engineering point of view, but it allows us to have a pretty robust and reliable support of all general instructions of x86. Current version of OpenREIL still has no support of other architectures, but I'm working on x86_64 and ARMv7.
 
+UPDATE: Current version of OpenREIL already has much or less usable ARMv7 support with dynamic switching of translation context between ARM and Thumb execution modes. There is no proper documentation on ARM yet, but you can check some unit tests for this functionality as usage examples: [1](https://github.com/Cr4sh/openreil/blob/08543fec7ac3bdeb2a4c21267b39589c7f650186/pyopenreil/REIL.py#L3261), [2](https://github.com/Cr4sh/openreil/blob/08543fec7ac3bdeb2a4c21267b39589c7f650186/pyopenreil/REIL.py#L974), [3](https://github.com/Cr4sh/openreil/blob/08543fec7ac3bdeb2a4c21267b39589c7f650186/tests/test_md5.py#L91)
+
 Please note, that currently OpenREIL is a far away from stable release, so, I don't recommend you to use it for any serious purposes.
 
 
@@ -104,8 +106,8 @@ Building OpenREIL on Windows requires [MinGW](http://www.mingw.org/) build envir
 
 You also can download compiled Win32 binaries of OpenREIL:
 
-* [libopenreil-0.1.2-win32.zip](https://github.com/Cr4sh/openreil/releases/download/0.1.2/libopenreil-0.1.2-win32.zip)
-* [pyopenreil-0.1.2-win32-python2.7.zip](https://github.com/Cr4sh/openreil/releases/download/0.1.2/pyopenreil-0.1.2-win32-python2.7.zip)
+* [libopenreil-0.1.10-win32.zip](https://github.com/Cr4sh/openreil/releases/download/0.1.10/libopenreil-0.1.10-win32.zip)
+* [pyopenreil-0.1.10-win32-python2.7.zip](https://github.com/Cr4sh/openreil/releases/download/0.1.10/pyopenreil-0.1.10-win32-python2.7.zip)
 
 
 ## IR format  <a id="_3"></a>
@@ -180,12 +182,12 @@ Instruction argument can have following type:
    * `A_REG` &minus; CPU register (example: `R_EAX:32`, `R_ZF:1`).
    * `A_TEMP` &minus; temporary register (example: `V_01:8`, `V_02:32`).
    * `A_CONST` &minus; constant value (example: `0:1`, `fffffff4:32`).
-   * `A_LOC` &minus; jump location that consists from machine instruction address and IR instruction number (example: `8048360.0, `100000.3`).
+   * `A_LOC` &minus; jump location that consists from machine instruction address and IR instruction number (example: `8048360.0`, `100000.3`).
    * `A_NONE` &minus; argument is not used by instruction.
 
 Address of each IR instruction consists from two parts: original address of translated machine instruction and IR instruction logical number (inum). First IR instruction of each machine instruction always has inum with value 0. 
 
-Group of IR instructions that represent one machine instruction can set value of some temporary register only once, so, `A_TEMP` arguments are single state assignment within the confines of machine instruction.
+Group of IR instructions that represent one machine instruction can set value of some temporary register only once, so, `A_TEMP` arguments are in static single assignment form within the confines of machine instruction.
 
 
 ### Optional instruction flags <a id="_3_2"></a>
@@ -1743,7 +1745,6 @@ I made a test program that uses OpenREIL and [Microsoft Z3](http://z3.codeplex.c
 
 ## TODO <a id="_9"></a>
 
-* ARMv7 support (VEX and libasmir already has it).
 * x86_64 support (VEX already has it).
 * Floating point instructions support for x86 and x86_64.
 * SSE instructions support for x86 and x86_64.
