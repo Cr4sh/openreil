@@ -2,7 +2,6 @@ import sys, os, unittest
 
 from pyopenreil.REIL import *
 from pyopenreil.VM import *
-from pyopenreil.utils import bin_PE, bin_BFD
 
 class TestFib(unittest.TestCase):    
     

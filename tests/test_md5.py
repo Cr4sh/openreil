@@ -3,7 +3,6 @@ import md5
 
 from pyopenreil.REIL import *
 from pyopenreil.VM import *
-from pyopenreil.utils import bin_PE, bin_BFD
 
 class TestMD5(unittest.TestCase):    
     
