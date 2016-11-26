@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
         printf("[+] Using ARM architecture\n");
 
         // set target architecture
-        arch = ARCH_X86;
+        arch = ARCH_ARM;
     }
     else
     {
