@@ -527,7 +527,7 @@ IR constants (operation codes, argument types, etc.) are declared in `pyopenreil
 
 High level Python API of OpenREIL has abstractions for IR instructions format, translator, machine instructions reader and IR instructions storage:
 
-<img src="https://dl.dropboxusercontent.com/u/22903093/openreil/python_api.png" alt="OpenREIL Python API diagram" width="465" height="405">
+<img src="https://raw.githubusercontent.com/Cr4sh/blog/master/openreil/python_api.png" alt="OpenREIL Python API diagram" width="465" height="405">
 
 The most important modules:
 
@@ -906,7 +906,7 @@ $ dot -Tpng cfg.dot > cfg.png
 
 Rendered control flow graph of the `fib()` function:
 
-<img src="https://dl.dropboxusercontent.com/u/22903093/openreil/cfg_1.png" alt="OpenREIL Python API diagram" width="181" height="266">
+<img src="https://raw.githubusercontent.com/Cr4sh/blog/master/openreil/cfg_1.png" alt="OpenREIL Python API diagram" width="181" height="266">
 
 Please note, that generated IR code may have more complicated CFG layout than it's source machine code (because of x86 instructions with REP prefix, for example). Here is IR code for function that consists from `rep movsb` and `ret` instructions:
 
@@ -943,7 +943,7 @@ Please note, that generated IR code may have more complicated CFG layout than it
 
 As you can see, this IR code has branch instructions at `1337.02`  and `1337.0e`, so, it's DFG has 3 nodes:
 
-<img src="https://dl.dropboxusercontent.com/u/22903093/openreil/cfg_2.png" alt="OpenREIL Python API diagram" width="231" height="96">
+<img src="https://raw.githubusercontent.com/Cr4sh/blog/master/openreil/cfg_2.png" alt="OpenREIL Python API diagram" width="231" height="96">
 
 ### Data flow graphs <a id="_5_7"></a>
 
@@ -1047,7 +1047,7 @@ tr = CodeStorageTranslator(reader)
 dfg = DFGraphBuilder(tr).traverse(0)
 ```
 
-Rendered data flow graph picture ([link](https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_full.png)) for this simple code looks quite complex because `add` instruction (like any other arithmetic instruction of x86) is doing a lot of `EFLAGS` computations.
+Rendered data flow graph picture ([link](https://raw.githubusercontent.com/Cr4sh/blog/master/openreil/dfg_full.png)) for this simple code looks quite complex because `add` instruction (like any other arithmetic instruction of x86) is doing a lot of `EFLAGS` computations.
 
 `REIL.DFGraph` allows to apply some basic data flow code optimizations to translated IR code, currently it supports such well known compiler optimizations as [dead code elimination](http://en.wikipedia.org/wiki/Dead_code_elimination), [constant folding](http://en.wikipedia.org/wiki/Constant_folding) and very basic [common subexpressions elimination](http://en.wikipedia.org/wiki/Common_subexpression_elimination). 
 
@@ -1101,7 +1101,7 @@ Let's export and view DFG of achieved code:
 dfg.to_dot_file('dfg.dot')
 ```
 
-<img src="https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_1.png" alt="OpenREIL Python API diagram" width="242" height="536">
+<img src="https://raw.githubusercontent.com/Cr4sh/blog/master/openreil/dfg_1.png" alt="OpenREIL Python API diagram" width="242" height="536">
 
 It's obvious to figure, that optimized code is still no prefect: it uses additional 7 temp registers (1 in first instruction, 3 in second and third instructions) to represent our machine code, while only one temp register (`V_01:32` inside IR code of `ret`) is enough.
 
@@ -1138,7 +1138,7 @@ Now translated code looks pretty close to original machine code:
 
 Data flow graph of final code after all optimizations:
 
-<img src="https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_2.png" alt="OpenREIL Python API diagram" width="269" height="280">
+<img src="https://raw.githubusercontent.com/Cr4sh/blog/master/openreil/dfg_2.png" alt="OpenREIL Python API diagram" width="269" height="280">
 
 `REIL.CFGraph` is also has `optimize_all()` method that runs all available optimizations. 
 
@@ -1216,7 +1216,7 @@ As you can see, it has `I_UNK` instruction with `a.00` IR address.
 
 Data flow graph of IR code with `I_UNK` node that represents `cpuid` instruction with `R_EAX`, `R_ECX` as source and `R_EDX`, `R_ECX`, `R_EBX` as destination arguments:
 
-<img src="https://dl.dropboxusercontent.com/u/22903093/openreil/dfg_3.png" alt="OpenREIL Python API diagram" width="426" height="266">
+<img src="https://raw.githubusercontent.com/Cr4sh/blog/master/openreil/dfg_3.png" alt="OpenREIL Python API diagram" width="426" height="266">
 
 
 ### IR code emulation <a id="_5_9"></a>
@@ -1666,7 +1666,7 @@ This script utilises [IDAPython](http://code.google.com/p/idapython/) API and in
 
 To use this script run «File» &#8594; «Script File» (Alt-F7) IDA command and open `pyopenreil/scripts/ida_translate_func.py`, than script will translate machine code of current subroutine into the IR:
 
-<img src="https://dl.dropboxusercontent.com/u/22903093/openreil/ida_translate_func.png" alt="OpenREIL Python API diagram" width="635" height="203" style="border: 1px solid silver;">
+<img src="https://raw.githubusercontent.com/Cr4sh/blog/master/openreil/ida_translate_func.png" alt="OpenREIL Python API diagram" width="635" height="203" style="border: 1px solid silver;">
 
 In other script you can use `from_file()` method of `REIL.CodeStorageMem` class to load translated instructions from JSON file and do some code analysis.
 
@@ -1721,7 +1721,7 @@ Plugin for WinDbg is implemented in `pyopenreil/scripts/kd_reiltrans.py` file, c
 
 Usage example:
 
-<img src="https://dl.dropboxusercontent.com/u/22903093/openreil/kd_reiltrans.png" alt="OpenREIL Python API diagram" width="573" height="248" style="border: 1px solid silver;">
+<img src="https://raw.githubusercontent.com/Cr4sh/blog/master/openreil/kd_reiltrans.png" alt="OpenREIL Python API diagram" width="573" height="248" style="border: 1px solid silver;">
 
 Machine code reader for WinDbg is located in `pyopenreil.utils.kd` module:
 
@@ -1739,7 +1739,7 @@ I made a test program that uses OpenREIL and [Microsoft Z3](http://z3.codeplex.c
 
 * `tests/test_kao.py` - program source code ([link](../master/tests/test_kao.py)).
 * «Automated algebraic cryptanalysis with OpenREIL and Z3» - my article that explains how the program works ([link](http://blog.cr4.sh/2015/03/automated-algebraic-cryptanalysis-with.html)).
-* «Kao’s “Toy Project” and Algebraic Cryptanalysis» - [Dcoder's](mailto:dcodr@lavabit.com) article with detailed description of Kao's Toy Project crackme and it's solution ([PDF](https://dl.dropboxusercontent.com/u/22903093/blog/openreil-kao-crackme/solution.pdf)).
+* «Kao’s “Toy Project” and Algebraic Cryptanalysis» - [Dcoder's](mailto:dcodr@lavabit.com) article with detailed description of Kao's Toy Project crackme and it's solution ([PDF](https://raw.githubusercontent.com/Cr4sh/blog/master/openreil-kao-crackme/solution.pdf)).
 * «CONFidence CTF 2015: Reversing 400 "Deobfuscate Me" writeup» - article by [H4x0rPsch0rr team](http://hxp.io/about/) about using OpenREIL to solve CTF task ([link](http://hxp.io/blog/16/CONFidence%20CTF%202015:%20Reversing%20400%20%22Deobfuscate%20Me%22%20writeup/)).
 
 
