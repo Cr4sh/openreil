@@ -85,6 +85,14 @@ $ make test
 $ sudo make install
 ```
 
+Exception!
+If you have error in make test, Install the GCC, G++ cross compilers and support programs by typing 
+```
+$ sudo apt-get install libc6-armel-cross libc6-dev-armel-cross
+$ sudo apt-get install binutils-arm-linux-gnueabi
+$ sudo apt-get install libncurses5-dev
+```
+
 If you planning to use [MongoDB](http://www.mongodb.org/) as IR code storage you need to install some additional dependencies:
 
 ```
