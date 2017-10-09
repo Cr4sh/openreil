@@ -84,6 +84,12 @@ $ make
 $ make test
 $ sudo make install
 ```
+Exception!
+If you have error in ./autogen.sh, Install autoconf
+```
+$ sudo apt-get install autoconf
+```
+
 
 If you planning to use [MongoDB](http://www.mongodb.org/) as IR code storage you need to install some additional dependencies:
 
